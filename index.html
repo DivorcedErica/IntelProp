@@ -1406,6 +1406,7 @@ function applyClientFilter(resetPg) {
     });
   }
 
+  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
   const cTot = Math.ceil(results.length / cPS) || 1;
   const top = results.slice((cPage-1)*cPS, cPage*cPS);
   const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
@@ -1418,11 +1419,10 @@ function applyClientFilter(resetPg) {
     <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
     <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
     <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
-    <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+    <td style="text-align:right;color:var(--mu)">${showYield ? (estimateYield(d, cCriteria.purpose).toFixed(1)+'%') : (d.ppm!=null?'€'+d.ppm.toLocaleString():'—')}</td>
     <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
   </tr>`).join('');
 
-  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
   const arrow = k => cSortKey===k?(cSortAsc?'↑':'↓'):'↕';
   document.getElementById('cResults').innerHTML = `<table><colgroup>${cw}</colgroup>
     <thead><tr>
