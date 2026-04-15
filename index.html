@@ -205,9 +205,9 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('map',this)">Map</button>
       <button class="tab" onclick="gotoTab('intelligence',this)">Intelligence</button>
       <button class="tab" onclick="gotoTab('clients',this)">Client Call</button>
+      <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
-      <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
     </div>
 
     <!-- LISTINGS -->
@@ -1158,9 +1158,10 @@ function heartFromModal(id) {
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   const btn=document.getElementById('modalHeartBtn');
   if(btn)btn.textContent=on?'♥ Remove from shortlist':'♡ Add to shortlist';
-  // Update all heart buttons for this id
-  document.querySelectorAll(`button[onclick*="heart(${id})"]`).forEach(b => {
-    if(b.classList.contains('hb') || b.classList.contains('card-heart')) {
+  // Update all heart/hb buttons for this listing id
+  document.querySelectorAll('.hb, .card-heart').forEach(b => {
+    const oc = b.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) {
       b.classList.toggle('on', on);
       b.textContent = on ? '♥' : '♡';
     }
@@ -1238,9 +1239,10 @@ function heart(id) {
   const on = sl.has(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
-  // Update all heart buttons for this id without full re-render
-  document.querySelectorAll(`button[onclick*="heart(${id})"]`).forEach(btn => {
-    if(btn.classList.contains('hb') || btn.classList.contains('card-heart')) {
+  // Update ALL heart/hb buttons across the whole page for this listing id
+  document.querySelectorAll('.hb, .card-heart').forEach(btn => {
+    const oc = btn.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) {
       btn.classList.toggle('on', on);
       btn.textContent = on ? '♥' : '♡';
     }
@@ -1353,6 +1355,7 @@ function exportXLSX(){
 const CLIENTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyPU6sNsq4cf8fWSurv5dzBjVdK8zfJfxEIzwePf9FeUXX63fNVE6qwGuVyAJdrOQs4/exec';
 
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
+let cSortKey = null, cSortAsc = false;
 
 function toggleCrit(btn, key) {
   const group = btn.parentElement;
@@ -1422,6 +1425,17 @@ function applyClientFilter() {
     return;
   }
 
+  // Apply column sort
+  if (cSortKey === 'price') {
+    results.sort((a,b) => cSortAsc ? (a.price||0)-(b.price||0) : (b.price||0)-(a.price||0));
+  } else if (cSortKey === 'yield') {
+    const purpose = cCriteria.purpose || 'Long-term rental';
+    results.sort((a,b) => {
+      const ay = estimateYield(a, purpose);
+      const by = estimateYield(b, purpose);
+      return cSortAsc ? ay-by : by-ay;
+    });
+  }
   const top = results.slice(0, 50);
   const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
   const rows = top.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
@@ -1479,11 +1493,15 @@ function resetClient() {
   document.getElementById('cName').value = '';
   document.getElementById('cPhone').value = '';
   document.getElementById('cNotes').value = '';
-  document.querySelectorAll('.crit-btn.on').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#pClients .crit-btn.on').forEach(b => b.classList.remove('on'));
   Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
   document.getElementById('cMatchCount').textContent = '—';
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
-  // save status cleared
+  const ryRow = document.getElementById('rentalYieldRow');
+  if (ryRow) ryRow.style.display = 'none';
+  cSortKey = null; cSortAsc = false;
+  const sp = document.getElementById('cSortPrice'); if(sp) sp.textContent = '';
+  const sy = document.getElementById('cSortYield'); if(sy) sy.textContent = '↕';
 }
 
 // ── Market Intelligence ──────────────────────────────────────
@@ -1857,7 +1875,6 @@ function exportPortfolioXLSX() {
 }
 
 // ── Client sort ───────────────────────────────────────────────
-let cSortKey = null, cSortAsc = false;
 function sortClientBy(key) {
   if (cSortKey === key) cSortAsc = !cSortAsc;
   else { cSortKey = key; cSortAsc = false; }
