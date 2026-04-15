@@ -123,30 +123,6 @@ tr:hover td{background:var(--bg2)}
 .sea-inland{background:#f3f4f6;color:#6b7280}
 @keyframes sp{to{transform:rotate(360deg)}}
 
-/* ── Portfolio ── */
-.portfolio-shell{border:1px solid var(--bd);border-radius:12px;background:var(--bg);padding:16px;margin:10px 0 14px}
-.portfolio-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.portfolio-title{font-size:14px;font-weight:600}
-.portfolio-sub{font-size:11px;color:var(--mu);margin-top:3px}
-.portfolio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:14px}
-.portfolio-kpi{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
-.portfolio-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px}
-.portfolio-kpi-value{font-size:16px;font-weight:700;color:var(--tx)}
-.portfolio-kpi-sub{font-size:10px;color:var(--mu);margin-top:3px}
-.portfolio-section{margin-top:14px}
-.portfolio-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px;font-weight:600}
-.portfolio-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-.portfolio-card{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px}
-.portfolio-card-role{display:inline-flex;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--bg);border:1px solid var(--bd);color:var(--mu);margin-bottom:7px}
-.portfolio-card-title{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px}
-.portfolio-card-meta{font-size:11px;color:var(--mu);line-height:1.6;margin-bottom:4px}
-.portfolio-card-price{font-size:18px;font-weight:700;margin-bottom:4px}
-.portfolio-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
-.portfolio-mini{background:var(--bg);border-radius:8px;padding:8px 9px}
-.portfolio-mini-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-.portfolio-mini-value{font-size:12px;font-weight:600}
-
-
 /* ── Map ── */
 #mapWrap{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;height:580px;position:relative}
 #map{height:100%;width:100%}
@@ -229,6 +205,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('map',this)">Map</button>
       <button class="tab" onclick="gotoTab('intelligence',this)">Intelligence</button>
       <button class="tab" onclick="gotoTab('clients',this)">Client Call</button>
+      <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
     </div>
@@ -331,7 +308,7 @@ tr:hover td{background:var(--bg2)}
     <div id="pClients" style="display:none">
 
       <!-- Client info row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px;align-items:end">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
           <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
@@ -340,7 +317,7 @@ tr:hover td{background:var(--bg2)}
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
           <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
-        <button onclick="saveClient()" class="btn primary" style="height:34px;white-space:nowrap">💾 Save client</button>
+
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
@@ -349,10 +326,9 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPurposeGroup">
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Own use</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Investment</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Live + seasonal rent</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Long-term rental</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Own use</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Short-term rental</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Long-term rental</button>
           </div>
         </div>
 
@@ -360,11 +336,11 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property type</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="crit-btn crit-multi" data-val="Apartment" onclick="toggleMulti(this,'types')">Apartment</button>
-            <button class="crit-btn crit-multi" data-val="Flat" onclick="toggleMulti(this,'types')">Flat</button>
-            <button class="crit-btn crit-multi" data-val="Villa" onclick="toggleMulti(this,'types')">Villa</button>
-            <button class="crit-btn crit-multi" data-val="House" onclick="toggleMulti(this,'types')">House</button>
-            <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'types')">Penthouse</button>
+            <button class="crit-btn crit-multi" data-val="Apartment" onclick="toggleMulti(this,'cTypes')">Apartment</button>
+            <button class="crit-btn crit-multi" data-val="Flat" onclick="toggleMulti(this,'cTypes')">Flat</button>
+            <button class="crit-btn crit-multi" data-val="Villa" onclick="toggleMulti(this,'cTypes')">Villa</button>
+            <button class="crit-btn crit-multi" data-val="House" onclick="toggleMulti(this,'cTypes')">House</button>
+            <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'cTypes')">Penthouse</button>
           </div>
         </div>
 
@@ -384,12 +360,12 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Bedrooms</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')">Studio</button>
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="1">1</button>
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="2">2</button>
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="3">3</button>
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="4">4</button>
-            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="5">5+</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')">Studio</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')" data-val="1">1</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')" data-val="2">2</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')" data-val="3">3</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')" data-val="4">4</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'cBeds')" data-val="5">5+</button>
           </div>
         </div>
 
@@ -397,11 +373,11 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="crit-btn crit-multi" data-val="Nicosia" onclick="toggleMulti(this,'cities')">Nicosia</button>
-            <button class="crit-btn crit-multi" data-val="Limassol" onclick="toggleMulti(this,'cities')">Limassol</button>
-            <button class="crit-btn crit-multi" data-val="Larnaca" onclick="toggleMulti(this,'cities')">Larnaca</button>
-            <button class="crit-btn crit-multi" data-val="Paphos" onclick="toggleMulti(this,'cities')">Paphos</button>
-            <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cities')">Famagusta</button>
+            <button class="crit-btn crit-multi" data-val="Nicosia" onclick="toggleMulti(this,'cCities')">Nicosia</button>
+            <button class="crit-btn crit-multi" data-val="Limassol" onclick="toggleMulti(this,'cCities')">Limassol</button>
+            <button class="crit-btn crit-multi" data-val="Larnaca" onclick="toggleMulti(this,'cCities')">Larnaca</button>
+            <button class="crit-btn crit-multi" data-val="Paphos" onclick="toggleMulti(this,'cCities')">Paphos</button>
+            <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cCities')">Famagusta</button>
           </div>
         </div>
 
@@ -448,6 +424,97 @@ tr:hover td{background:var(--bg2)}
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
     </div>
 
+    <!-- PORTFOLIO BUILDER -->
+    <div id="pPortfolio" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--tx)">Portfolio Builder</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Build a multi-asset investment portfolio from our listings</div>
+        </div>
+        <button onclick="resetPortfolioBuilder()" class="btn" style="font-size:11px">✕ Reset</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Investor name</div>
+          <input type="text" id="pbName" placeholder="e.g. Ariel Shapiro" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Total investment budget</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbBudgetGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="500000">Under €500k</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="1000000">€500k–€1M</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="2000000">€1M–€2M</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="5000000">€2M–€5M</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="99000000">€5M+</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Investment strategy</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbStrategyGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Income — max yield</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Growth — capital appreciation</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Balanced — yield + growth</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Diversified — spread risk</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Number of assets</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbAssetsGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbAssets')" data-val="1">1</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbAssets')" data-val="2">2</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbAssets')" data-val="3">3</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbAssets')" data-val="4">4–5</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbAssets')" data-val="6">6+</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City preference</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn crit-multi" data-val="Nicosia" onclick="pbMulti(this,'pbCities')">Nicosia</button>
+            <button class="crit-btn crit-multi" data-val="Limassol" onclick="pbMulti(this,'pbCities')">Limassol</button>
+            <button class="crit-btn crit-multi" data-val="Larnaca" onclick="pbMulti(this,'pbCities')">Larnaca</button>
+            <button class="crit-btn crit-multi" data-val="Paphos" onclick="pbMulti(this,'pbCities')">Paphos</button>
+            <button class="crit-btn crit-multi" data-val="Famagusta" onclick="pbMulti(this,'pbCities')">Famagusta</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property types</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn crit-multi" data-val="Apartment" onclick="pbMulti(this,'pbTypes')">Apartment</button>
+            <button class="crit-btn crit-multi" data-val="Flat" onclick="pbMulti(this,'pbTypes')">Flat</button>
+            <button class="crit-btn crit-multi" data-val="Villa" onclick="pbMulti(this,'pbTypes')">Villa</button>
+            <button class="crit-btn crit-multi" data-val="House" onclick="pbMulti(this,'pbTypes')">House</button>
+            <button class="crit-btn crit-multi" data-val="Penthouse" onclick="pbMulti(this,'pbTypes')">Penthouse</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Risk appetite</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbRiskGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbRisk')">Conservative</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbRisk')">Moderate</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbRisk')">Aggressive</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Sea proximity</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbSeaGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbSea')" data-val="0.5">Beachfront</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbSea')" data-val="3">Under 3km</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbSea')" data-val="8">Under 8km</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbSea')" data-val="999">Any</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Additional notes</div>
+        <input type="text" id="pbNotes" placeholder="e.g. prefers new developments, needs rental-ready units…" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button onclick="buildPortfolio()" class="btn primary">✦ Build Portfolio</button>
+        <div style="font-size:11px;color:var(--mu)" id="pbStatus"></div>
+      </div>
+      <div id="pbOutput"><div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div></div>
+    </div>
     <!-- DEVELOPERS -->
     <div id="pDevelopers" style="display:none">
       <div id="devView"><div class="empty">Loading…</div></div>
@@ -1061,11 +1128,16 @@ async function triggerModalRental(id) {
 
 function heartFromModal(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   const btn=document.getElementById('modalHeartBtn');
-  if(btn)btn.textContent=sl.has(id)?'♥ Remove from shortlist':'♡ Add to shortlist';
-  render(); if(tab==='shortlist')renderSL();
+  if(btn)btn.textContent=on?'♥ Remove from shortlist':'♡ Add to shortlist';
+  document.querySelectorAll('.hb, .card-heart').forEach(b => {
+    const oc = b.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) { b.classList.toggle('on', on); b.textContent = on ? '♥' : '♡'; }
+  });
+  if(tab==='shortlist') renderSL();
 }
 
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
@@ -1135,9 +1207,14 @@ function render() {
 
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
-  render(); if(tab==='shortlist')renderSL();
+  document.querySelectorAll('.hb, .card-heart').forEach(btn => {
+    const oc = btn.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) { btn.classList.toggle('on', on); btn.textContent = on ? '♥' : '♡'; }
+  });
+  if(tab==='shortlist') renderSL();
 }
 
 function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
@@ -1175,7 +1252,7 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','map','intelligence','clients','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','map','intelligence','clients','portfolio','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{if(leafMap)leafMap.invalidateSize();renderMap();},50);}
@@ -1226,8 +1303,8 @@ function exportCSV(){
   if(!filt.length){alert('No data to export.');return;}
   const h=['Developer','Title','Complex','Type','City','District','Bedrooms','Area m2','Price EUR','EUR per m2','Price Text','Added On'];
   const rows=filt.map(d=>[d.developer,d.title,d.complex??'',d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.price??'',d.ppm??'',d.priceText,d.addedOn].map(v=>`"${(''+v).replace(/"/g,'""')}"`).join(','));
-  const blob=new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intelprop.csv';a.click();
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='intelprop.csv';a.click();
 }
 
 function exportXLSX(){
@@ -1245,7 +1322,6 @@ function exportXLSX(){
 const CLIENTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyPU6sNsq4cf8fWSurv5dzBjVdK8zfJfxEIzwePf9FeUXX63fNVE6qwGuVyAJdrOQs4/exec';
 
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
-let cSortKey = null, cSortAsc = false;
 
 function toggleCrit(btn, key) {
   const group = btn.parentElement;
@@ -1274,48 +1350,65 @@ function toggleMulti(btn, key) {
 }
 
 function applyClientFilter() {
-  const results = getClientMatches();
+  const results = all.filter(d => {
+    // Budget
+    if (cCriteria.budgetMin !== null && cCriteria.budgetMax !== null) {
+      const p = d.price || 0;
+      if (p < cCriteria.budgetMin || p > cCriteria.budgetMax) return false;
+    }
+    // Property type
+    if (cCriteria.types.length > 0) {
+      const t = (d.type || '').toLowerCase();
+      if (!cCriteria.types.some(ct => t.includes(ct.toLowerCase()))) return false;
+    }
+    // Bedrooms
+    if (cCriteria.beds.length > 0) {
+      const has5plus = cCriteria.beds.includes('5+');
+      const numBeds = cCriteria.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
+      const hasStudio = cCriteria.beds.includes('Studio');
+      let match = false;
+      if (hasStudio && (d.bedrooms === 0 || d.bedrooms === null)) match = true;
+      if (numBeds.includes(d.bedrooms)) match = true;
+      if (has5plus && d.bedrooms >= 5) match = true;
+      if (!match) return false;
+    }
+    // City
+    if (cCriteria.cities.length > 0) {
+      const city = (d.city || '').toLowerCase().trim();
+      if (!cCriteria.cities.some(c => city === c.toLowerCase().trim())) return false;
+    }
+    // Sea distance
+    if (cCriteria.maxSea !== null && cCriteria.maxSea < 999) {
+      if (d.seaDist == null || d.seaDist > cCriteria.maxSea) return false;
+    }
+    return true;
+  });
+
   document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
+
   if (!results.length) {
     document.getElementById('cResults').innerHTML = '<div class="empty">No listings match these criteria.</div>';
     return;
   }
-  // Sort
-  if (cSortKey === 'price') {
-    results.sort((a,b) => cSortAsc ? (a.price||0)-(b.price||0) : (b.price||0)-(a.price||0));
-  } else if (cSortKey === 'yield') {
-    const pur = cCriteria.purpose || 'Long-term rental';
-    results.sort((a,b) => cSortAsc ? estimateYield(a,pur)-estimateYield(b,pur) : estimateYield(b,pur)-estimateYield(a,pur));
-  }
-  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
+
   const top = results.slice(0, 50);
-  const yieldHeader = showYield ? `<th onclick="sortClientBy('yield')" style="cursor:pointer">Rental / Yield <span id="cSortYield">${cSortKey==='yield'?(cSortAsc?'↑':'↓'):'↕'}</span></th>` : '<th></th>';
-  const rows = top.map(d => {
-    const yPct = showYield ? estimateYield(d, cCriteria.purpose) : 0;
-    const monthlyEst = showYield && d.price ? Math.round(d.price * (yPct/100) / 12 / 50) * 50 : 0;
-    const yieldCell = showYield
-      ? `<td style="font-size:11px;white-space:nowrap"><div>~€${monthlyEst.toLocaleString()}/mo</div><div style="color:var(--mu);font-size:10px">${yPct.toFixed(1)}% yield</div></td>`
-      : '<td></td>';
-    return `<tr style="cursor:pointer" onclick="openModal(${d.id})">
-      <td title="${d.developer||''}">${d.developer||'—'}</td>
-      <td title="${d.title||''}">${d.title||'—'}</td>
-      <td>${tagBadge(d.type)}</td>
-      <td>${d.city||'—'}</td>
-      <td>${d.district||'—'}</td>
-      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
-      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
-      <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
-      ${yieldCell}
-      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
-    </tr>`;
-  }).join('');
-  document.getElementById('cResults').innerHTML = `<table style="min-width:900px"><thead><tr>
-    <th>Developer</th><th>Title</th><th>Type</th>
-    <th onclick="sortClientBy('city')" style="cursor:pointer">City</th>
-    <th>District</th><th>Beds</th><th>Area</th>
-    <th onclick="sortClientBy('price')" style="cursor:pointer">Price <span id="cSortPrice">${cSortKey==='price'?(cSortAsc?'↑':'↓'):'↕'}</span></th>
-    ${yieldHeader}<th></th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+  const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
+  const rows = top.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+    <td title="${d.developer||''}">${d.developer||'—'}</td>
+    <td title="${d.title||''}">${d.title||'—'}</td>
+    <td>${tagBadge(d.type)}</td>
+    <td>${d.city||'—'}</td>
+    <td>${d.district||'—'}</td>
+    <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+    <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+    <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+    <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+    <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+  </tr>`).join('');
+
+  document.getElementById('cResults').innerHTML = `<table><colgroup>${cw}</colgroup>
+    <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
 }
 
 async function saveClient() {
@@ -1579,19 +1672,151 @@ function getClientMatches() {
   });
 }
 
-// ── Toggle rental yield column ────────────────────────────────
-function toggleRentalYield() {
-  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
-  if (getClientMatches().length) applyClientFilter();
+
+// ── Portfolio Builder ─────────────────────────────────────────
+const pbCriteria = { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null };
+
+function pbToggle(btn, key) {
+  btn.parentElement.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (key === 'pbBudget') pbCriteria.budget = +val;
+  else if (key === 'pbAssets') pbCriteria.assets = +val;
+  else if (key === 'pbStrategy') pbCriteria.strategy = val;
+  else if (key === 'pbRisk') pbCriteria.risk = val;
+  else if (key === 'pbSea') pbCriteria.sea = +val;
 }
 
-// ── Client sort ───────────────────────────────────────────────
-function sortClientBy(key) {
-  if (cSortKey === key) cSortAsc = !cSortAsc;
-  else { cSortKey = key; cSortAsc = false; }
-  const sp = document.getElementById('cSortPrice'); if(sp) sp.textContent = cSortKey==='price'?(cSortAsc?'↑':'↓'):'';
-  const sy = document.getElementById('cSortYield'); if(sy) sy.textContent = cSortKey==='yield'?(cSortAsc?'↑':'↓'):'↕';
-  applyClientFilter();
+function pbMulti(btn, key) {
+  btn.classList.toggle('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (!pbCriteria[key]) pbCriteria[key] = [];
+  if (btn.classList.contains('on')) { if (!pbCriteria[key].includes(val)) pbCriteria[key].push(val); }
+  else pbCriteria[key] = pbCriteria[key].filter(v => v !== val);
+}
+
+function resetPortfolioBuilder() {
+  document.getElementById('pbName').value = '';
+  document.getElementById('pbNotes').value = '';
+  document.getElementById('pbStatus').textContent = '';
+  document.querySelectorAll('#pPortfolio .crit-btn.on').forEach(b => b.classList.remove('on'));
+  Object.assign(pbCriteria, { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null });
+  document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div>';
+}
+
+function buildPortfolio() {
+  const status = document.getElementById('pbStatus');
+  if (!pbCriteria.budget) { status.textContent = '⚠ Please select a budget.'; return; }
+  if (!pbCriteria.strategy) { status.textContent = '⚠ Please select a strategy.'; return; }
+  status.textContent = '';
+  let pool = all.filter(d => {
+    if (!d.price || d.price > pbCriteria.budget) return false;
+    if (pbCriteria.cities.length > 0 && !pbCriteria.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
+    if (pbCriteria.types.length > 0 && !pbCriteria.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
+    if (pbCriteria.sea && pbCriteria.sea < 999 && (d.seaDist == null || d.seaDist > pbCriteria.sea)) return false;
+    return true;
+  });
+  if (pool.length < 3) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Not enough listings match. Try broadening the filters.</div>';
+    return;
+  }
+  const strategy = pbCriteria.strategy;
+  const risk = pbCriteria.risk || 'Moderate';
+  const scored = pool.map(d => {
+    const yieldPct = estimateYield(d, strategy.includes('Income') ? 'Long-term rental' : 'Long-term rental');
+    let score = yieldPct * 10;
+    if (strategy.includes('Income')) {
+      if ((d.type||'').match(/Apartment|Flat/i)) score += 12;
+      if ((d.bedrooms||0) <= 2) score += 8;
+      if (d.ppm != null && d.ppm < 4000) score += 6;
+    } else if (strategy.includes('Growth')) {
+      if (d.city === 'Limassol') score += 15;
+      if (d.city === 'Paphos') score += 10;
+      if ((d.type||'').match(/Villa|Penthouse/i)) score += 10;
+      if (d.seaDist != null && d.seaDist < 2) score += 8;
+    } else if (strategy.includes('Balanced')) {
+      if (d.seaDist != null && d.seaDist < 3) score += 8;
+      if ((d.type||'').match(/Apartment|Flat/i)) score += 6;
+      if (d.ppm != null && d.ppm < 5000) score += 5;
+    } else {
+      if (d.seaDist != null && d.seaDist < 5) score += 6;
+      score += Math.random() * 5;
+    }
+    if (risk === 'Conservative' && d.price < 400000) score += 8;
+    if (risk === 'Aggressive' && (d.city === 'Limassol' || d.city === 'Paphos')) score += 8;
+    return { ...d, score, estimatedYield: yieldPct, estimatedAnnualIncome: (d.price||0) * (yieldPct/100) };
+  }).sort((a,b) => b.score - a.score);
+
+  const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
+  const selected = [];
+  const usedCities = new Set();
+  for (const d of scored) {
+    if (selected.length >= maxAssets) break;
+    const total = selected.reduce((s,x) => s + (x.price||0), 0);
+    if (total + (d.price||0) > pbCriteria.budget) continue;
+    if (strategy.includes('Diversified') && usedCities.has(d.city) && selected.length < maxAssets - 1) continue;
+    selected.push(d);
+    usedCities.add(d.city);
+  }
+  for (const d of scored) {
+    if (selected.length >= maxAssets) break;
+    if (selected.find(x => x.id === d.id)) continue;
+    const total = selected.reduce((s,x) => s + (x.price||0), 0);
+    if (total + (d.price||0) > pbCriteria.budget) continue;
+    selected.push(d);
+  }
+  if (!selected.length) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Could not allocate assets within budget. Try increasing budget or broadening criteria.</div>';
+    return;
+  }
+  const name = document.getElementById('pbName').value.trim() || 'Investor';
+  const notes = document.getElementById('pbNotes').value.trim();
+  const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
+  const totalIncome = selected.reduce((s,d) => s+(d.estimatedAnnualIncome||0), 0);
+  const blendedYield = totalPrice ? (totalIncome/totalPrice)*100 : 0;
+  const leftover = pbCriteria.budget - totalPrice;
+  const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
+    const ca = selected.filter(d=>d.city===city);
+    const cp = ca.reduce((s,d)=>s+(d.price||0),0);
+    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${ca.length} asset${ca.length!==1?'s':''} · €${cp.toLocaleString()}</div></div></div>`;
+  }).join('');
+  const cards = selected.map((d,i) => `
+    <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
+      <div class="portfolio-card-role">Asset ${i+1}</div>
+      <div class="portfolio-card-title">${d.title||'—'}</div>
+      <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
+      <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
+      <div class="portfolio-card-price">€${(d.price||0).toLocaleString()}</div>
+      <div style="margin:4px 0">${d.seaDist!=null?seaBadge(d.seaDist):''}</div>
+      <div class="portfolio-mini-grid">
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Est. yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
+        ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
+      </div>
+    </div>`).join('');
+  document.getElementById('pbOutput').innerHTML = `
+    <div class="portfolio-shell">
+      <div class="portfolio-head">
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length}-asset structure</div></div>
+      </div>
+      <div class="portfolio-grid">
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Assets</div><div class="portfolio-kpi-value">${selected.length}</div><div class="portfolio-kpi-sub">from ${pool.length.toLocaleString()} matching</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${pbCriteria.budget.toLocaleString()}</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Gross annual est.</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Gross rental est.</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0">
+        <div class="intel-card"><div class="intel-card-title"><span>🏙</span> City allocation</div>${cityBreakdown}</div>
+        <div class="intel-card"><div class="intel-card-title"><span>📋</span> Notes</div><div style="font-size:12px;color:var(--tx);line-height:1.7;padding:4px 0">${notes||'No additional notes.'}</div></div>
+      </div>
+      <div class="portfolio-section">
+        <div class="portfolio-section-title">Selected assets — click to view details</div>
+        <div class="portfolio-cards">${cards}</div>
+      </div>
+    </div>`;
 }
 
 
