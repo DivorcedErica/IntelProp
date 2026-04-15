@@ -167,7 +167,33 @@ tr:hover td{background:var(--bg2)}
 .dci{font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6}
 .slt{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .sli{font-size:12px;color:var(--mu)}
-@media(max-width:680px){.frow{grid-template-columns:1fr 1fr}.shell{padding:16px 14px}}
+.portfolio-wrap{margin-bottom:12px}
+.portfolio-actions{display:flex;gap:6px;flex-wrap:wrap}
+.portfolio-shell{border:1px solid var(--bd);border-radius:12px;background:linear-gradient(180deg,var(--bg),var(--bg2));padding:16px;margin:10px 0 14px}
+.portfolio-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.portfolio-title{font-size:14px;font-weight:600}
+.portfolio-sub{font-size:11px;color:var(--mu);margin-top:3px}
+.portfolio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:14px}
+.portfolio-kpi{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px}
+.portfolio-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px}
+.portfolio-kpi-value{font-size:16px;font-weight:700;color:var(--tx)}
+.portfolio-kpi-sub{font-size:10px;color:var(--mu);margin-top:3px}
+.portfolio-section{margin-top:14px}
+.portfolio-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px;font-weight:600}
+.portfolio-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.portfolio-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.portfolio-card-role{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--bg2);border:1px solid var(--bd);color:var(--mu);margin-bottom:7px}
+.portfolio-card-title{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px}
+.portfolio-card-meta{font-size:11px;color:var(--mu);line-height:1.6;margin-bottom:8px}
+.portfolio-card-price{font-size:18px;font-weight:700;margin-bottom:4px}
+.portfolio-card-note{font-size:11px;color:var(--mu);line-height:1.55;margin-top:8px}
+.portfolio-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.portfolio-mini{background:var(--bg2);border-radius:8px;padding:8px 9px}
+.portfolio-mini-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.portfolio-mini-value{font-size:12px;font-weight:600}
+.portfolio-summary-text{font-size:12px;line-height:1.7;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+.portfolio-alt{margin-top:10px;border-top:1px dashed var(--bd);padding-top:10px}
+@media(max-width:680px){.frow{grid-template-columns:1fr 1fr}.shell{padding:16px 14px}.portfolio-grid,.portfolio-cards{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -308,8 +334,7 @@ tr:hover td{background:var(--bg2)}
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPurposeGroup">
             <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Own use</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Investment</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Live + seasonal rent</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Short-term rental</button>
             <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Long-term rental</button>
           </div>
         </div>
@@ -379,13 +404,15 @@ tr:hover td{background:var(--bg2)}
           <input type="text" id="cNotes" placeholder="Sea view, pool, quiet area..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
-        <div style="display:flex;gap:6px">
-          <button onclick="exportClientXLSX()" class="btn primary" style="font-size:11px">↓ Export Excel</button>
+        <div class="portfolio-actions">
+          <button onclick="buildClientPortfolio()" class="btn primary" style="font-size:11px">✦ Build Portfolio</button>
+          <button onclick="exportClientXLSX()" class="btn" style="font-size:11px">↓ Export Excel</button>
           <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
         </div>
       </div>
+      <div id="portfolioOutput" class="portfolio-wrap"><div class="empty" style="padding:1.25rem">Build a portfolio from this client card to see the recommended capital allocation.</div></div>
       <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
     </div>
 
@@ -1137,12 +1164,13 @@ function getClientMatches(){
 function applyClientFilter(){
   const results=getClientMatches();
   document.getElementById('cMatchCount').textContent=results.length.toLocaleString();
+  clearPortfolioOutput(results.length?false:true);
   if(!results.length){
     document.getElementById('cResults').innerHTML='<div class="empty">No listings match these criteria.</div>';
     return;
   }
   const top=results.slice(0,50);
-  const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
+  const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:170px"><col style="width:36px">';
   const rows=top.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
     <td title="${d.developer||''}">${d.developer||'—'}</td>
     <td title="${d.title||''}">${d.title||'—'}</td>
@@ -1152,14 +1180,303 @@ function applyClientFilter(){
     <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
     <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
     <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
-    <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+    <td>${renderRentalYieldCell(d)}</td>
     <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
   </tr>`).join('');
   document.getElementById('cResults').innerHTML=`<table><colgroup>${cw}</colgroup>
-    <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th><th></th></tr></thead>
+    <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>Rental / Yield</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
 
+function clearPortfolioOutput(noMatches=false){
+  const el=document.getElementById('portfolioOutput');
+  if(!el)return;
+  el.innerHTML=noMatches
+    ? '<div class="empty" style="padding:1.25rem">Adjust the client criteria first. Once listings match, the portfolio engine can allocate the budget.</div>'
+    : '<div class="empty" style="padding:1.25rem">Build a portfolio from this client card to see the recommended capital allocation.</div>';
+}
+
+function euro(v){return '€'+Math.round(v||0).toLocaleString();}
+function pct(v){return (v||0).toFixed(1)+'%';}
+
+function getRentalViewMode(){
+  if(cCriteria.purpose==='Long-term rental')return 'long';
+  if(cCriteria.purpose==='Short-term rental')return 'short';
+  return 'both';
+}
+
+function estimateRentalMetrics(d, mode){
+  const cached=rentalCache[d.id];
+  if(mode==='long' && cached && cached.long_term_low && cached.long_term_high){
+    const mid=(cached.long_term_low+cached.long_term_high)/2;
+    const y=d.price? (mid*12/d.price)*100 : estimateYield(d,'Long-term rental');
+    return {label:'LT', low:cached.long_term_low, high:cached.long_term_high, yieldPct:y};
+  }
+  if(mode==='short' && cached && cached.short_term_low && cached.short_term_high){
+    const mid=(cached.short_term_low+cached.short_term_high)/2;
+    const y=d.price? (mid*12/d.price)*100 : estimateYield(d,'Short-term rental');
+    return {label:'ST', low:cached.short_term_low, high:cached.short_term_high, yieldPct:y};
+  }
+  const purpose = mode==='short' ? 'Short-term rental' : 'Long-term rental';
+  const yieldPct = estimateYield(d, purpose);
+  const monthly = d.price ? (d.price * (yieldPct/100)) / 12 : 0;
+  const spread = mode==='short' ? 0.16 : 0.08;
+  return {
+    label: mode==='short' ? 'ST' : 'LT',
+    low: Math.max(0, Math.round(monthly * (1-spread) / 50) * 50),
+    high: Math.max(0, Math.round(monthly * (1+spread) / 50) * 50),
+    yieldPct
+  };
+}
+
+function renderRentalYieldCell(d){
+  const mode=getRentalViewMode();
+  const line = (m) => `${m.label} ${euro(m.low)}–${euro(m.high)}<div style="font-size:10px;color:var(--mu);margin-top:2px">${pct(m.yieldPct)} gross yield</div>`;
+  if(mode==='long' || mode==='short'){
+    return `<div style="line-height:1.2">${line(estimateRentalMetrics(d, mode))}</div>`;
+  }
+  const lt=estimateRentalMetrics(d, 'long');
+  const st=estimateRentalMetrics(d, 'short');
+  return `<div style="line-height:1.2"><div>${line(lt)}</div><div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--bd)">${line(st)}</div></div>`;
+}
+
+function estimateYield(d, purpose){
+  const cityBase={Limassol:5.5,Larnaca:6.0,Paphos:6.3,Nicosia:4.8,Famagusta:6.8};
+  let y=cityBase[d.city]??5.6;
+  const t=(d.type||'').toLowerCase();
+  if(t.includes('apartment')||t.includes('flat'))y+=0.5;
+  if(t.includes('penthouse'))y-=0.4;
+  if(t.includes('villa')||t.includes('house'))y-=0.7;
+  if(d.bedrooms===1)y+=0.4;
+  if(d.bedrooms===2)y+=0.2;
+  if((d.bedrooms||0)>=4)y-=0.5;
+  if(d.seaDist!=null){
+    if(d.seaDist<1)y+= purpose==='Long-term rental' ? 0.0 : 0.9;
+    else if(d.seaDist<3)y+=0.3;
+    else if(d.seaDist>12)y-=0.2;
+  }
+  if(d.ppm!=null){
+    if(d.ppm<3000)y+=0.5;
+    else if(d.ppm>6500)y-=0.5;
+  }
+  if(purpose==='Short-term rental')y+=0.8;
+  if(purpose==='Long-term rental')y+=0.4;
+  if(purpose==='Own use')y-=0.6;
+  return Math.max(3.5,Math.min(9.5,y));
+}
+
+function inferStrategy(purpose, items){
+  if(purpose==='Long-term rental')return {strategy:'Long-term',mix:'100% long-term',headline:'Stable income-first structure'};
+  if(purpose==='Short-term rental')return {strategy:'Short-term',mix:'Short-term focused',headline:'Flexibility plus upside'};
+  if(purpose==='Own use')return {strategy:'Hybrid',mix:'Lifestyle-led',headline:'Use first, income second'};
+  const avgSea=items.length?items.reduce((s,d)=>s+(d.seaDist??10),0)/items.length:10;
+  if(avgSea<2)return {strategy:'Blended',mix:'1 short-term + core long-term',headline:'Balanced return profile'};
+  return {strategy:'Long-term',mix:'Mostly long-term',headline:'Lower-friction income basket'};
+}
+
+function getBudgetCap(){
+  return cCriteria.budgetMax!=null?cCriteria.budgetMax:99000000;
+}
+
+function classifyRole(d, strategy){
+  const t=(d.type||'').toLowerCase();
+  if(strategy==='Hybrid')return 'Lifestyle anchor';
+  if(strategy==='Short-term'){
+    if(d.seaDist!=null&&d.seaDist<1.2)return 'Holiday yield engine';
+    return 'Flexible upside unit';
+  }
+  if(t.includes('apartment')||t.includes('flat'))return 'Income anchor';
+  if(t.includes('villa')||t.includes('house'))return 'Capital appreciation sleeve';
+  return 'Diversifier';
+}
+
+function scoreListingForPortfolio(d, strategy, purpose){
+  const yieldPct=estimateYield(d,purpose);
+  const price=d.price||0;
+  const sea=d.seaDist??12;
+  let score=yieldPct*12;
+  if(strategy==='Long-term'){
+    if((d.type||'').match(/Apartment|Flat/i))score+=10;
+    if((d.bedrooms||0)<=2)score+=6;
+    if(price && price<550000)score+=8;
+    if(d.city==='Larnaca'||d.city==='Nicosia')score+=6;
+  }else if(strategy==='Short-term'){
+    if(sea<1)score+=14; else if(sea<3)score+=8;
+    if(d.city==='Paphos'||d.city==='Famagusta'||d.city==='Limassol')score+=8;
+    if((d.bedrooms||0)>=1 && (d.bedrooms||0)<=2)score+=6;
+  }else if(strategy==='Hybrid'){
+    if(sea<3)score+=10;
+    if((d.area||0)>=75)score+=7;
+    if(d.city==='Limassol'||d.city==='Paphos'||d.city==='Larnaca')score+=6;
+  }else{
+    if(sea<2)score+=8;
+    if((d.type||'').match(/Apartment|Flat/i))score+=6;
+    if(price && price<650000)score+=5;
+  }
+  if(d.ppm!=null){
+    if(d.ppm<3500)score+=8;
+    else if(d.ppm<5000)score+=4;
+    else if(d.ppm>7500)score-=4;
+  }
+  if(cCriteria.cities.length===1 && cCriteria.cities[0].toLowerCase()===(d.city||'').toLowerCase())score+=4;
+  return {
+    ...d,
+    estimatedYield:yieldPct,
+    estimatedAnnualIncome:(price||0)*(yieldPct/100),
+    score,
+    role:classifyRole(d,strategy)
+  };
+}
+
+function chooseTopCandidates(items, limit=12){
+  return [...items].sort((a,b)=>{
+    const ar=a.price? a.score/a.price : 0;
+    const br=b.price? b.score/b.price : 0;
+    return br-ar;
+  }).slice(0,limit);
+}
+
+function comboDiversification(combo, strategy){
+  const cities=new Set(combo.map(x=>x.city).filter(Boolean)).size;
+  const types=new Set(combo.map(x=>x.type).filter(Boolean)).size;
+  let bonus=(cities-1)*5 + (types-1)*2;
+  if(strategy==='Hybrid' && combo.length>2)bonus-=4;
+  return bonus;
+}
+
+function buildPortfolios(candidates, budgetCap, strategy){
+  const combos=[];
+  for(let i=0;i<candidates.length;i++){
+    const a=[candidates[i]];
+    combos.push(a);
+    for(let j=i+1;j<candidates.length;j++){
+      const b=[candidates[i],candidates[j]];
+      combos.push(b);
+      for(let k=j+1;k<candidates.length;k++)combos.push([candidates[i],candidates[j],candidates[k]]);
+    }
+  }
+  const valid=combos.map(items=>{
+    const totalPrice=items.reduce((s,x)=>s+(x.price||0),0);
+    const annualIncome=items.reduce((s,x)=>s+(x.estimatedAnnualIncome||0),0);
+    const totalScore=items.reduce((s,x)=>s+(x.score||0),0)+comboDiversification(items, strategy);
+    return {
+      items,
+      totalPrice,
+      annualIncome,
+      blendedYield: totalPrice? (annualIncome/totalPrice)*100 : 0,
+      totalScore,
+      leftover: budgetCap-totalPrice,
+    };
+  }).filter(p=>p.totalPrice>0 && p.totalPrice<=budgetCap);
+  valid.sort((a,b)=>{
+    if(Math.abs(b.totalScore-a.totalScore)>0.001)return b.totalScore-a.totalScore;
+    if(Math.abs(b.blendedYield-a.blendedYield)>0.001)return b.blendedYield-a.blendedYield;
+    return a.leftover-b.leftover;
+  });
+  return valid;
+}
+
+function explainPortfolio(portfolio, strategy, purpose){
+  const size=portfolio.items.length===1?'single-asset allocation':portfolio.items.length===2?'two-asset allocation':'three-asset allocation';
+  const purposeText=purpose||'the selected brief';
+  if(strategy==='Long-term')return `This ${size} is geared toward stable occupancy, simpler management and lower operational friction. It suits ${purposeText.toLowerCase()} better than a purely short-term basket.`;
+  if(strategy==='Short-term')return `This ${size} is built around higher upside and stronger holiday-letting appeal. It accepts more fluctuation in exchange for stronger gross return potential.`;
+  if(strategy==='Hybrid')return `This ${size} favours personal usability first while preserving income potential when the unit is not occupied by the client.`;
+  return `This ${size} blends stability and upside. It avoids over-concentrating the budget in one expensive unit while keeping enough quality for resale and flexibility.`;
+}
+
+function renderPortfolioOutput(reco){
+  const el=document.getElementById('portfolioOutput');
+  const client=document.getElementById('cName').value.trim()||'This client';
+  const alt=reco.alternative;
+  const cards=reco.best.items.map((d,idx)=>`<div class="portfolio-card">
+      <div class="portfolio-card-role">${idx+1}. ${d.role}</div>
+      <div class="portfolio-card-title">${d.title||'Untitled listing'}</div>
+      <div class="portfolio-card-meta">${d.city||'—'}${d.district?', '+d.district:''} · ${d.type||'—'}${d.bedrooms!=null?` · ${d.bedrooms} bed`:''}${d.area!=null?` · ${d.area} m²`:''}</div>
+      <div class="portfolio-card-price">${euro(d.price)}</div>
+      <div>${d.seaDist!=null?seaBadge(d.seaDist):''}</div>
+      <div class="portfolio-mini-grid">
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Est. yield</div><div class="portfolio-mini-value">${pct(d.estimatedYield)}</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Annual income</div><div class="portfolio-mini-value">${euro(d.estimatedAnnualIncome)}</div></div>
+      </div>
+      <div class="portfolio-card-note">${assetReason(d,reco.strategy.strategy,reco.criteria.purpose)}</div>
+    </div>`).join('');
+
+  let altHtml='';
+  if(alt){
+    altHtml=`<div class="portfolio-alt"><div class="portfolio-section-title">Alternative scenario</div><div class="portfolio-summary-text"><strong>${alt.items.length}-asset alternative</strong> · ${euro(alt.totalPrice)} deployed · ${pct(alt.blendedYield)} blended yield · ${euro(alt.leftover)} unallocated. This is the next-best structure if the client wants a different concentration profile.</div></div>`;
+  }
+
+  el.innerHTML=`<div class="portfolio-shell">
+    <div class="portfolio-head">
+      <div>
+        <div class="portfolio-title">Recommended Portfolio for ${client}</div>
+        <div class="portfolio-sub">${reco.strategy.headline} · ${reco.strategy.mix}</div>
+      </div>
+      <div style="font-size:11px;color:var(--mu)">${reco.matchCount.toLocaleString()} matched listings analysed</div>
+    </div>
+    <div class="portfolio-grid">
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${reco.strategy.strategy}</div><div class="portfolio-kpi-sub">${reco.criteria.purpose||'No explicit purpose selected'}</div></div>
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Structure</div><div class="portfolio-kpi-value">${reco.best.items.length} assets</div><div class="portfolio-kpi-sub">Best allocation under budget</div></div>
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Capital deployed</div><div class="portfolio-kpi-value">${euro(reco.best.totalPrice)}</div><div class="portfolio-kpi-sub">Budget cap ${euro(reco.budgetCap)}</div></div>
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${pct(reco.best.blendedYield)}</div><div class="portfolio-kpi-sub">Modelled gross yield</div></div>
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">${euro(reco.best.annualIncome)}</div><div class="portfolio-kpi-sub">Estimated gross annual rent</div></div>
+      <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">${euro(reco.best.leftover)}</div><div class="portfolio-kpi-sub">Held back for fees / buffer</div></div>
+    </div>
+    <div class="portfolio-section">
+      <div class="portfolio-section-title">Recommendation rationale</div>
+      <div class="portfolio-summary-text">${explainPortfolio(reco.best,reco.strategy.strategy,reco.criteria.purpose)}</div>
+    </div>
+    <div class="portfolio-section">
+      <div class="portfolio-section-title">Selected assets</div>
+      <div class="portfolio-cards">${cards}</div>
+    </div>
+    ${altHtml}
+  </div>`;
+}
+
+function assetReason(d, strategy, purpose){
+  const reasons=[];
+  if(d.seaDist!=null&&d.seaDist<1.5)reasons.push('good sea-access profile');
+  if((d.type||'').match(/Apartment|Flat/i))reasons.push('liquid unit type');
+  if(d.ppm!=null&&d.ppm<3500)reasons.push('strong entry value');
+  if((d.bedrooms||0)<=2)reasons.push('broad tenant / resale appeal');
+  if(strategy==='Long-term')reasons.push('fits lower-friction rental strategy');
+  if(strategy==='Short-term')reasons.push('supports stronger holiday-letting upside');
+  if(strategy==='Hybrid'||purpose==='Own use')reasons.push('works for personal use as well');
+  return reasons.slice(0,3).join(' · ');
+}
+
+function buildClientPortfolio(){
+  const results=getClientMatches();
+  if(!results.length){
+    clearPortfolioOutput(true);
+    return;
+  }
+  const budgetCap=getBudgetCap();
+  const strategy=inferStrategy(cCriteria.purpose, results);
+  const scored=results
+    .filter(d=>d.price&&d.price<=budgetCap)
+    .map(d=>scoreListingForPortfolio(d,strategy.strategy,cCriteria.purpose))
+    .sort((a,b)=>b.score-a.score);
+  const candidates=chooseTopCandidates(scored,12);
+  const portfolios=buildPortfolios(candidates,budgetCap,strategy.strategy);
+  if(!portfolios.length){
+    document.getElementById('portfolioOutput').innerHTML='<div class="empty" style="padding:1.25rem">No valid portfolio could be built inside the selected budget cap.</div>';
+    return;
+  }
+  const best=portfolios[0];
+  let alternative=portfolios.find(p=>p.items.length!==best.items.length);
+  if(!alternative)alternative=portfolios[1]||null;
+  renderPortfolioOutput({
+    strategy,
+    best,
+    alternative,
+    budgetCap,
+    matchCount:results.length,
+    criteria:{...cCriteria}
+  });
+}
 
 function resetClient(){
   document.getElementById('cName').value='';
@@ -1168,6 +1485,7 @@ function resetClient(){
   document.querySelectorAll('.crit-btn.on').forEach(b=>b.classList.remove('on'));
   Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
   document.getElementById('cMatchCount').textContent='—';
+  clearPortfolioOutput(false);
   document.getElementById('cResults').innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
 }
 
@@ -1177,7 +1495,6 @@ function exportClientXLSX(){
   const name=document.getElementById('cName').value.trim()||'Client';
   const phone=document.getElementById('cPhone').value.trim();
   const notes=document.getElementById('cNotes').value.trim();
-  // Summary header rows
   const meta=[
     ['Client',name],
     ['Phone',phone||'—'],
@@ -1200,7 +1517,6 @@ function exportClientXLSX(){
   ]);
   const ws=XLSX.utils.aoa_to_sheet([...meta,...rows]);
   ws['!cols']=[20,30,12,12,18,20,6,8,14,8,12].map(w=>({wch:w}));
-  // Bold the header rows
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Client Brief');
   const filename=`intelprop_${name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
