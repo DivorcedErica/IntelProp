@@ -1349,7 +1349,8 @@ function toggleMulti(btn, key) {
   applyClientFilter();
 }
 
-function applyClientFilter() {
+function applyClientFilter(resetPg) {
+  if (resetPg !== false) cPage = 1;
   const results = all.filter(d => {
     // Budget
     if (cCriteria.budgetMin !== null && cCriteria.budgetMax !== null) {
@@ -1391,7 +1392,22 @@ function applyClientFilter() {
     return;
   }
 
-  const top = results.slice(0, 50);
+  // Sort by any column
+  if (cSortKey) {
+    const pur = cCriteria.purpose || 'Long-term rental';
+    results.sort((a, b) => {
+      let av = cSortKey === 'yield' ? estimateYield(a, pur) : a[cSortKey];
+      let bv = cSortKey === 'yield' ? estimateYield(b, pur) : b[cSortKey];
+      if (av === null || av === undefined) av = cSortAsc ? Infinity : -Infinity;
+      if (bv === null || bv === undefined) bv = cSortAsc ? Infinity : -Infinity;
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      return cSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
+  }
+
+  const cTot = Math.ceil(results.length / cPS) || 1;
+  const top = results.slice((cPage-1)*cPS, cPage*cPS);
   const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
   const rows = top.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
     <td title="${d.developer||''}">${d.developer||'—'}</td>
@@ -1406,9 +1422,34 @@ function applyClientFilter() {
     <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
   </tr>`).join('');
 
+  const cTot = Math.ceil(results.length / cPS) || 1;
+  const arrow = k => cSortKey===k?(cSortAsc?'↑':'↓'):'↕';
   document.getElementById('cResults').innerHTML = `<table><colgroup>${cw}</colgroup>
-    <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
+    <thead><tr>
+    <th onclick="sortClientBy('developer')" style="cursor:pointer">Developer ${arrow('developer')}</th>
+    <th onclick="sortClientBy('title')" style="cursor:pointer">Title ${arrow('title')}</th>
+    <th onclick="sortClientBy('type')" style="cursor:pointer">Type ${arrow('type')}</th>
+    <th onclick="sortClientBy('city')" style="cursor:pointer">City ${arrow('city')}</th>
+    <th onclick="sortClientBy('district')" style="cursor:pointer">District ${arrow('district')}</th>
+    <th onclick="sortClientBy('bedrooms')" style="cursor:pointer">Beds ${arrow('bedrooms')}</th>
+    <th onclick="sortClientBy('area')" style="cursor:pointer">Area ${arrow('area')}</th>
+    <th onclick="sortClientBy('price')" style="cursor:pointer">Price ${arrow('price')}</th>
+    <th onclick="sortClientBy('yield')" style="cursor:pointer">${showYield?'Rental / Yield '+arrow('yield'):'€/m²'}</th>
+    <th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;padding:0 4px">
+      <div style="display:flex;align-items:center;gap:5px">
+        <span style="font-size:11px;color:var(--mu)">Per page</span>
+        <button class="vtb ${cPS===25?'on':''}" onclick="setCPS(25)">25</button>
+        <button class="vtb ${cPS===50?'on':''}" onclick="setCPS(50)">50</button>
+        <button class="vtb ${cPS===100?'on':''}" onclick="setCPS(100)">100</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="cPg(-1)" ${cPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer;opacity:${cPage<=1?.3:1}">← Prev</button>
+        <span style="font-size:11px;color:var(--mu)">Page ${cPage} of ${cTot} · ${results.length.toLocaleString()} listings</span>
+        <button onclick="cPg(1)" ${cPage>=cTot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer;opacity:${cPage>=cTot?.3:1}">Next →</button>
+      </div>
+    </div>`;
 }
 
 async function saveClient() {
@@ -1671,6 +1712,19 @@ function getClientMatches() {
     return true;
   });
 }
+
+
+// ── Client Call pagination ────────────────────────────────────
+let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
+
+function sortClientBy(key) {
+  if (cSortKey === key) cSortAsc = !cSortAsc;
+  else { cSortKey = key; cSortAsc = false; }
+  applyClientFilter(false);
+}
+
+function setCPS(n) { cPS = n; cPage = 1; applyClientFilter(); }
+function cPg(d) { cPage += d; applyClientFilter(); }
 
 
 // ── Portfolio Builder ─────────────────────────────────────────
