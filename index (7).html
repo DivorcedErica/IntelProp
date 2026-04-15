@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IntelProp — Cyprus Listings</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--bg2:#f7f7f6;--bd:rgba(0,0,0,0.1);--tx:#1a1a1a;--mu:#888;--r:8px;--red:#e74c3c;--gold:#b8860b}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1c;--bg2:#252525;--bd:rgba(255,255,255,0.1);--tx:#f0f0f0;--mu:#777}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg2);color:var(--tx);font-size:13px;min-height:100vh}
+.shell{max-width:1200px;margin:0 auto;padding:24px 20px}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.logo{font-size:20px;font-weight:600;letter-spacing:-.5px}
+.logo span{font-weight:300;color:var(--mu)}
+.sub{font-size:12px;color:var(--mu);margin-top:3px}
+.top-btns{display:flex;gap:6px}
+.btn{font-size:12px;height:34px;padding:0 14px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--bg2)}
+.btn.primary{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.btn.primary:hover{opacity:.85}
+.panel{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:20px;margin-bottom:16px}
+.tabs{display:flex;border-bottom:1px solid var(--bd);margin-bottom:16px}
+.tab{font-size:13px;padding:8px 16px;cursor:pointer;color:var(--mu);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--tx);font-weight:500;border-bottom-color:var(--tx)}
+.slbadge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:10px;font-weight:600;border-radius:99px;min-width:15px;height:15px;padding:0 4px;margin-left:4px}
+.frow{display:grid;grid-template-columns:1fr repeat(3,minmax(120px,160px));gap:8px;margin-bottom:10px}
+.frow input,.frow select{font-size:12px;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);width:100%}
+.frow input:focus,.frow select:focus{outline:none;border-color:var(--tx)}
+.prow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.prow label{font-size:11px;color:var(--mu);white-space:nowrap;min-width:64px}
+.prow input[type=range]{flex:1;accent-color:var(--tx)}
+.pval{font-size:12px;font-weight:500;min-width:96px;text-align:right}
+.sbar{display:flex;gap:20px;margin-bottom:12px;flex-wrap:wrap}
+.stat{font-size:11px;color:var(--mu)}
+.stat b{font-weight:500;color:var(--tx)}
+.vt{display:flex;gap:4px;margin-bottom:12px}
+.vtb{font-size:11px;height:28px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer}
+.vtb.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.twrap{overflow-x:auto;border:1px solid var(--bd);border-radius:var(--r)}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;min-width:968px}
+thead tr{background:var(--bg2)}
+th{padding:9px 10px;text-align:left;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--tx)}
+td{padding:9px 10px;border-bottom:1px solid var(--bd);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.hb{background:none;border:none;cursor:pointer;font-size:16px;color:#ccc;padding:0;line-height:1;transition:color .1s,transform .15s}
+.hb:hover{transform:scale(1.3);color:var(--red)}
+.hb.on{color:var(--red)}
+.tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
+.tf{background:#dbeafe;color:#1d4ed8}.th{background:#dcfce7;color:#15803d}.tv{background:#fef3c7;color:#92400e}.ta{background:#ede9fe;color:#6d28d9}.tp{background:#fce7f3;color:#9d174d}.to{background:#f3f4f6;color:#6b7280}
+
+/* ── Cards ── */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:28px;padding:4px}
+.prop-card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;overflow:visible;position:relative;transition:border-color .15s;cursor:pointer}
+.prop-card:hover{border-color:rgba(0,0,0,.22)}
+@media(prefers-color-scheme:dark){.prop-card:hover{border-color:rgba(255,255,255,.22)}}
+.card-img-wrap{border-radius:12px 12px 0 0;overflow:hidden;height:160px;background:var(--bg2)}
+.card-img-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.card-img-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
+.reflection-wrap{height:55px;overflow:hidden;position:relative}
+.reflection-wrap img{width:100%;height:160px;object-fit:cover;display:block;transform:scaleY(-1);margin-top:-105px}
+.reflection-wrap::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.05) 0%,rgba(255,255,255,.82) 55%,rgba(255,255,255,1) 100%)}
+@media(prefers-color-scheme:dark){.reflection-wrap::after{background:linear-gradient(to bottom,rgba(28,28,28,.05) 0%,rgba(28,28,28,.82) 55%,rgba(28,28,28,1) 100%)}}
+.card-body{padding:11px 13px 13px}
+.card-heart{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.88);border:none;cursor:pointer;font-size:15px;color:#bbb;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;transition:color .1s,transform .15s;z-index:2}
+.card-heart:hover{transform:scale(1.2);color:var(--red)}
+.card-heart.on{color:var(--red)}
+@media(prefers-color-scheme:dark){.card-heart{background:rgba(40,40,40,.88)}}
+.card-title{font-size:12px;font-weight:500;color:var(--tx);margin-bottom:2px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-dev{font-size:11px;color:var(--mu);margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-facts{font-size:11px;color:var(--mu);margin-bottom:8px;line-height:1.7}
+.card-price{font-size:15px;font-weight:600;color:var(--tx)}
+.card-ppm{font-size:10px;color:var(--mu);margin-top:1px}
+.rental-btn{width:100%;margin-top:10px;height:30px;font-size:11px;font-weight:500;border:1px solid var(--gold);border-radius:var(--r);background:transparent;color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s,color .15s}
+.rental-btn:hover{background:var(--gold);color:#fff}
+.rental-btn:disabled{opacity:.5;cursor:default;pointer-events:none}
+.rental-panel{margin-top:10px;border:1px solid rgba(184,134,11,.25);border-radius:var(--r);background:rgba(184,134,11,.04);padding:10px 12px;font-size:11px}
+.rp-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:7px;display:flex;justify-content:space-between}
+.rp-sources{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.src{font-size:9px;padding:2px 7px;border-radius:99px;background:var(--bg2);border:1px solid var(--bd);color:var(--mu)}
+.src.found{background:#dcfce7;border-color:#86efac;color:#15803d}
+.rp-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.rp-cell{background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:8px 10px}
+.rp-cell-lbl{font-size:10px;color:var(--mu);margin-bottom:3px}
+.rp-cell-val{font-size:13px;font-weight:600;color:var(--tx)}
+.rp-cell-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.rp-note{font-size:10px;color:var(--mu);line-height:1.5;border-top:1px solid var(--bd);padding-top:7px;margin-top:2px}
+.rp-disc{font-size:9px;color:var(--mu);opacity:.6;margin-top:5px;font-style:italic}
+.spin{display:inline-block;animation:sp .7s linear infinite}
+.crit-btn{font-size:11px;padding:5px 12px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--mu);cursor:pointer;transition:all .12s;white-space:nowrap}
+.crit-btn:hover{border-color:var(--tx);color:var(--tx)}
+.crit-btn.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.intel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:16px}
+.intel-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:16px}
+.intel-card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.intel-card-title span{font-size:14px}
+.intel-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)}
+.intel-row:last-child{border-bottom:none}
+.intel-row-label{font-size:12px;color:var(--tx);font-weight:500}
+.intel-row-sub{font-size:10px;color:var(--mu);margin-top:1px}
+.intel-row-val{text-align:right}
+.intel-row-main{font-size:13px;font-weight:600;color:var(--tx)}
+.intel-row-sec{font-size:10px;color:var(--mu);margin-top:1px}
+.intel-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
+.intel-high{background:#dcfce7;color:#15803d}
+.intel-mid{background:#fef3c7;color:#92400e}
+.intel-low{background:#fee2e2;color:#991b1b}
+.intel-summary{background:var(--bg2);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:12px;color:var(--tx);line-height:1.7;border:1px solid var(--bd)}
+.intel-summary strong{font-weight:600}
+.intel-loading{text-align:center;padding:2rem;color:var(--mu);font-size:13px}
+.intel-step{font-size:11px;color:var(--mu);margin-top:6px}
+.sea-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 6px;border-radius:99px;white-space:nowrap}
+.sea-vclose{background:#dbeafe;color:#1d4ed8}
+.sea-close{background:#e0f2fe;color:#0369a1}
+.sea-mid{background:#dcfce7;color:#15803d}
+.sea-far{background:#fef3c7;color:#92400e}
+.sea-inland{background:#f3f4f6;color:#6b7280}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── Map ── */
+#mapWrap{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;height:580px;position:relative}
+#map{height:100%;width:100%}
+.map-filter{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.map-filter select,.map-filter input{font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)}
+.map-legend{position:absolute;bottom:24px;left:12px;z-index:1000;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;font-size:11px;display:flex;flex-direction:column;gap:4px}
+.map-legend-item{display:flex;align-items:center;gap:6px}
+.map-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.map-count{position:absolute;top:12px;right:12px;z-index:1000;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:5px 10px;font-size:11px;color:var(--mu)}
+
+/* ── Modal ── */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:center;justify-content:center;padding:20px}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--bg);border-radius:16px;width:100%;max-width:740px;max-height:90vh;overflow-y:auto;position:relative;animation:mIn .2s ease}
+@keyframes mIn{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-close{position:absolute;top:14px;right:14px;background:var(--bg2);border:none;cursor:pointer;width:30px;height:30px;border-radius:50%;font-size:16px;color:var(--mu);display:flex;align-items:center;justify-content:center;z-index:2}
+.modal-close:hover{color:var(--tx)}
+.modal-img{width:100%;height:260px;object-fit:cover;border-radius:16px 16px 0 0;display:block;background:var(--bg2)}
+.modal-img-placeholder{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border-radius:16px 16px 0 0}
+.modal-reflection{height:70px;overflow:hidden;position:relative}
+.modal-reflection img{width:100%;height:260px;object-fit:cover;display:block;transform:scaleY(-1);margin-top:-190px}
+.modal-reflection::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.05) 0%,rgba(255,255,255,1) 100%)}
+@media(prefers-color-scheme:dark){.modal-reflection::after{background:linear-gradient(to bottom,rgba(28,28,28,.05) 0%,rgba(28,28,28,1) 100%)}}
+.modal-body{padding:20px 24px 28px}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:12px}
+.modal-title{font-size:17px;font-weight:600;line-height:1.35;color:var(--tx)}
+.modal-price{font-size:22px;font-weight:700;color:var(--tx);white-space:nowrap}
+.modal-ppm{font-size:11px;color:var(--mu);text-align:right;margin-top:2px}
+.modal-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.meta-cell{background:var(--bg2);border-radius:var(--r);padding:9px 12px}
+.meta-label{font-size:9px;color:var(--mu);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:500}
+.meta-value{font-size:13px;font-weight:500;color:var(--tx)}
+.modal-section-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:8px;margin-top:16px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.modal-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.modal-map{height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
+
+/* ── Pag / dev / shortlist ── */
+.pag{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px}
+.pag button{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer}
+.pag button:disabled{opacity:.3;cursor:default}
+.pag button:hover:not(:disabled){background:var(--bg2)}
+.pag span{font-size:11px;color:var(--mu)}
+.empty{text-align:center;padding:3rem;color:var(--mu);font-size:13px;line-height:1.8}
+.dg{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.dc{background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:14px}
+.dn{font-weight:500;font-size:13px;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds2{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.di{font-size:11px;color:var(--mu)}
+.di b{display:block;font-size:13px;font-weight:500;color:var(--tx);margin-top:1px}
+.dci{font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6}
+.slt{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sli{font-size:12px;color:var(--mu)}
+@media(max-width:680px){.frow{grid-template-columns:1fr 1fr}.shell{padding:16px 14px}}
+</style>
+</head>
+<body>
+
+<!-- ── Modal overlay ── -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="topbar">
+    <div>
+      <div class="logo">Intel<span>Prop</span></div>
+      <div class="sub" id="sub">Loading data…</div>
+    </div>
+    <div class="top-btns">
+      <button class="btn" onclick="exportCSV()">↓ CSV</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button class="tab on" onclick="gotoTab('listings',this)">Listings</button>
+      <button class="tab" onclick="gotoTab('map',this)">Map</button>
+      <button class="tab" onclick="gotoTab('intelligence',this)">Intelligence</button>
+      <button class="tab" onclick="gotoTab('clients',this)">Client Call</button>
+      <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
+      <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
+    </div>
+
+    <!-- LISTINGS -->
+    <div id="pListings">
+      <div class="frow">
+        <input type="text" id="q" placeholder="Search developer, title, district, complex, size…" oninput="doFilter()">
+        <select id="fCity" onchange="doFilter()"><option value="">All cities</option></select>
+        <select id="fType" onchange="doFilter()"><option value="">All types</option></select>
+        <select id="fBeds" onchange="doFilter()"><option value="">Any beds</option></select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;margin-top:-4px">
+        <button onclick="clearFilters()" style="font-size:11px;padding:3px 12px;border:1px solid var(--bd);border-radius:var(--r);background:none;color:var(--mu);cursor:pointer" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--mu)'">✕ Clear all filters</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--mu);white-space:nowrap">Max distance to sea</span>
+        <select id="fSea" onchange="doFilter()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+          <option value="">Any distance</option>
+          <option value="0.5">Beachfront (&lt;500m)</option>
+          <option value="1">Walking distance (&lt;1km)</option>
+          <option value="3">Close (&lt;3km)</option>
+          <option value="8">Near (&lt;8km)</option>
+          <option value="20">Within 20km</option>
+        </select>
+      </div>
+      <div class="prow">
+        <label style="flex:none">Max price</label>
+        <input type="range" id="priceR" min="0" max="5000000" step="50000" value="5000000" oninput="onPrice()" style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:3px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);padding:0 8px;height:30px;flex:none">
+          <span style="font-size:12px;color:var(--mu)">€</span>
+          <input type="number" id="priceInput" step="50000" min="0" max="5000000" placeholder="Any" oninput="onPriceInput()" style="width:90px;border:none;background:transparent;font-size:12px;color:var(--tx);outline:none;padding:0">
+        </div>
+      </div>
+      <div class="sbar">
+        <div class="stat">Showing <b id="cShown">—</b> of <b id="cTotal">—</b></div>
+        <div class="stat">Avg price <b id="aPrice">—</b></div>
+        <div class="stat">Avg €/m² <b id="aPpm">—</b></div>
+      </div>
+      <div class="vt">
+        <button class="vtb on" id="vTable" onclick="setView('table')">≡ Table</button>
+        <button class="vtb" id="vCards" onclick="setView('cards')">⊞ Cards</button>
+      </div>
+      <div class="twrap" id="mainView"><div class="empty">Loading listings…</div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:11px;color:var(--mu)">Per page</span>
+          <button class="vtb on" id="ps25" onclick="setPS(25)">25</button>
+          <button class="vtb" id="ps50" onclick="setPS(50)">50</button>
+          <button class="vtb" id="ps100" onclick="setPS(100)">100</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="bPrev" onclick="pg(-1)" disabled style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
+          <span id="pInfo" style="font-size:11px;color:var(--mu)"></span>
+          <button id="bNext" onclick="pg(1)" style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div id="pMap" style="display:none">
+      <div class="map-filter">
+        <select id="mCity" onchange="renderMap()"><option value="">All cities</option></select>
+        <select id="mType" onchange="renderMap()"><option value="">All types</option></select>
+        <select id="mBeds" onchange="renderMap()"><option value="">Any beds</option></select>
+        <input type="range" id="mPrice" min="0" max="5000000" step="50000" value="5000000" oninput="onMapPrice()" style="flex:1;min-width:80px">
+        <div style="display:flex;align-items:center;gap:3px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);padding:0 8px;height:30px;flex:none">
+          <span style="font-size:11px;color:var(--mu)">€</span>
+          <input type="number" id="mPriceInput" step="50000" min="0" max="5000000" placeholder="Any" oninput="onMapPriceInput()" style="width:80px;border:none;background:transparent;font-size:11px;color:var(--tx);outline:none;padding:0">
+        </div>
+      </div>
+      <div id="mapWrap">
+        <div id="map"></div>
+        <div class="map-legend">
+          <div class="map-legend-item"><span class="map-dot" style="background:#1d4ed8"></span>Flat/Apartment</div>
+          <div class="map-legend-item"><span class="map-dot" style="background:#15803d"></span>House</div>
+          <div class="map-legend-item"><span class="map-dot" style="background:#92400e"></span>Villa</div>
+          <div class="map-legend-item"><span class="map-dot" style="background:#9d174d"></span>Penthouse</div>
+          <div class="map-legend-item"><span class="map-dot" style="background:#888"></span>Other</div>
+        </div>
+        <div class="map-count" id="mapCount"></div>
+      </div>
+    </div>
+
+    <!-- INTELLIGENCE -->
+    <div id="pIntelligence" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--tx)">Cyprus Market Intelligence</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Live data from AirDNA, Bazaraki, Spitogatos & market reports</div>
+        </div>
+        <button class="btn" id="intelRefreshBtn" onclick="loadIntelligence(true)">↻ Refresh</button>
+      </div>
+      <div id="intelContent">
+        <div class="empty" style="padding:2rem">Click Refresh to load live market intelligence.</div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div id="pClients" style="display:none">
+
+      <!-- Client info row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px;align-items:end">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
+          <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
+          <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <button onclick="saveClient()" class="btn primary" style="height:34px;white-space:nowrap">💾 Save client</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+
+        <!-- Purpose -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPurposeGroup">
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Own use</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Investment</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Live + seasonal rent</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Long-term rental</button>
+          </div>
+        </div>
+
+        <!-- Property type -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property type</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn crit-multi" data-val="Apartment" onclick="toggleMulti(this,'types')">Apartment</button>
+            <button class="crit-btn crit-multi" data-val="Flat" onclick="toggleMulti(this,'types')">Flat</button>
+            <button class="crit-btn crit-multi" data-val="Villa" onclick="toggleMulti(this,'types')">Villa</button>
+            <button class="crit-btn crit-multi" data-val="House" onclick="toggleMulti(this,'types')">House</button>
+            <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'types')">Penthouse</button>
+          </div>
+        </div>
+
+        <!-- Budget -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Budget</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="cBudgetGroup">
+            <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="0" data-max="200000">Under €200k</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="200000" data-max="500000">€200k–€500k</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="500000" data-max="1000000">€500k–€1M</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="1000000" data-max="2000000">€1M–€2M</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="2000000" data-max="99000000">€2M+</button>
+          </div>
+        </div>
+
+        <!-- Bedrooms -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Bedrooms</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')">Studio</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="1">1</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="2">2</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="3">3</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="4">4</button>
+            <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="5">5+</button>
+          </div>
+        </div>
+
+        <!-- City -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn crit-multi" data-val="Nicosia" onclick="toggleMulti(this,'cities')">Nicosia</button>
+            <button class="crit-btn crit-multi" data-val="Limassol" onclick="toggleMulti(this,'cities')">Limassol</button>
+            <button class="crit-btn crit-multi" data-val="Larnaca" onclick="toggleMulti(this,'cities')">Larnaca</button>
+            <button class="crit-btn crit-multi" data-val="Paphos" onclick="toggleMulti(this,'cities')">Paphos</button>
+            <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cities')">Famagusta</button>
+          </div>
+        </div>
+
+        <!-- Sea distance -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Distance to sea</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="cSeaGroup">
+            <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="0.3">Beachfront</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="1">Under 1km</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="3">Under 3km</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="8">Under 8km</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="999">Any</button>
+          </div>
+        </div>
+
+        <!-- Delivery -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Expected delivery</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="cDeliveryGroup">
+            <button class="crit-btn" onclick="toggleCrit(this,'delivery')">Ready now</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2025</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2026</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2027+</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'delivery')">Any</button>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Notes</div>
+          <input type="text" id="cNotes" placeholder="Sea view, pool, quiet area..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+
+      </div>
+
+      <!-- Results -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
+        <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+      </div>
+      <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
+
+      <!-- Save status -->
+      <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+    </div>
+
+    <!-- DEVELOPERS -->
+    <div id="pDevelopers" style="display:none">
+      <div id="devView"><div class="empty">Loading…</div></div>
+    </div>
+
+    <!-- SHORTLIST -->
+    <div id="pShortlist" style="display:none">
+      <div class="slt">
+        <span class="sli" id="slInfo">0 listings shortlisted</span>
+        <button class="btn primary" onclick="exportXLSX()">♥ Export to Excel</button>
+      </div>
+      <div class="twrap" id="slView"><div class="empty">Click ♡ on any listing to add it here.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Add your Anthropic API key here ──
+const ANTHROPIC_KEY = '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';
+const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
+const GID = '248082817';
+let PS = 25;
+let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
+const rentalCache = {};
+const geocodeCache = {};
+
+// ── Sea distance (Haversine) ──────────────────────────────────
+const COAST = [
+  {name:'Limassol seafront',lat:34.6700,lon:33.0400},
+  {name:'Germasogeia beach',lat:34.7050,lon:33.0850},
+  {name:'Amathus beach',lat:34.6950,lon:33.1100},
+  {name:"Governor's Beach",lat:34.6350,lon:33.2300},
+  {name:'Mackenzie Beach Larnaca',lat:34.8700,lon:33.6200},
+  {name:'Finikoudes Beach Larnaca',lat:34.9170,lon:33.6350},
+  {name:'Ayia Napa beach',lat:34.9950,lon:34.0000},
+  {name:'Protaras Fig Tree Bay',lat:35.0120,lon:34.0560},
+  {name:'Coral Bay Paphos',lat:34.8350,lon:32.3800},
+  {name:'Kato Paphos seafront',lat:34.7540,lon:32.4050},
+  {name:'Polis beach',lat:35.0350,lon:32.4300},
+  {name:'Latchi beach',lat:35.0500,lon:32.3900},
+  {name:'Kyrenia harbour',lat:35.3400,lon:33.3150},
+  {name:'Famagusta coast',lat:35.1100,lon:33.9500},
+  {name:'Cape Greco',lat:34.9600,lon:34.0800},
+  {name:'Akrotiri coast',lat:34.5800,lon:32.9700},
+  {name:'Episkopi beach',lat:34.6200,lon:32.8900},
+  {name:'Paramali beach',lat:34.6500,lon:32.8000},
+  {name:'Evdimou beach',lat:34.6400,lon:32.7500},
+  {name:'Limassol old port',lat:34.6720,lon:33.0490},
+  {name:'Larnaca Salt Lake coast',lat:34.8900,lon:33.6000},
+  {name:'Aphrodite Hills coast',lat:34.7000,lon:32.6500},
+];
+
+function haversine(lat1,lon1,lat2,lon2){
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function nearestSea(lat,lon){
+  let best=null,bestD=Infinity;
+  COAST.forEach(c=>{const d=haversine(lat,lon,c.lat,c.lon);if(d<bestD){bestD=d;best=c;}});
+  return{beach:best,dist:bestD};
+}
+
+function googleSearchUrl(d) {
+  const q = d.complex && d.complex !== '—'
+    ? `${d.complex} ${d.city} Cyprus`
+    : `${d.developer} Cyprus real estate`;
+  return 'https://www.google.com/search?q=' + encodeURIComponent(q);
+}
+
+function seaBadge(dist){
+  if(dist===null||dist===undefined)return'';
+  if(dist<0.3)return'<span class="sea-badge sea-vclose">Beachfront</span>';
+  const km=dist<1?`${Math.round(dist*1000)}m`:dist<10?`${dist.toFixed(1)}km`:`${Math.round(dist)}km`;
+  const cls=dist<1?'sea-vclose':dist<3?'sea-close':dist<8?'sea-mid':dist<20?'sea-far':'sea-inland';
+  return`<span class="sea-badge ${cls}">${km} from sea</span>`;
+}
+let leafMap = null, markers = [];
+
+// ── Fallback coordinates: district first, then city ──
+const DISTRICT_FALLBACK = {
+  // Limassol districts
+  'Agios Athanasios':[34.6600,33.0500],'Germasogeia':[34.7050,33.0700],
+  'Potamos Germasogeias':[34.7100,33.0900],'Amathus':[34.6950,33.1100],
+  "Governor's Beach":[34.6350,33.2300],'Mesa Geitonia':[34.6800,33.0400],
+  'Ypsonas':[34.7000,32.9800],'Polemidia':[34.7100,32.9700],
+  'Zakaki':[34.6700,32.9900],'Kolossi':[34.6700,32.9200],
+  'Erimi':[34.6600,32.8700],'Episkopi':[34.6150,32.8900],
+  'Paramali':[34.6450,32.8000],'Evdimou':[34.6350,32.7500],
+  // Larnaca districts
+  'Oroklini':[34.8500,33.6400],'Pervolia':[34.8400,33.5800],
+  'Meneou':[34.8550,33.5700],'Mazotos':[34.8000,33.5200],
+  'Kiti':[34.8300,33.5600],'Perivolia':[34.8400,33.5800],
+  'Vergina':[34.9000,33.5800],'Aradippou':[34.9500,33.5900],
+  'Metropolis Mall Area':[34.9200,33.6200],
+  // Paphos districts
+  'Kato Paphos':[34.7540,32.4050],'Coral Bay':[34.8350,32.3800],
+  'Chlorakas':[34.7900,32.3900],'Emba':[34.8200,32.4300],
+  'Tala':[34.8200,32.4600],'Pegeia':[34.8600,32.3700],
+  'Polis':[35.0350,32.4300],'Latchi':[35.0500,32.3900],
+  'Aphrodite Hills':[34.7000,32.6500],'Kouklia':[34.6900,32.5800],
+  // Famagusta / east coast
+  'Protaras':[35.0120,34.0560],'Ayia Napa':[34.9950,34.0000],
+  'Paralimni':[35.0350,33.9700],'Sotira':[35.0600,33.9200],
+  'Frenaros':[35.0500,33.9100],'Cape Greco':[34.9600,34.0800],
+  // Nicosia districts (inland - correct distances ~50km)
+  'Strovolos':[35.1400,33.3600],'Latsia':[35.1200,33.3200],
+  'Tseri':[35.1700,33.4200],'Lakatameia':[35.1500,33.3000],
+  'Agios Dometios':[35.1600,33.3400],'Pera Chorio':[35.0500,33.4500],
+  'Dali':[35.0200,33.4200],'Geri':[35.1000,33.4500],
+  'Anthoupolis':[35.1600,33.3100],'Aglandjia':[35.1700,33.3900],
+  'Makedonitissa':[35.1800,33.3600],'Engomi':[35.1700,33.3500],
+};
+const CITY_FALLBACK = {
+  'Nicosia':   [35.1856, 33.3823],
+  'Limassol':  [34.6841, 33.0228],
+  'Larnaca':   [34.9229, 33.6233],
+  'Paphos':    [34.7754, 32.4241],
+  'Famagusta': [35.1213, 33.9413],
+  'Kyrenia':   [35.3417, 33.3192],
+};
+
+// ── Nominatim geocoding ──
+async function geocode(city, district) {
+  const key = `${district||''},${city},Cyprus`.toLowerCase();
+  if (geocodeCache[key]) return geocodeCache[key];
+
+  // Try district + city first, fall back to city only
+  const queries = district
+    ? [`${district}, ${city}, Cyprus`, `${city}, Cyprus`]
+    : [`${city}, Cyprus`];
+
+  for (const q of queries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=cy`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'IntelProp/1.0' } });
+      const data = await res.json();
+      if (data && data[0]) {
+        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        geocodeCache[key] = coords;
+        return coords;
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  // Final fallback: city centre
+  const fb = CITY_FALLBACK[city];
+  if (fb) {
+    // Small jitter so pins don't all stack
+    const jitter = [(Math.random()-0.5)*0.01, (Math.random()-0.5)*0.01];
+    const coords = [fb[0]+jitter[0], fb[1]+jitter[1]];
+    geocodeCache[key] = coords;
+    return coords;
+  }
+  return null;
+}
+
+async function getCoords(d) {
+  // If sheet has lat/lng columns, use those
+  if (d.lat && d.lng) return [d.lat, d.lng];
+  // Try district fallback instantly before geocoding
+  const fb = DISTRICT_FALLBACK[d.district] || CITY_FALLBACK[d.city];
+  const result = await geocode(d.city, d.district);
+  return result || fb || null;
+}
+
+function pinColor(type) {
+  const k = (type || '').toLowerCase();
+  if (k.includes('flat') || k.includes('apartment')) return '#1d4ed8';
+  if (k.includes('house')) return '#15803d';
+  if (k.includes('villa')) return '#92400e';
+  if (k.includes('penthouse')) return '#9d174d';
+  return '#888';
+}
+
+function createPin(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>`,
+    iconSize: [12, 12], iconAnchor: [6, 6]
+  });
+}
+
+async function init() {
+  try {
+    // Try gviz first, fall back to CSV export
+    let rows = null;
+    try {
+      // Method 1: fetch gviz
+      let json = null;
+      try {
+        const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&gid=${GID}`);
+        const t = await r.text();
+        const m = t.match(/setResponse\(([\s\S]*)\)/);
+        if (m) json = JSON.parse(m[1]);
+      } catch(e1) { console.warn('fetch gviz failed:', e1.message); }
+
+      // Method 2: JSONP fallback
+      if (!json || !json.table || !json.table.rows || json.table.rows.length < 2) {
+        json = await new Promise((resolve, reject) => {
+          const cbName = 'gvizCb_' + Date.now();
+          const script = document.createElement('script');
+          const timeout = setTimeout(() => { reject(new Error('JSONP timeout')); script.remove(); }, 10000);
+          window[cbName] = (data) => { clearTimeout(timeout); script.remove(); delete window[cbName]; resolve(data); };
+          script.src = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json;handler=${cbName}&gid=${GID}`;
+          script.onerror = () => { clearTimeout(timeout); reject(new Error('JSONP failed')); };
+          document.head.appendChild(script);
+        });
+      }
+
+      if (!json || !json.table || !json.table.rows || json.table.rows.length < 2) throw new Error('Empty table');
+      rows = json.table.rows.map((r, i) => {
+        const g = k => r.c[k] && r.c[k].v !== null ? r.c[k].v : '';
+        return {
+          id: i,
+          developer: '' + g(0), title: '' + g(1), type: '' + g(2),
+          city: '' + g(3), district: '' + g(4),
+          bedrooms: g(5) !== '' ? +g(5) : null,
+          area: g(6) !== '' ? +g(6) : null,
+          plot: g(7) !== '' ? +g(7) : null,
+          price: g(8) !== '' ? +g(8) : null,
+          ppm: g(9) !== '' ? +g(9) : null,
+          priceText: '' + g(10), addedOn: (()=>{
+            const raw = '' + g(11);
+            const dm = raw.match(/Date\((\d+),(\d+),(\d+)/);
+            if(dm) {
+              const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              return `${String(+dm[3]).padStart(2,'0')} ${months[+dm[2]]} ${dm[1]}`;
+            }
+            return raw.split('T')[0] || raw;
+          })(),
+          complex: (()=>{const v=''+ g(12); return(v&&v.toLowerCase()!=='standalone'&&v!=='—'&&v!=='')?v:null;})(),
+          imageUrl: g(13) ? '' + g(13) : null,
+          lat: g(14) !== '' ? +g(14) : null,
+          lng: g(15) !== '' ? +g(15) : null,
+          projectUrl: g(16) ? '' + g(16) : null,
+        };
+      });
+    } catch(e1) {
+      console.warn('gviz failed, trying CSV:', e1.message);
+      // CSV fallback
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=${GID}`;
+      const res2 = await fetch(csvUrl, { mode: 'cors', credentials: 'omit' });
+      if (!res2.ok) throw new Error('CSV HTTP ' + res2.status);
+      const text2 = await res2.text();
+      const lines = text2.trim().split('\n');
+      const header = lines[0].split(',');
+      rows = lines.slice(1).map((line, i) => {
+        // Handle quoted CSV properly
+        const cols = [];
+        let cur = '', inQ = false;
+        for (let c of line) {
+          if (c === '"') inQ = !inQ;
+          else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+          else cur += c;
+        }
+        cols.push(cur.trim());
+        const g = k => (cols[k] || '').replace(/^"|"$/g, '').trim();
+        const n = k => { const v = g(k).replace(/[^0-9.]/g,''); return v !== '' && !isNaN(+v) ? +v : null; };
+        return {
+          id: i,
+          developer: g(0), title: g(1), type: g(2),
+          city: g(3), district: g(4),
+          bedrooms: n(5), area: n(6), plot: n(7),
+          price: n(8), ppm: n(9),
+          priceText: g(10), addedOn: (g(11)||'').split(' ')[0]||g(11),
+          complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
+          imageUrl: g(13) || null,
+          lat: n(14), lng: n(15),
+          projectUrl: g(16) || null,
+        };
+      });
+    }
+
+    all = rows.filter(d => d.developer && d.developer.toLowerCase() !== 'developer' && d.title);
+
+    // Pre-compute sea distance instantly using district/city fallback coords
+    all.forEach(d => {
+      if (d.seaDist != null) return;
+      // Use district coords if available (more accurate), else city centre
+      const fb = DISTRICT_FALLBACK[d.district] || CITY_FALLBACK[d.city];
+      if (fb) {
+        const {beach, dist} = nearestSea(fb[0], fb[1]);
+        d.seaDist = dist;
+        d.nearestBeach = beach.name;
+      }
+    });
+
+    const sr = document.getElementById('priceR');
+    sr.max = 5000000; sr.value = 5000000; sr.step = 50000;
+    document.getElementById('mPrice').max = 5000000;
+    document.getElementById('mPrice').value = 5000000;
+    document.getElementById('mPrice').step = 50000;
+    populate();
+    document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
+    doFilter(); renderDev();
+  } catch (e) {
+    document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
+  }
+}
+
+function populate() {
+  const cities = [...new Set(all.map(d => d.city).filter(Boolean))].sort();
+  const types  = [...new Set(all.map(d => d.type).filter(Boolean))].sort();
+  const beds   = [...new Set(all.map(d => d.bedrooms).filter(v => v !== null))].sort((a,b)=>a-b);
+  ['fCity','mCity'].forEach(id => { const el=document.getElementById(id); cities.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); });
+  ['fType','mType'].forEach(id => { const el=document.getElementById(id); types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); });
+  ['fBeds','mBeds'].forEach(id => { const el=document.getElementById(id); beds.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=`${b} bed${b!==1?'s':''}`;el.appendChild(o);}); });
+}
+
+function onPrice() {
+  const slider = document.getElementById('priceR');
+  const input  = document.getElementById('priceInput');
+  const v = +slider.value;
+  input.value = v >= 5000000 ? '' : v;
+  input.placeholder = v >= 5000000 ? 'Any' : '';
+  doFilter();
+}
+
+function onPriceInput() {
+  const slider = document.getElementById('priceR');
+  const input  = document.getElementById('priceInput');
+  const v = input.value === '' ? 5000000 : Math.min(+input.value, 5000000);
+  slider.value = v;
+  doFilter();
+}
+
+function onMapPrice() {
+  const slider = document.getElementById('mPrice');
+  const input  = document.getElementById('mPriceInput');
+  const v = +slider.value;
+  input.value = v >= 5000000 ? '' : v;
+  input.placeholder = v >= 5000000 ? 'Any' : '';
+  renderMap();
+}
+
+function onMapPriceInput() {
+  const slider = document.getElementById('mPrice');
+  const input  = document.getElementById('mPriceInput');
+  const v = input.value === '' ? 5000000 : Math.min(+input.value, 5000000);
+  slider.value = v;
+  renderMap();
+}
+
+function doFilter() {
+  const q=document.getElementById('q').value.toLowerCase();
+  const city=document.getElementById('fCity').value;
+  const type=document.getElementById('fType').value;
+  const beds=document.getElementById('fBeds').value;
+  const pinput=document.getElementById('priceInput');
+  const rv = pinput.value !== '' ? +pinput.value : 5000000;
+  const maxP = rv < 5000000 ? rv : null;
+  const seaEl = document.getElementById('fSea');
+  const maxSea = seaEl && seaEl.value ? +seaEl.value : null;
+  filt=all.filter(d=>{
+    if(q&&!`${d.developer} ${d.title} ${d.district} ${d.complex||''} ${d.area!=null?d.area+' m²':''} ${d.bedrooms!=null?d.bedrooms+' bed':''}`.toLowerCase().includes(q))return false;
+    if(city&&d.city!==city)return false;
+    if(type&&d.type!==type)return false;
+    if(beds&&d.bedrooms!==+beds)return false;
+    if(maxP&&d.price>maxP)return false;
+    if(maxSea&&(d.seaDist==null||d.seaDist>maxSea))return false;
+    return true;
+  });
+  if(sc){
+    filt.sort((a,b)=>{
+      let av=a[sc],bv=b[sc];
+      if(av===null)av=sa?Infinity:-Infinity;
+      if(bv===null)bv=sa?Infinity:-Infinity;
+      if(typeof av==='string')av=av.toLowerCase();
+      if(typeof bv==='string')bv=bv.toLowerCase();
+      return sa?(av>bv?1:-1):(av<bv?1:-1);
+    });
+  }
+  page=1; render();
+}
+
+function tagBadge(t) {
+  const k=(t||'').toLowerCase();
+  if(k.includes('flat'))return`<span class="tag tf">${t}</span>`;
+  if(k.includes('house'))return`<span class="tag th">${t}</span>`;
+  if(k.includes('villa'))return`<span class="tag tv">${t}</span>`;
+  if(k.includes('apartment'))return`<span class="tag ta">${t}</span>`;
+  if(k.includes('penthouse'))return`<span class="tag tp">${t}</span>`;
+  return`<span class="tag to">${t}</span>`;
+}
+
+// ── Rental research ──
+async function getRentalData(id) {
+  if(rentalCache[id])return rentalCache[id];
+  const d=all.find(x=>x.id===id);
+  if(!d)return null;
+  const prompt=`Search Bazaraki.com, Spitogatos.cy, and Rightmove Cyprus for current rental listings of ${d.bedrooms!=null?d.bedrooms+' bedroom':''} ${(d.type||'property').toLowerCase()}${d.complex?' in '+d.complex+' complex,':''} in ${d.district}, ${d.city}, Cyprus${d.area?` around ${d.area}m²`:''}.
+Respond ONLY with valid JSON, no markdown:
+{"short_term_low":int|null,"short_term_high":int|null,"short_term_occupancy_low":int|null,"short_term_occupancy_high":int|null,"long_term_low":int|null,"long_term_high":int|null,"long_term_occupancy":int|null,"sources_found":["bazaraki"|"spitogatos"|"rightmove"],"comparables_count":int,"note":"string max 140 chars"}`;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||'API '+res.status);}
+  const data=await res.json();
+  const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+  const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+  rentalCache[id]=parsed;
+  return parsed;
+}
+
+async function triggerRental(id,e) {
+  e&&e.stopPropagation();
+  const btn=document.getElementById(`rbtn-${id}`);
+  const panel=document.getElementById(`rpanel-${id}`);
+  if(!btn||!panel)return;
+  if(panel.dataset.loaded){
+    const vis=panel.style.display!=='none';
+    panel.style.display=vis?'none':'';
+    btn.textContent=vis?'◈ Market rental data':'▲ Hide rental data';
+    return;
+  }
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin">◈</span> Searching…';
+  try {
+    const r=await getRentalData(id);
+    const allSrc=['bazaraki','spitogatos','rightmove'];
+    const srcNames={bazaraki:'Bazaraki',spitogatos:'Spitogatos',rightmove:'Rightmove'};
+    const pills=allSrc.map(s=>`<span class="src ${r.sources_found&&r.sources_found.includes(s)?'found':''}">${srcNames[s]}</span>`).join('');
+    const stCell=(r.short_term_low&&r.short_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Short-term (holiday)</div><div class="rp-cell-val">€${r.short_term_low.toLocaleString()}–€${r.short_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.short_term_occupancy_low?`<div class="rp-cell-sub">Occupancy ${r.short_term_occupancy_low}–${r.short_term_occupancy_high}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Short-term</div><div class="rp-cell-sub" style="margin-top:6px">No data found</div></div>`;
+    const ltCell=(r.long_term_low&&r.long_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Long-term (monthly)</div><div class="rp-cell-val">€${r.long_term_low.toLocaleString()}–€${r.long_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.long_term_occupancy?`<div class="rp-cell-sub">Occupancy ~${r.long_term_occupancy}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Long-term</div><div class="rp-cell-sub" style="margin-top:6px">No data found</div></div>`;
+    panel.innerHTML=`<div class="rp-title"><span>Market Rental Data</span>${r.comparables_count?`<span style="font-weight:400;font-size:9px;color:var(--mu)">${r.comparables_count} comparables</span>`:''}</div><div class="rp-sources">${pills}</div><div class="rp-row">${stCell}${ltCell}</div><div class="rp-note">${r.note||''}</div><div class="rp-disc">Live data from Bazaraki, Spitogatos & Rightmove Cyprus. Cached for session.</div>`;
+    panel.dataset.loaded='1'; panel.style.display='';
+    btn.textContent='▲ Hide rental data';
+  } catch(e) {
+    panel.innerHTML=`<div style="font-size:11px;color:var(--mu)">Could not fetch data. ${e.message}</div>`;
+    panel.dataset.loaded='1'; panel.style.display='';
+    btn.textContent='▲ Hide rental data';
+  }
+  btn.disabled=false;
+}
+
+// ── Map ──
+async function renderMap() {
+  if (!leafMap) {
+    leafMap = L.map('map').setView([34.9, 33.1], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(leafMap);
+  }
+  markers.forEach(m => m.remove()); markers = [];
+
+  const city = document.getElementById('mCity').value;
+  const type = document.getElementById('mType').value;
+  const beds = document.getElementById('mBeds').value;
+  const rv = +document.getElementById('mPrice').value, rm = +document.getElementById('mPrice').max;
+  const maxP = rv < rm ? rv : null;
+
+  const mapData = all.filter(d => {
+    if (city && d.city !== city) return false;
+    if (type && d.type !== type) return false;
+    if (beds && d.bedrooms !== +beds) return false;
+    if (maxP && d.price > maxP) return false;
+    if (!d.city) return false;
+    return true;
+  });
+
+  document.getElementById('mapCount').textContent = `${mapData.length.toLocaleString()} listings`;
+
+  // Geocode and plot in batches to respect Nominatim rate limit (1 req/sec)
+  // Group by unique city+district to minimise API calls
+  const uniqueLocs = {};
+  mapData.forEach(d => {
+    const key = `${d.district||''},${d.city}`;
+    if (!uniqueLocs[key]) uniqueLocs[key] = { city: d.city, district: d.district, ids: [] };
+    uniqueLocs[key].ids.push(d.id);
+  });
+
+  let delay = 0;
+  for (const [key, loc] of Object.entries(uniqueLocs)) {
+    setTimeout(async () => {
+      const coords = await geocode(loc.city, loc.district);
+      if (!coords) return;
+      // Plot each property at this location with small jitter
+      loc.ids.forEach((id, idx) => {
+        const d = all.find(x => x.id === id);
+        if (!d) return;
+        const jitter = [(Math.random()-0.5)*0.008, (Math.random()-0.5)*0.008];
+        const pin = [coords[0]+jitter[0], coords[1]+jitter[1]];
+        const color = pinColor(d.type);
+        const m = L.marker(pin, { icon: createPin(color) }).addTo(leafMap);
+        m.bindPopup(`<div style="font-size:12px;min-width:180px">
+          <div style="font-weight:600;margin-bottom:4px;line-height:1.3">${d.title}</div>
+          <div style="color:#888;font-size:11px;margin-bottom:6px">${d.city}${d.district ? ', '+d.district : ''}</div>
+          <div style="display:flex;gap:8px;font-size:11px;margin-bottom:8px">
+            ${d.bedrooms!=null?`<span>${d.bedrooms} beds</span>`:''}
+            ${d.area!=null?`<span>${d.area} m²</span>`:''}
+          </div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+          <button onclick="openModal(${d.id})" style="width:100%;height:28px;font-size:11px;font-weight:500;border:1px solid #1a1a1a;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">View details</button>
+        </div>`, { maxWidth: 220 });
+        markers.push(m);
+      });
+    }, delay);
+    // Only delay if not cached
+    const cacheKey = `${loc.district||''},${loc.city},cyprus`;
+    if (!geocodeCache[cacheKey.toLowerCase()]) delay += 1100; // 1.1s between uncached requests
+  }
+}
+
+// ── Detail modal ──
+function openModal(id, e) {
+  e&&e.stopPropagation();
+  const d=all.find(x=>x.id===id);
+  if(!d)return;
+  const on=sl.has(d.id);
+  const img=d.imageUrl;
+  document.getElementById('modalContent').innerHTML=`
+    ${img?`<img class="modal-img" src="${img}" alt="${d.title}"><div class="modal-reflection"><img src="${img}" alt="" aria-hidden="true"></div>`:``}
+    <div class="modal-body">
+      <div class="modal-header">
+        <div style="flex:1;min-width:0">
+          <div style="margin-bottom:6px">${tagBadge(d.type)}${d.seaDist!=null?' '+seaBadge(d.seaDist):''}</div>
+          <div class="modal-title">${d.title}</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:4px">${d.developer}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:16px">
+          <div class="modal-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+          ${d.ppm!=null?`<div class="modal-ppm">€${d.ppm.toLocaleString()} / m²</div>`:''}
+        </div>
+      </div>
+      <div class="modal-meta">
+        ${d.complex ? `<div class="meta-cell"><div class="meta-label">Complex</div><div class="meta-value">${d.complex}</div></div>` : ''}
+        <div class="meta-cell"><div class="meta-label">City</div><div class="meta-value">${d.city||'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">District</div><div class="meta-value">${d.district||'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">Bedrooms</div><div class="meta-value">${d.bedrooms!=null?d.bedrooms:'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">Total area</div><div class="meta-value">${d.area!=null?d.area+' m²':'—'}</div></div>
+        ${d.plot!=null?`<div class="meta-cell"><div class="meta-label">Plot size</div><div class="meta-value">${d.plot} m²</div></div>`:''}
+        <div class="meta-cell"><div class="meta-label">Added</div><div class="meta-value">${d.addedOn||'—'}</div></div>
+        <div class="meta-cell" id="modal-sea-${d.id}"><div class="meta-label">Distance to sea</div><div class="meta-value">${d.seaDist!=null?seaBadge(d.seaDist):'—'}</div></div>
+      </div>
+      <div class="modal-section-title">Location</div>
+      <div class="modal-map" id="modalMap"></div>
+      <div class="modal-section-title">Rental Intelligence</div>
+      <div id="modalRentalArea">
+        <button class="rental-btn" id="rbtn-modal-${d.id}" onclick="triggerModalRental(${d.id})">◈ Market rental data</button>
+        <div class="rental-panel" id="rpanel-modal-${d.id}" style="display:none"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
+        <a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>
+        <button class="btn" onclick="closeModalDirect()">Close</button>
+      </div>
+    </div>`;
+
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+
+  // Mini map inside modal
+  setTimeout(async ()=>{
+    const coords = await getCoords(d);
+    if(coords&&document.getElementById('modalMap')){
+      const mm=L.map('modalMap',{zoomControl:false,dragging:false,scrollWheelZoom:false}).setView(coords,15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(mm);
+      L.marker(coords,{icon:createPin(pinColor(d.type))}).addTo(mm);
+      // Compute sea distance from real coords
+      const {beach,dist} = nearestSea(coords[0],coords[1]);
+      d.seaDist = dist; d.nearestBeach = beach.name;
+      // Update card badge if visible
+      const cardBadge = document.getElementById('sea-'+d.id);
+      if(cardBadge) cardBadge.innerHTML = seaBadge(dist);
+      // Update modal cell
+      const modalSea = document.getElementById('modal-sea-'+d.id);
+      if(modalSea) modalSea.querySelector('.meta-value').innerHTML = seaBadge(dist);
+    }
+    // Copy rental cache to modal panel if available
+    if(rentalCache[d.id]){
+      const src=document.getElementById(`rpanel-${d.id}`);
+      const dst=document.getElementById(`rpanel-modal-${d.id}`);
+      const srcBtn=document.getElementById(`rbtn-modal-${d.id}`);
+      if(src&&dst&&src.dataset.loaded){
+        dst.innerHTML=src.innerHTML; dst.dataset.loaded='1'; dst.style.display='';
+        if(srcBtn)srcBtn.textContent='▲ Hide rental data';
+      }
+    }
+  },100);
+}
+
+async function triggerModalRental(id) {
+  const btn=document.getElementById(`rbtn-modal-${id}`);
+  const panel=document.getElementById(`rpanel-modal-${id}`);
+  // Proxy to main triggerRental logic then copy to modal
+  const tmpBtn=document.getElementById(`rbtn-${id}`);
+  const tmpPanel=document.getElementById(`rpanel-${id}`);
+  if(!btn||!panel)return;
+  if(panel.dataset.loaded){
+    const vis=panel.style.display!=='none';
+    panel.style.display=vis?'none':'';
+    btn.textContent=vis?'◈ Market rental data':'▲ Hide rental data';
+    return;
+  }
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin">◈</span> Searching…';
+  try {
+    const r=await getRentalData(id);
+    const allSrc=['bazaraki','spitogatos','rightmove'];
+    const srcNames={bazaraki:'Bazaraki',spitogatos:'Spitogatos',rightmove:'Rightmove'};
+    const pills=allSrc.map(s=>`<span class="src ${r.sources_found&&r.sources_found.includes(s)?'found':''}">${srcNames[s]}</span>`).join('');
+    const stCell=(r.short_term_low&&r.short_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Short-term (holiday)</div><div class="rp-cell-val">€${r.short_term_low.toLocaleString()}–€${r.short_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.short_term_occupancy_low?`<div class="rp-cell-sub">Occupancy ${r.short_term_occupancy_low}–${r.short_term_occupancy_high}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Short-term</div><div style="font-size:10px;color:var(--mu);margin-top:6px">No data found</div></div>`;
+    const ltCell=(r.long_term_low&&r.long_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Long-term (monthly)</div><div class="rp-cell-val">€${r.long_term_low.toLocaleString()}–€${r.long_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.long_term_occupancy?`<div class="rp-cell-sub">Occupancy ~${r.long_term_occupancy}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Long-term</div><div style="font-size:10px;color:var(--mu);margin-top:6px">No data found</div></div>`;
+    const html=`<div class="rp-title"><span>Market Rental Data</span>${r.comparables_count?`<span style="font-weight:400;font-size:9px;color:var(--mu)">${r.comparables_count} comparables</span>`:''}</div><div class="rp-sources">${pills}</div><div class="rp-row">${stCell}${ltCell}</div><div class="rp-note">${r.note||''}</div><div class="rp-disc">Live data from Bazaraki, Spitogatos & Rightmove Cyprus.</div>`;
+    panel.innerHTML=html; panel.dataset.loaded='1'; panel.style.display='';
+    btn.textContent='▲ Hide rental data';
+  } catch(e) {
+    panel.innerHTML=`<div style="font-size:11px;color:var(--mu)">Could not fetch. ${e.message}</div>`;
+    panel.dataset.loaded='1'; panel.style.display=''; btn.textContent='▲ Hide rental data';
+  }
+  btn.disabled=false;
+}
+
+function heartFromModal(id) {
+  sl.has(id)?sl.delete(id):sl.add(id);
+  document.getElementById('slBadge').textContent=sl.size;
+  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  const btn=document.getElementById('modalHeartBtn');
+  if(btn)btn.textContent=sl.has(id)?'♥ Remove from shortlist':'♡ Add to shortlist';
+  render(); if(tab==='shortlist')renderSL();
+}
+
+function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
+function closeModalDirect() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ── Card ──
+function renderCard(d) {
+  const img=d.imageUrl; const on=sl.has(d.id);
+  return `<div class="prop-card" onclick="openModal(${d.id})">
+    <button class="card-heart ${on?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${on?'♥':'♡'}</button>
+    <div class="card-img-wrap">${img?`<img src="${img}" alt="${d.title}" loading="lazy">`:`<div class="card-img-placeholder"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".25"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:10px;color:var(--mu)">No image</span></div>`}</div>
+    ${img?`<div class="reflection-wrap"><img src="${img}" alt="" aria-hidden="true" loading="lazy"></div>`:'<div style="height:8px"></div>'}
+    <div class="card-body">
+      <div style="margin-bottom:6px">${tagBadge(d.type)}</div>
+      <div class="card-title">${d.title}</div>
+      <div class="card-dev">${d.developer}</div>
+      ${d.complex ? `<div style="font-size:11px;color:var(--tx);font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.complex}</div>` : ''}
+      <div class="card-facts">${[d.city&&d.district?`${d.city}, ${d.district}`:d.city||d.district,d.bedrooms!=null?`${d.bedrooms} bed${d.bedrooms!==1?'s':''}`:null,d.area!=null?`${d.area} m²`:null].filter(Boolean).join(' · ')}</div>
+      <div class="card-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
+        ${d.ppm!=null?`<span class="card-ppm">€${d.ppm.toLocaleString()} / m²</span>`:''}
+        <span id="sea-${d.id}">${d.seaDist!=null?seaBadge(d.seaDist):'<span style="font-size:10px;color:var(--mu)">...</span>'}</span>
+      </div>
+      <button class="rental-btn" id="rbtn-${d.id}" onclick="triggerRental(${d.id},event)">◈ Market rental data</button>
+      <div class="rental-panel" id="rpanel-${d.id}" style="display:none"></div>
+      <a href="${googleSearchUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:block;width:100%;margin-top:6px;height:28px;font-size:11px;font-weight:500;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;text-decoration:none" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--mu)'">↗ Search on Google</a>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const start=(page-1)*PS, data=filt.slice(start,start+PS), tot=Math.ceil(filt.length/PS)||1;
+  document.getElementById('cShown').textContent=filt.length.toLocaleString();
+  document.getElementById('cTotal').textContent=all.length.toLocaleString();
+  const ps=filt.filter(d=>d.price).map(d=>d.price);
+  const ms=filt.filter(d=>d.ppm).map(d=>d.ppm);
+  document.getElementById('aPrice').textContent=ps.length?'€'+Math.round(ps.reduce((a,b)=>a+b)/ps.length).toLocaleString():'—';
+  document.getElementById('aPpm').textContent=ms.length?'€'+Math.round(ms.reduce((a,b)=>a+b)/ms.length).toLocaleString():'—';
+  document.getElementById('pInfo').textContent=`Page ${page} of ${tot}`;
+  document.getElementById('bPrev').disabled=page<=1;
+  document.getElementById('bNext').disabled=page>=tot;
+  if(!data.length){document.getElementById('mainView').innerHTML=`<div class="empty">No listings match.</div>`;return;}
+  if(view==='table'){
+    const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px"><col style="width:36px">';
+    const lbl={developer:'Developer',title:'Title',type:'Type',city:'City',district:'District',bedrooms:'Beds',area:'Area m²',price:'Price',ppm:'€/m²'};
+    const hs=Object.keys(lbl).map(k=>`<th onclick="sortBy('${k}')">${lbl[k]}${sc===k?(sa?' ↑':' ↓'):''}</th>`).join('');
+    const rows=data.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td title="${d.developer||''}">${d.developer||'—'}</td>
+      <td title="${d.title||''}${d.complex?' · '+d.complex:''}">${d.title||'—'}${d.complex?`<span style="color:var(--mu);font-size:10px"> · ${d.complex}</span>`:''}</td>
+      <td>${tagBadge(d.type)}</td>
+      <td>${d.city||'—'}</td>
+      <td>${d.district||'—'}</td>
+      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+      <td style="font-weight:600;white-space:nowrap">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      <td style="text-align:right;white-space:nowrap;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+    </tr>`).join('');
+    document.getElementById('mainView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr>${hs}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else {
+    document.getElementById('mainView').innerHTML=`<div style="padding:12px"><div class="cards">${data.map(d=>renderCard(d)).join('')}</div></div>`;
+  }
+}
+
+function heart(id) {
+  sl.has(id)?sl.delete(id):sl.add(id);
+  document.getElementById('slBadge').textContent=sl.size;
+  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  render(); if(tab==='shortlist')renderSL();
+}
+
+function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
+function pg(d){page+=d;render();window.scrollTo(0,0);}
+function setView(v){
+  view=v;
+  document.getElementById('vTable').classList.toggle('on',v==='table');
+  document.getElementById('vCards').classList.toggle('on',v==='cards');
+  render();
+}
+
+function setPS(n){
+  PS=n;
+  [25,50,100].forEach(x=>{
+    const el=document.getElementById('ps'+x);
+    if(el)el.classList.toggle('on',x===n);
+  });
+  page=1;render();
+}
+
+function clearFilters(){
+  document.getElementById('q').value='';
+  document.getElementById('fCity').value='';
+  document.getElementById('fType').value='';
+  document.getElementById('fBeds').value='';
+  const fSea=document.getElementById('fSea');
+  if(fSea)fSea.value='';
+  const slider=document.getElementById('priceR');
+  slider.value=slider.max;
+  const pinput=document.getElementById('priceInput');
+  pinput.value='';
+  pinput.placeholder='Any';
+  doFilter();
+}
+
+function gotoTab(t,el){
+  tab=t;
+  ['listings','map','intelligence','clients','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(t==='map'){setTimeout(()=>{if(leafMap)leafMap.invalidateSize();renderMap();},50);}
+  if(t==='intelligence'){loadIntelligence(false);}
+  if(t==='shortlist')renderSL();
+}
+
+function renderDev(){
+  const m={};
+  all.forEach(d=>{
+    if(!d.developer)return;
+    if(!m[d.developer])m[d.developer]={name:d.developer,n:0,prices:[],cities:new Set()};
+    m[d.developer].n++;
+    if(d.price)m[d.developer].prices.push(d.price);
+    if(d.city)m[d.developer].cities.add(d.city);
+  });
+  const devs=Object.values(m).sort((a,b)=>b.n-a.n);
+  document.getElementById('devView').innerHTML=`<div class="dg">${devs.map(d=>{
+    const avg=d.prices.length?Math.round(d.prices.reduce((a,b)=>a+b)/d.prices.length):null;
+    const mn=d.prices.length?Math.min(...d.prices):null;
+    const mx=d.prices.length?Math.max(...d.prices):null;
+    return`<div class="dc"><div class="dn" title="${d.name}">${d.name}</div><div class="ds2"><div class="di">Listings<b>${d.n}</b></div><div class="di">Avg price<b>${avg?'€'+avg.toLocaleString():'—'}</b></div><div class="di">Min<b>${mn?'€'+mn.toLocaleString():'—'}</b></div><div class="di">Max<b>${mx?'€'+mx.toLocaleString():'—'}</b></div></div><div class="dci">${[...d.cities].join(' · ')}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function renderSL(){
+  if(!sl.size){document.getElementById('slView').innerHTML=`<div class="empty">No listings shortlisted.<br>Click ♡ to add.</div>`;return;}
+  const items=all.filter(d=>sl.has(d.id));
+  if(view==='cards'){document.getElementById('slView').innerHTML=`<div style="padding:12px"><div class="cards">${items.map(d=>renderCard(d)).join('')}</div></div>`;return;}
+  const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px"><col style="width:36px">';
+  const rows=items.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
+    <td title="${d.developer}">${d.developer}</td>
+    <td title="${d.title}">${d.title}</td>
+    <td>${tagBadge(d.type)}</td>
+    <td>${d.city}</td>
+    <td>${d.district}</td>
+    <td title="${d.complex||''}">${d.complex||'—'}</td>
+    <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+    <td style="text-align:right">${d.area!=null?d.area.toLocaleString():'—'}</td>
+    <td style="font-weight:500">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+    <td style="text-align:right">${d.ppm!=null?d.ppm.toLocaleString():'—'}</td>
+    <td style="text-align:center"><button class="hb on" onclick="event.stopPropagation();heart(${d.id})">♥</button></td>
+  </tr>`).join('');
+  document.getElementById('slView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Complex</th><th>Beds</th><th>Area m²</th><th>Price</th><th>€/m²</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function exportCSV(){
+  if(!filt.length){alert('No data to export.');return;}
+  const h=['Developer','Title','Complex','Type','City','District','Bedrooms','Area m2','Price EUR','EUR per m2','Price Text','Added On'];
+  const rows=filt.map(d=>[d.developer,d.title,d.complex??'',d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.price??'',d.ppm??'',d.priceText,d.addedOn].map(v=>`"${(''+v).replace(/"/g,'""')}"`).join(','));
+  const blob=new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intelprop.csv';a.click();
+}
+
+function exportXLSX(){
+  if(!sl.size){alert('Add listings to your shortlist first.');return;}
+  const items=all.filter(d=>sl.has(d.id));
+  const ws=XLSX.utils.aoa_to_sheet([['Developer','Title','Type','City','District','Bedrooms','Area m²','Plot m²','Price (€)','€/m²','Price Text','Added On','Image URL'],...items.map(d=>[d.developer,d.title,d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.plot??'',d.price??'',d.ppm??'',d.priceText,d.addedOn,d.imageUrl??''])]);
+  ws['!cols']=[30,40,14,14,20,10,10,10,14,10,25,16,40].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Shortlist');
+  XLSX.writeFile(wb,`intelprop_shortlist_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Client Call ──────────────────────────────────────────────
+// !! Replace with your Apps Script deployment URL !!
+const CLIENTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyPU6sNsq4cf8fWSurv5dzBjVdK8zfJfxEIzwePf9FeUXX63fNVE6qwGuVyAJdrOQs4/exec';
+
+const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
+
+function toggleCrit(btn, key) {
+  const group = btn.parentElement;
+  group.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (key === 'budget') {
+    cCriteria.budgetMin = btn.dataset.min !== undefined ? +btn.dataset.min : 0;
+    cCriteria.budgetMax = btn.dataset.max !== undefined ? +btn.dataset.max : 99000000;
+  } else if (key === 'sea') {
+    cCriteria.maxSea = +btn.dataset.val || null;
+  } else {
+    cCriteria[key] = btn.textContent.trim();
+  }
+  applyClientFilter();
+}
+
+function toggleMulti(btn, key) {
+  btn.classList.toggle('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (btn.classList.contains('on')) {
+    if (!cCriteria[key].includes(val)) cCriteria[key].push(val);
+  } else {
+    cCriteria[key] = cCriteria[key].filter(v => v !== val);
+  }
+  applyClientFilter();
+}
+
+function applyClientFilter() {
+  const results = all.filter(d => {
+    // Budget
+    if (cCriteria.budgetMin !== null && cCriteria.budgetMax !== null) {
+      const p = d.price || 0;
+      if (p < cCriteria.budgetMin || p > cCriteria.budgetMax) return false;
+    }
+    // Property type
+    if (cCriteria.types.length > 0) {
+      const t = (d.type || '').toLowerCase();
+      if (!cCriteria.types.some(ct => t.includes(ct.toLowerCase()))) return false;
+    }
+    // Bedrooms
+    if (cCriteria.beds.length > 0) {
+      const has5plus = cCriteria.beds.includes('5+');
+      const numBeds = cCriteria.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
+      const hasStudio = cCriteria.beds.includes('Studio');
+      let match = false;
+      if (hasStudio && (d.bedrooms === 0 || d.bedrooms === null)) match = true;
+      if (numBeds.includes(d.bedrooms)) match = true;
+      if (has5plus && d.bedrooms >= 5) match = true;
+      if (!match) return false;
+    }
+    // City
+    if (cCriteria.cities.length > 0) {
+      const city = (d.city || '').toLowerCase().trim();
+      if (!cCriteria.cities.some(c => city === c.toLowerCase().trim())) return false;
+    }
+    // Sea distance
+    if (cCriteria.maxSea !== null && cCriteria.maxSea < 999) {
+      if (d.seaDist == null || d.seaDist > cCriteria.maxSea) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
+
+  if (!results.length) {
+    document.getElementById('cResults').innerHTML = '<div class="empty">No listings match these criteria.</div>';
+    return;
+  }
+
+  const top = results.slice(0, 50);
+  const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
+  const rows = top.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+    <td title="${d.developer||''}">${d.developer||'—'}</td>
+    <td title="${d.title||''}">${d.title||'—'}</td>
+    <td>${tagBadge(d.type)}</td>
+    <td>${d.city||'—'}</td>
+    <td>${d.district||'—'}</td>
+    <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+    <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+    <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+    <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+    <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+  </tr>`).join('');
+
+  document.getElementById('cResults').innerHTML = `<table><colgroup>${cw}</colgroup>
+    <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+async function saveClient() {
+  const name = document.getElementById('cName').value.trim();
+  const phone = document.getElementById('cPhone').value.trim();
+  if (!name && !phone) { alert('Please enter at least a name or phone number.'); return; }
+
+  const status = document.getElementById('cSaveStatus');
+  status.textContent = 'Saving...';
+
+  const payload = {
+    name, phone,
+    purpose: cCriteria.purpose || '',
+    budgetMin: cCriteria.budgetMin || '',
+    budgetMax: cCriteria.budgetMax || '',
+    cities: cCriteria.cities,
+    types: cCriteria.types,
+    bedrooms: cCriteria.beds,
+    maxSea: cCriteria.maxSea || '',
+    delivery: cCriteria.delivery || '',
+    notes: document.getElementById('cNotes').value.trim(),
+    matchCount: document.getElementById('cMatchCount').textContent
+  };
+
+  try {
+    if (CLIENTS_ENDPOINT === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('Apps Script URL not set');
+    await fetch(CLIENTS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+    status.textContent = '✓ Saved to Google Sheet — ' + new Date().toLocaleTimeString('en-GB');
+    status.style.color = '#15803d';
+  } catch(e) {
+    status.textContent = '⚠ Could not save: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
+function resetClient() {
+  document.getElementById('cName').value = '';
+  document.getElementById('cPhone').value = '';
+  document.getElementById('cNotes').value = '';
+  document.querySelectorAll('.crit-btn.on').forEach(b => b.classList.remove('on'));
+  Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
+  document.getElementById('cMatchCount').textContent = '—';
+  document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
+  document.getElementById('cSaveStatus').textContent = '';
+}
+
+// ── Market Intelligence ──────────────────────────────────────
+let intelLoaded = false;
+
+async function loadIntelligence(force) {
+  if (intelLoaded && !force) return;
+  const el = document.getElementById('intelContent');
+  const btn = document.getElementById('intelRefreshBtn');
+  
+  el.innerHTML = `<div class="intel-loading">
+    <div><span class="spin">◈</span> Searching AirDNA, Bazaraki, Spitogatos...</div>
+    <div class="intel-step" id="intelStep">Fetching Airbnb yield data...</div>
+  </div>`;
+  if(btn) btn.disabled = true;
+
+  // Compute averages from our own data for context
+  const cityStats = {};
+  all.forEach(d => {
+    if(!d.city||!d.price) return;
+    if(!cityStats[d.city]) cityStats[d.city] = {prices:[],types:{}};
+    cityStats[d.city].prices.push(d.price);
+    cityStats[d.city].types[d.type] = (cityStats[d.city].types[d.type]||0)+1;
+  });
+  const cityContext = Object.entries(cityStats).map(([city,s])=>
+    `${city}: avg price €${Math.round(s.prices.reduce((a,b)=>a+b)/s.prices.length).toLocaleString()}, ${s.prices.length} listings`
+  ).join('; ');
+
+  const prompt = `You are a Cyprus real estate market analyst. Search the web for current 2025-2026 data from AirDNA, Bazaraki.com, Spitogatos.cy, and Cyprus property market reports.
+
+Find and report:
+1. SHORT-TERM RENTAL (Airbnb/AirDNA): Top 5 Cyprus districts/cities by Airbnb yield - include average nightly rate (EUR), occupancy rate (%), estimated annual revenue, gross yield % on typical purchase price
+2. LONG-TERM RENTAL: Top 5 districts by long-term rental yield - monthly rent range, gross yield %
+3. CAPITAL APPRECIATION: Which areas have seen the highest price growth in last 12-24 months, % change
+4. BEST BY PROPERTY TYPE: Rank villa/apartment/flat/penthouse by investment return
+5. SWEET SPOT: Best value district for investors with budget under €300k, €300k-€800k, €800k+
+
+Context from our listings database: ${cityContext}
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "summary": "2-3 sentence executive summary of Cyprus market right now",
+  "airbnb": [{"rank":1,"area":"name","nightly_rate":int,"occupancy_pct":int,"annual_revenue":int,"gross_yield_pct":float,"note":"short insight"}],
+  "longterm": [{"rank":1,"area":"name","monthly_low":int,"monthly_high":int,"gross_yield_pct":float,"note":"short insight"}],
+  "appreciation": [{"area":"name","growth_pct":float,"period":"e.g. 2023-2025","note":"short insight"}],
+  "by_type": [{"type":"Villa","yield_pct":float,"note":"short insight"}],
+  "sweet_spots": [{"budget":"Under €300k","area":"name","type":"property type","reason":"short reason"},{"budget":"€300k–€800k","area":"name","type":"property type","reason":"short reason"},{"budget":"€800k+","area":"name","type":"property type","reason":"short reason"}],
+  "last_updated": "today's date"
+}`;
+
+  try {
+    document.getElementById('intelStep').textContent = 'Analysing rental yields...';
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||'API '+res.status); }
+    const data = await res.json();
+    const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const intel = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    intelLoaded = true;
+    renderIntelligence(intel);
+  } catch(e) {
+    el.innerHTML = `<div class="empty">Could not load market intelligence.<br><small style="opacity:.6">${e.message}</small></div>`;
+  }
+  if(btn) btn.disabled = false;
+}
+
+function yieldBadge(pct) {
+  if(!pct) return '';
+  const cls = pct>=7?'intel-high':pct>=5?'intel-mid':'intel-low';
+  return `<span class="intel-badge ${cls}">${pct.toFixed(1)}% yield</span>`;
+}
+
+function renderIntelligence(d) {
+  const el = document.getElementById('intelContent');
+  let html = '';
+
+  // Summary
+  html += `<div class="intel-summary">${d.summary||''}<br><span style="font-size:10px;color:var(--mu)">Last updated: ${d.last_updated||'today'} · Sources: AirDNA, Bazaraki, Spitogatos, market reports</span></div>`;
+
+  html += '<div class="intel-grid">';
+
+  // Airbnb yields
+  if(d.airbnb?.length) {
+    html += `<div class="intel-card">
+      <div class="intel-card-title"><span>🏖</span> Top areas — Airbnb yield</div>
+      ${d.airbnb.map(r=>`<div class="intel-row">
+        <div><div class="intel-row-label">${r.rank}. ${r.area}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val">
+          <div class="intel-row-main">€${(r.nightly_rate||0).toLocaleString()}/night</div>
+          <div class="intel-row-sec">${r.occupancy_pct||0}% occ · ${yieldBadge(r.gross_yield_pct)}</div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // Long-term yields
+  if(d.longterm?.length) {
+    html += `<div class="intel-card">
+      <div class="intel-card-title"><span>🏠</span> Top areas — long-term yield</div>
+      ${d.longterm.map(r=>`<div class="intel-row">
+        <div><div class="intel-row-label">${r.rank}. ${r.area}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val">
+          <div class="intel-row-main">€${(r.monthly_low||0).toLocaleString()}–€${(r.monthly_high||0).toLocaleString()}/mo</div>
+          <div class="intel-row-sec">${yieldBadge(r.gross_yield_pct)}</div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // Appreciation
+  if(d.appreciation?.length) {
+    html += `<div class="intel-card">
+      <div class="intel-card-title"><span>📈</span> Price appreciation</div>
+      ${d.appreciation.map(r=>`<div class="intel-row">
+        <div><div class="intel-row-label">${r.area}</div><div class="intel-row-sub">${r.period||''} · ${r.note||''}</div></div>
+        <div class="intel-row-val">
+          <div class="intel-row-main" style="color:${(r.growth_pct||0)>0?'#15803d':'#991b1b'}">+${r.growth_pct||0}%</div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // By type
+  if(d.by_type?.length) {
+    html += `<div class="intel-card">
+      <div class="intel-card-title"><span>🏗</span> Best by property type</div>
+      ${d.by_type.map((r,i)=>`<div class="intel-row">
+        <div><div class="intel-row-label">${i+1}. ${r.type}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val">${yieldBadge(r.yield_pct)}</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  html += '</div>';
+
+  // Sweet spots
+  if(d.sweet_spots?.length) {
+    html += `<div class="intel-card" style="margin-bottom:0">
+      <div class="intel-card-title"><span>💡</span> Sweet spots by budget</div>
+      ${d.sweet_spots.map(r=>`<div class="intel-row">
+        <div><div class="intel-row-label">${r.budget}</div><div class="intel-row-sub">${r.reason||''}</div></div>
+        <div class="intel-row-val"><div class="intel-row-main">${r.area}</div><div class="intel-row-sec">${r.type||''}</div></div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+init();
+</script>
+</body>
+</html>
