@@ -1354,14 +1354,27 @@ async function saveClient() {
 
   try {
     if (CLIENTS_ENDPOINT === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('Apps Script URL not set');
-    const formData = new URLSearchParams();
-    formData.append('data', JSON.stringify(payload));
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: formData, signal: controller.signal });
-    } catch(fe) { /* no-cors fetch always throws on abort or network */ }
-    clearTimeout(timeout);
+    // Use JSONP-style GET request to avoid CORS issues
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    const url = CLIENTS_ENDPOINT + '?data=' + encoded;
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      const cbName = 'saveCallback_' + Date.now();
+      const timer = setTimeout(() => {
+        delete window[cbName];
+        script.remove();
+        resolve(); // resolve anyway after 6s
+      }, 6000);
+      window[cbName] = (result) => {
+        clearTimeout(timer);
+        delete window[cbName];
+        script.remove();
+        resolve(result);
+      };
+      script.src = url + '&callback=' + cbName;
+      script.onerror = () => { clearTimeout(timer); script.remove(); resolve(); };
+      document.head.appendChild(script);
+    });
     status.textContent = '✓ Saved to Google Sheet — ' + new Date().toLocaleTimeString('en-GB');
     status.style.color = '#15803d';
   } catch(e) {
