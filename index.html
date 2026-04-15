@@ -1356,7 +1356,12 @@ async function saveClient() {
     if (CLIENTS_ENDPOINT === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('Apps Script URL not set');
     const formData = new URLSearchParams();
     formData.append('data', JSON.stringify(payload));
-    await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: formData });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: formData, signal: controller.signal });
+    } catch(fe) { /* no-cors fetch always throws on abort or network */ }
+    clearTimeout(timeout);
     status.textContent = '✓ Saved to Google Sheet — ' + new Date().toLocaleTimeString('en-GB');
     status.style.color = '#15803d';
   } catch(e) {
