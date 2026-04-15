@@ -1318,7 +1318,7 @@ async function saveClient() {
   const status = document.getElementById('cSaveStatus');
   status.textContent = 'Saving...';
 
-  // Gather matched listings
+  // Gather matched listings from results table
   const matchedRows = document.querySelectorAll('#cResults tbody tr');
   const listings = [];
   matchedRows.forEach(row => {
