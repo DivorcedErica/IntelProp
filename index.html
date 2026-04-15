@@ -54,7 +54,7 @@ tr:hover td{background:var(--bg2)}
 .hb.on{color:var(--red)}
 .tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500}
 .tf{background:#dbeafe;color:#1d4ed8}.th{background:#dcfce7;color:#15803d}.tv{background:#fef3c7;color:#92400e}.ta{background:#ede9fe;color:#6d28d9}.tp{background:#fce7f3;color:#9d174d}.to{background:#f3f4f6;color:#6b7280}
- 
+
 /* ── Cards ── */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:28px;padding:4px}
 .prop-card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;overflow:visible;position:relative;transition:border-color .15s;cursor:pointer}
@@ -122,7 +122,7 @@ tr:hover td{background:var(--bg2)}
 .sea-far{background:#fef3c7;color:#92400e}
 .sea-inland{background:#f3f4f6;color:#6b7280}
 @keyframes sp{to{transform:rotate(360deg)}}
- 
+
 /* ── Map ── */
 #mapWrap{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;height:580px;position:relative}
 #map{height:100%;width:100%}
@@ -132,7 +132,7 @@ tr:hover td{background:var(--bg2)}
 .map-legend-item{display:flex;align-items:center;gap:6px}
 .map-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .map-count{position:absolute;top:12px;right:12px;z-index:1000;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:5px 10px;font-size:11px;color:var(--mu)}
- 
+
 /* ── Modal ── */
 .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:center;justify-content:center;padding:20px}
 .modal-backdrop.open{display:flex}
@@ -158,7 +158,7 @@ tr:hover td{background:var(--bg2)}
 .modal-section-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:8px;margin-top:16px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
 .modal-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 .modal-map{height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
- 
+
 /* ── Pag / dev / shortlist ── */
 .pag{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px}
 .pag button{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer}
@@ -179,7 +179,7 @@ tr:hover td{background:var(--bg2)}
 </style>
 </head>
 <body>
- 
+
 <!-- ── Modal overlay ── -->
 <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
   <div class="modal" id="modal">
@@ -187,7 +187,7 @@ tr:hover td{background:var(--bg2)}
     <div id="modalContent"></div>
   </div>
 </div>
- 
+
 <div class="shell">
   <div class="topbar">
     <div>
@@ -198,7 +198,7 @@ tr:hover td{background:var(--bg2)}
       <button class="btn" onclick="exportCSV()">↓ CSV</button>
     </div>
   </div>
- 
+
   <div class="panel">
     <div class="tabs">
       <button class="tab on" onclick="gotoTab('listings',this)">Listings</button>
@@ -208,7 +208,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
     </div>
- 
+
     <!-- LISTINGS -->
     <div id="pListings">
       <div class="frow">
@@ -263,7 +263,7 @@ tr:hover td{background:var(--bg2)}
         </div>
       </div>
     </div>
- 
+
     <!-- MAP -->
     <div id="pMap" style="display:none">
       <div class="map-filter">
@@ -288,7 +288,7 @@ tr:hover td{background:var(--bg2)}
         <div class="map-count" id="mapCount"></div>
       </div>
     </div>
- 
+
     <!-- INTELLIGENCE -->
     <div id="pIntelligence" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -302,10 +302,10 @@ tr:hover td{background:var(--bg2)}
         <div class="empty" style="padding:2rem">Click Refresh to load live market intelligence.</div>
       </div>
     </div>
- 
+
     <!-- CLIENTS -->
     <div id="pClients" style="display:none">
- 
+
       <!-- Client info row -->
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px;align-items:end">
         <div>
@@ -318,9 +318,9 @@ tr:hover td{background:var(--bg2)}
         </div>
         <button onclick="saveClient()" class="btn primary" style="height:34px;white-space:nowrap">💾 Save client</button>
       </div>
- 
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
- 
+
         <!-- Purpose -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
@@ -331,7 +331,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Long-term rental</button>
           </div>
         </div>
- 
+
         <!-- Property type -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property type</div>
@@ -343,7 +343,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'types')">Penthouse</button>
           </div>
         </div>
- 
+
         <!-- Budget -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Budget</div>
@@ -355,7 +355,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="2000000" data-max="99000000">€2M+</button>
           </div>
         </div>
- 
+
         <!-- Bedrooms -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Bedrooms</div>
@@ -368,7 +368,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="5">5+</button>
           </div>
         </div>
- 
+
         <!-- City -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City</div>
@@ -380,7 +380,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cities')">Famagusta</button>
           </div>
         </div>
- 
+
         <!-- Sea distance -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Distance to sea</div>
@@ -392,7 +392,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="999">Any</button>
           </div>
         </div>
- 
+
         <!-- Delivery -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Expected delivery</div>
@@ -404,31 +404,31 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="toggleCrit(this,'delivery')">Any</button>
           </div>
         </div>
- 
+
         <!-- Notes -->
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Notes</div>
           <input type="text" id="cNotes" placeholder="Sea view, pool, quiet area..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
- 
+
       </div>
- 
+
       <!-- Results -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
         <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
       </div>
       <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
- 
+
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
     </div>
- 
+
     <!-- DEVELOPERS -->
     <div id="pDevelopers" style="display:none">
       <div id="devView"><div class="empty">Loading…</div></div>
     </div>
- 
+
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
       <div class="slt">
@@ -439,7 +439,7 @@ tr:hover td{background:var(--bg2)}
     </div>
   </div>
 </div>
- 
+
 <script>
 // ── Add your Anthropic API key here ──
 const ANTHROPIC_KEY = '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';
@@ -449,7 +449,7 @@ let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
 const rentalCache = {};
 const geocodeCache = {};
- 
+
 // ── Sea distance (Haversine) ──────────────────────────────────
 const COAST = [
   {name:'Limassol seafront',lat:34.6700,lon:33.0400},
@@ -475,26 +475,26 @@ const COAST = [
   {name:'Larnaca Salt Lake coast',lat:34.8900,lon:33.6000},
   {name:'Aphrodite Hills coast',lat:34.7000,lon:32.6500},
 ];
- 
+
 function haversine(lat1,lon1,lat2,lon2){
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
- 
+
 function nearestSea(lat,lon){
   let best=null,bestD=Infinity;
   COAST.forEach(c=>{const d=haversine(lat,lon,c.lat,c.lon);if(d<bestD){bestD=d;best=c;}});
   return{beach:best,dist:bestD};
 }
- 
+
 function googleSearchUrl(d) {
   const q = d.complex && d.complex !== '—'
     ? `${d.complex} ${d.city} Cyprus`
     : `${d.developer} Cyprus real estate`;
   return 'https://www.google.com/search?q=' + encodeURIComponent(q);
 }
- 
+
 function seaBadge(dist){
   if(dist===null||dist===undefined)return'';
   if(dist<0.3)return'<span class="sea-badge sea-vclose">Beachfront</span>';
@@ -503,7 +503,7 @@ function seaBadge(dist){
   return`<span class="sea-badge ${cls}">${km} from sea</span>`;
 }
 let leafMap = null, markers = [];
- 
+
 // ── Fallback coordinates: district first, then city ──
 const DISTRICT_FALLBACK = {
   // Limassol districts
@@ -546,17 +546,17 @@ const CITY_FALLBACK = {
   'Famagusta': [35.1213, 33.9413],
   'Kyrenia':   [35.3417, 33.3192],
 };
- 
+
 // ── Nominatim geocoding ──
 async function geocode(city, district) {
   const key = `${district||''},${city},Cyprus`.toLowerCase();
   if (geocodeCache[key]) return geocodeCache[key];
- 
+
   // Try district + city first, fall back to city only
   const queries = district
     ? [`${district}, ${city}, Cyprus`, `${city}, Cyprus`]
     : [`${city}, Cyprus`];
- 
+
   for (const q of queries) {
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=cy`;
@@ -569,7 +569,7 @@ async function geocode(city, district) {
       }
     } catch(e) { /* try next */ }
   }
- 
+
   // Final fallback: city centre
   const fb = CITY_FALLBACK[city];
   if (fb) {
@@ -581,7 +581,7 @@ async function geocode(city, district) {
   }
   return null;
 }
- 
+
 async function getCoords(d) {
   // If sheet has lat/lng columns, use those
   if (d.lat && d.lng) return [d.lat, d.lng];
@@ -590,7 +590,7 @@ async function getCoords(d) {
   const result = await geocode(d.city, d.district);
   return result || fb || null;
 }
- 
+
 function pinColor(type) {
   const k = (type || '').toLowerCase();
   if (k.includes('flat') || k.includes('apartment')) return '#1d4ed8';
@@ -599,7 +599,7 @@ function pinColor(type) {
   if (k.includes('penthouse')) return '#9d174d';
   return '#888';
 }
- 
+
 function createPin(color) {
   return L.divIcon({
     className: '',
@@ -607,7 +607,7 @@ function createPin(color) {
     iconSize: [12, 12], iconAnchor: [6, 6]
   });
 }
- 
+
 async function init() {
   try {
     // Try gviz first, fall back to CSV export
@@ -621,7 +621,7 @@ async function init() {
         const m = t.match(/setResponse\(([\s\S]*)\)/);
         if (m) json = JSON.parse(m[1]);
       } catch(e1) { console.warn('fetch gviz failed:', e1.message); }
- 
+
       // Method 2: JSONP fallback
       if (!json || !json.table || !json.table.rows || json.table.rows.length < 2) {
         json = await new Promise((resolve, reject) => {
@@ -634,7 +634,7 @@ async function init() {
           document.head.appendChild(script);
         });
       }
- 
+
       if (!json || !json.table || !json.table.rows || json.table.rows.length < 2) throw new Error('Empty table');
       rows = json.table.rows.map((r, i) => {
         const g = k => r.c[k] && r.c[k].v !== null ? r.c[k].v : '';
@@ -698,9 +698,9 @@ async function init() {
         };
       });
     }
- 
+
     all = rows.filter(d => d.developer && d.developer.toLowerCase() !== 'developer' && d.title);
- 
+
     // Pre-compute sea distance instantly using district/city fallback coords
     all.forEach(d => {
       if (d.seaDist != null) return;
@@ -712,7 +712,7 @@ async function init() {
         d.nearestBeach = beach.name;
       }
     });
- 
+
     const sr = document.getElementById('priceR');
     sr.max = 5000000; sr.value = 5000000; sr.step = 50000;
     document.getElementById('mPrice').max = 5000000;
@@ -725,7 +725,7 @@ async function init() {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
   }
 }
- 
+
 function populate() {
   const cities = [...new Set(all.map(d => d.city).filter(Boolean))].sort();
   const types  = [...new Set(all.map(d => d.type).filter(Boolean))].sort();
@@ -734,7 +734,7 @@ function populate() {
   ['fType','mType'].forEach(id => { const el=document.getElementById(id); types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); });
   ['fBeds','mBeds'].forEach(id => { const el=document.getElementById(id); beds.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=`${b} bed${b!==1?'s':''}`;el.appendChild(o);}); });
 }
- 
+
 function onPrice() {
   const slider = document.getElementById('priceR');
   const input  = document.getElementById('priceInput');
@@ -743,7 +743,7 @@ function onPrice() {
   input.placeholder = v >= 5000000 ? 'Any' : '';
   doFilter();
 }
- 
+
 function onPriceInput() {
   const slider = document.getElementById('priceR');
   const input  = document.getElementById('priceInput');
@@ -751,7 +751,7 @@ function onPriceInput() {
   slider.value = v;
   doFilter();
 }
- 
+
 function onMapPrice() {
   const slider = document.getElementById('mPrice');
   const input  = document.getElementById('mPriceInput');
@@ -760,7 +760,7 @@ function onMapPrice() {
   input.placeholder = v >= 5000000 ? 'Any' : '';
   renderMap();
 }
- 
+
 function onMapPriceInput() {
   const slider = document.getElementById('mPrice');
   const input  = document.getElementById('mPriceInput');
@@ -768,7 +768,7 @@ function onMapPriceInput() {
   slider.value = v;
   renderMap();
 }
- 
+
 function doFilter() {
   const q=document.getElementById('q').value.toLowerCase();
   const city=document.getElementById('fCity').value;
@@ -800,7 +800,7 @@ function doFilter() {
   }
   page=1; render();
 }
- 
+
 function tagBadge(t) {
   const k=(t||'').toLowerCase();
   if(k.includes('flat'))return`<span class="tag tf">${t}</span>`;
@@ -810,7 +810,7 @@ function tagBadge(t) {
   if(k.includes('penthouse'))return`<span class="tag tp">${t}</span>`;
   return`<span class="tag to">${t}</span>`;
 }
- 
+
 // ── Rental research ──
 async function getRentalData(id) {
   if(rentalCache[id])return rentalCache[id];
@@ -827,7 +827,7 @@ Respond ONLY with valid JSON, no markdown:
   rentalCache[id]=parsed;
   return parsed;
 }
- 
+
 async function triggerRental(id,e) {
   e&&e.stopPropagation();
   const btn=document.getElementById(`rbtn-${id}`);
@@ -858,7 +858,7 @@ async function triggerRental(id,e) {
   }
   btn.disabled=false;
 }
- 
+
 // ── Map ──
 async function renderMap() {
   if (!leafMap) {
@@ -866,13 +866,13 @@ async function renderMap() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(leafMap);
   }
   markers.forEach(m => m.remove()); markers = [];
- 
+
   const city = document.getElementById('mCity').value;
   const type = document.getElementById('mType').value;
   const beds = document.getElementById('mBeds').value;
   const rv = +document.getElementById('mPrice').value, rm = +document.getElementById('mPrice').max;
   const maxP = rv < rm ? rv : null;
- 
+
   const mapData = all.filter(d => {
     if (city && d.city !== city) return false;
     if (type && d.type !== type) return false;
@@ -881,9 +881,9 @@ async function renderMap() {
     if (!d.city) return false;
     return true;
   });
- 
+
   document.getElementById('mapCount').textContent = `${mapData.length.toLocaleString()} listings`;
- 
+
   // Geocode and plot in batches to respect Nominatim rate limit (1 req/sec)
   // Group by unique city+district to minimise API calls
   const uniqueLocs = {};
@@ -892,7 +892,7 @@ async function renderMap() {
     if (!uniqueLocs[key]) uniqueLocs[key] = { city: d.city, district: d.district, ids: [] };
     uniqueLocs[key].ids.push(d.id);
   });
- 
+
   let delay = 0;
   for (const [key, loc] of Object.entries(uniqueLocs)) {
     setTimeout(async () => {
@@ -924,7 +924,7 @@ async function renderMap() {
     if (!geocodeCache[cacheKey.toLowerCase()]) delay += 1100; // 1.1s between uncached requests
   }
 }
- 
+
 // ── Detail modal ──
 function openModal(id, e) {
   e&&e.stopPropagation();
@@ -969,10 +969,10 @@ function openModal(id, e) {
         <button class="btn" onclick="closeModalDirect()">Close</button>
       </div>
     </div>`;
- 
+
   document.getElementById('modalBackdrop').classList.add('open');
   document.body.style.overflow='hidden';
- 
+
   // Mini map inside modal
   setTimeout(async ()=>{
     const coords = await getCoords(d);
@@ -1002,7 +1002,7 @@ function openModal(id, e) {
     }
   },100);
 }
- 
+
 async function triggerModalRental(id) {
   const btn=document.getElementById(`rbtn-modal-${id}`);
   const panel=document.getElementById(`rpanel-modal-${id}`);
@@ -1034,7 +1034,7 @@ async function triggerModalRental(id) {
   }
   btn.disabled=false;
 }
- 
+
 function heartFromModal(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
   document.getElementById('slBadge').textContent=sl.size;
@@ -1043,13 +1043,13 @@ function heartFromModal(id) {
   if(btn)btn.textContent=sl.has(id)?'♥ Remove from shortlist':'♡ Add to shortlist';
   render(); if(tab==='shortlist')renderSL();
 }
- 
+
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
 function closeModalDirect() {
   document.getElementById('modalBackdrop').classList.remove('open');
   document.body.style.overflow='';
 }
- 
+
 // ── Card ──
 function renderCard(d) {
   const img=d.imageUrl; const on=sl.has(d.id);
@@ -1074,7 +1074,7 @@ function renderCard(d) {
     </div>
   </div>`;
 }
- 
+
 function render() {
   const start=(page-1)*PS, data=filt.slice(start,start+PS), tot=Math.ceil(filt.length/PS)||1;
   document.getElementById('cShown').textContent=filt.length.toLocaleString();
@@ -1108,14 +1108,14 @@ function render() {
     document.getElementById('mainView').innerHTML=`<div style="padding:12px"><div class="cards">${data.map(d=>renderCard(d)).join('')}</div></div>`;
   }
 }
- 
+
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   render(); if(tab==='shortlist')renderSL();
 }
- 
+
 function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
 function pg(d){page+=d;render();window.scrollTo(0,0);}
 function setView(v){
@@ -1124,7 +1124,7 @@ function setView(v){
   document.getElementById('vCards').classList.toggle('on',v==='cards');
   render();
 }
- 
+
 function setPS(n){
   PS=n;
   [25,50,100].forEach(x=>{
@@ -1133,7 +1133,7 @@ function setPS(n){
   });
   page=1;render();
 }
- 
+
 function clearFilters(){
   document.getElementById('q').value='';
   document.getElementById('fCity').value='';
@@ -1148,7 +1148,7 @@ function clearFilters(){
   pinput.placeholder='Any';
   doFilter();
 }
- 
+
 function gotoTab(t,el){
   tab=t;
   ['listings','map','intelligence','clients','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
@@ -1158,7 +1158,7 @@ function gotoTab(t,el){
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='shortlist')renderSL();
 }
- 
+
 function renderDev(){
   const m={};
   all.forEach(d=>{
@@ -1176,7 +1176,7 @@ function renderDev(){
     return`<div class="dc"><div class="dn" title="${d.name}">${d.name}</div><div class="ds2"><div class="di">Listings<b>${d.n}</b></div><div class="di">Avg price<b>${avg?'€'+avg.toLocaleString():'—'}</b></div><div class="di">Min<b>${mn?'€'+mn.toLocaleString():'—'}</b></div><div class="di">Max<b>${mx?'€'+mx.toLocaleString():'—'}</b></div></div><div class="dci">${[...d.cities].join(' · ')}</div></div>`;
   }).join('')}</div>`;
 }
- 
+
 function renderSL(){
   if(!sl.size){document.getElementById('slView').innerHTML=`<div class="empty">No listings shortlisted.<br>Click ♡ to add.</div>`;return;}
   const items=all.filter(d=>sl.has(d.id));
@@ -1197,15 +1197,15 @@ function renderSL(){
   </tr>`).join('');
   document.getElementById('slView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Complex</th><th>Beds</th><th>Area m²</th><th>Price</th><th>€/m²</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
- 
+
 function exportCSV(){
   if(!filt.length){alert('No data to export.');return;}
   const h=['Developer','Title','Complex','Type','City','District','Bedrooms','Area m2','Price EUR','EUR per m2','Price Text','Added On'];
   const rows=filt.map(d=>[d.developer,d.title,d.complex??'',d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.price??'',d.ppm??'',d.priceText,d.addedOn].map(v=>`"${(''+v).replace(/"/g,'""')}"`).join(','));
-  const blob=new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intelprop.csv';a.click();
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='intelprop.csv';a.click();
 }
- 
+
 function exportXLSX(){
   if(!sl.size){alert('Add listings to your shortlist first.');return;}
   const items=all.filter(d=>sl.has(d.id));
@@ -1215,13 +1215,13 @@ function exportXLSX(){
   XLSX.utils.book_append_sheet(wb,ws,'Shortlist');
   XLSX.writeFile(wb,`intelprop_shortlist_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
- 
+
 // ── Client Call ──────────────────────────────────────────────
 // !! Replace with your Apps Script deployment URL !!
 const CLIENTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyPU6sNsq4cf8fWSurv5dzBjVdK8zfJfxEIzwePf9FeUXX63fNVE6qwGuVyAJdrOQs4/exec';
- 
+
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
- 
+
 function toggleCrit(btn, key) {
   const group = btn.parentElement;
   group.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
@@ -1236,7 +1236,7 @@ function toggleCrit(btn, key) {
   }
   applyClientFilter();
 }
- 
+
 function toggleMulti(btn, key) {
   btn.classList.toggle('on');
   const val = btn.dataset.val || btn.textContent.trim();
@@ -1247,7 +1247,7 @@ function toggleMulti(btn, key) {
   }
   applyClientFilter();
 }
- 
+
 function applyClientFilter() {
   const results = all.filter(d => {
     // Budget
@@ -1282,14 +1282,14 @@ function applyClientFilter() {
     }
     return true;
   });
- 
+
   document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
- 
+
   if (!results.length) {
     document.getElementById('cResults').innerHTML = '<div class="empty">No listings match these criteria.</div>';
     return;
   }
- 
+
   const top = results.slice(0, 50);
   const cw = '<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:78px"><col style="width:110px"><col style="width:44px"><col style="width:70px"><col style="width:110px"><col style="width:80px"><col style="width:36px">';
   const rows = top.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
@@ -1304,20 +1304,20 @@ function applyClientFilter() {
     <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
     <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
   </tr>`).join('');
- 
+
   document.getElementById('cResults').innerHTML = `<table><colgroup>${cw}</colgroup>
     <thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>`;
 }
- 
+
 async function saveClient() {
   const name = document.getElementById('cName').value.trim();
   const phone = document.getElementById('cPhone').value.trim();
   if (!name && !phone) { alert('Please enter at least a name or phone number.'); return; }
- 
+
   const status = document.getElementById('cSaveStatus');
   status.textContent = 'Saving...';
- 
+
   const payload = {
     name, phone,
     purpose: cCriteria.purpose || '',
@@ -1331,10 +1331,10 @@ async function saveClient() {
     notes: document.getElementById('cNotes').value.trim(),
     matchCount: document.getElementById('cMatchCount').textContent
   };
- 
+
   try {
     if (CLIENTS_ENDPOINT === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('Apps Script URL not set');
-    await fetch(CLIENTS_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+    await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
     status.textContent = '✓ Saved to Google Sheet — ' + new Date().toLocaleTimeString('en-GB');
     status.style.color = '#15803d';
   } catch(e) {
@@ -1342,7 +1342,7 @@ async function saveClient() {
     status.style.color = 'var(--red)';
   }
 }
- 
+
 function resetClient() {
   document.getElementById('cName').value = '';
   document.getElementById('cPhone').value = '';
@@ -1353,10 +1353,10 @@ function resetClient() {
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
   document.getElementById('cSaveStatus').textContent = '';
 }
- 
+
 // ── Market Intelligence ──────────────────────────────────────
 let intelLoaded = false;
- 
+
 async function loadIntelligence(force) {
   if (intelLoaded && !force) return;
   const el = document.getElementById('intelContent');
@@ -1367,7 +1367,7 @@ async function loadIntelligence(force) {
     <div class="intel-step" id="intelStep">Fetching Airbnb yield data...</div>
   </div>`;
   if(btn) btn.disabled = true;
- 
+
   // Compute averages from our own data for context
   const cityStats = {};
   all.forEach(d => {
@@ -1379,18 +1379,18 @@ async function loadIntelligence(force) {
   const cityContext = Object.entries(cityStats).map(([city,s])=>
     `${city}: avg price €${Math.round(s.prices.reduce((a,b)=>a+b)/s.prices.length).toLocaleString()}, ${s.prices.length} listings`
   ).join('; ');
- 
+
   const prompt = `You are a Cyprus real estate market analyst. Search the web for current 2025-2026 data from AirDNA, Bazaraki.com, Spitogatos.cy, and Cyprus property market reports.
- 
+
 Find and report:
 1. SHORT-TERM RENTAL (Airbnb/AirDNA): Top 5 Cyprus districts/cities by Airbnb yield - include average nightly rate (EUR), occupancy rate (%), estimated annual revenue, gross yield % on typical purchase price
 2. LONG-TERM RENTAL: Top 5 districts by long-term rental yield - monthly rent range, gross yield %
 3. CAPITAL APPRECIATION: Which areas have seen the highest price growth in last 12-24 months, % change
 4. BEST BY PROPERTY TYPE: Rank villa/apartment/flat/penthouse by investment return
 5. SWEET SPOT: Best value district for investors with budget under €300k, €300k-€800k, €800k+
- 
+
 Context from our listings database: ${cityContext}
- 
+
 Respond ONLY with valid JSON, no markdown:
 {
   "summary": "2-3 sentence executive summary of Cyprus market right now",
@@ -1401,7 +1401,7 @@ Respond ONLY with valid JSON, no markdown:
   "sweet_spots": [{"budget":"Under €300k","area":"name","type":"property type","reason":"short reason"},{"budget":"€300k–€800k","area":"name","type":"property type","reason":"short reason"},{"budget":"€800k+","area":"name","type":"property type","reason":"short reason"}],
   "last_updated": "today's date"
 }`;
- 
+
   try {
     document.getElementById('intelStep').textContent = 'Analysing rental yields...';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1419,7 +1419,7 @@ Respond ONLY with valid JSON, no markdown:
         messages: [{ role: 'user', content: prompt }]
       })
     });
- 
+
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||'API '+res.status); }
     const data = await res.json();
     const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -1431,22 +1431,22 @@ Respond ONLY with valid JSON, no markdown:
   }
   if(btn) btn.disabled = false;
 }
- 
+
 function yieldBadge(pct) {
   if(!pct) return '';
   const cls = pct>=7?'intel-high':pct>=5?'intel-mid':'intel-low';
   return `<span class="intel-badge ${cls}">${pct.toFixed(1)}% yield</span>`;
 }
- 
+
 function renderIntelligence(d) {
   const el = document.getElementById('intelContent');
   let html = '';
- 
+
   // Summary
   html += `<div class="intel-summary">${d.summary||''}<br><span style="font-size:10px;color:var(--mu)">Last updated: ${d.last_updated||'today'} · Sources: AirDNA, Bazaraki, Spitogatos, market reports</span></div>`;
- 
+
   html += '<div class="intel-grid">';
- 
+
   // Airbnb yields
   if(d.airbnb?.length) {
     html += `<div class="intel-card">
@@ -1460,7 +1460,7 @@ function renderIntelligence(d) {
       </div>`).join('')}
     </div>`;
   }
- 
+
   // Long-term yields
   if(d.longterm?.length) {
     html += `<div class="intel-card">
@@ -1474,7 +1474,7 @@ function renderIntelligence(d) {
       </div>`).join('')}
     </div>`;
   }
- 
+
   // Appreciation
   if(d.appreciation?.length) {
     html += `<div class="intel-card">
@@ -1487,7 +1487,7 @@ function renderIntelligence(d) {
       </div>`).join('')}
     </div>`;
   }
- 
+
   // By type
   if(d.by_type?.length) {
     html += `<div class="intel-card">
@@ -1498,9 +1498,9 @@ function renderIntelligence(d) {
       </div>`).join('')}
     </div>`;
   }
- 
+
   html += '</div>';
- 
+
   // Sweet spots
   if(d.sweet_spots?.length) {
     html += `<div class="intel-card" style="margin-bottom:0">
@@ -1511,12 +1511,11 @@ function renderIntelligence(d) {
       </div>`).join('')}
     </div>`;
   }
- 
+
   el.innerHTML = html;
 }
- 
+
 init();
 </script>
 </body>
 </html>
- 
