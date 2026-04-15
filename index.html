@@ -317,7 +317,7 @@ tr:hover td{background:var(--bg2)}
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
           <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
-        <button onclick="saveClient()" class="btn primary" style="height:34px;white-space:nowrap">💾 Save client</button>
+
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
@@ -326,10 +326,9 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPurposeGroup">
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Own use</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Investment</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Live + seasonal rent</button>
-            <button class="crit-btn" onclick="toggleCrit(this,'purpose')">Long-term rental</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');toggleRentalYield()">Own use</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');toggleRentalYield()">Short-term rental</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');toggleRentalYield()">Long-term rental</button>
           </div>
         </div>
 
@@ -421,8 +420,7 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
 
-      <!-- Save status -->
-      <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+
     </div>
 
     <!-- PORTFOLIO BUILDER -->
@@ -1155,11 +1153,19 @@ async function triggerModalRental(id) {
 
 function heartFromModal(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   const btn=document.getElementById('modalHeartBtn');
-  if(btn)btn.textContent=sl.has(id)?'♥ Remove from shortlist':'♡ Add to shortlist';
-  render(); if(tab==='shortlist')renderSL();
+  if(btn)btn.textContent=on?'♥ Remove from shortlist':'♡ Add to shortlist';
+  // Update all heart buttons for this id
+  document.querySelectorAll(`button[onclick*="heart(${id})"]`).forEach(b => {
+    if(b.classList.contains('hb') || b.classList.contains('card-heart')) {
+      b.classList.toggle('on', on);
+      b.textContent = on ? '♥' : '♡';
+    }
+  });
+  if(tab==='shortlist') renderSL();
 }
 
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
@@ -1229,9 +1235,17 @@ function render() {
 
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
   document.getElementById('slBadge').textContent=sl.size;
   document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
-  render(); if(tab==='shortlist')renderSL();
+  // Update all heart buttons for this id without full re-render
+  document.querySelectorAll(`button[onclick*="heart(${id})"]`).forEach(btn => {
+    if(btn.classList.contains('hb') || btn.classList.contains('card-heart')) {
+      btn.classList.toggle('on', on);
+      btn.textContent = on ? '♥' : '♡';
+    }
+  });
+  if(tab==='shortlist') renderSL();
 }
 
 function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
@@ -1320,8 +1334,8 @@ function exportCSV(){
   if(!filt.length){alert('No data to export.');return;}
   const h=['Developer','Title','Complex','Type','City','District','Bedrooms','Area m2','Price EUR','EUR per m2','Price Text','Added On'];
   const rows=filt.map(d=>[d.developer,d.title,d.complex??'',d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.price??'',d.ppm??'',d.priceText,d.addedOn].map(v=>`"${(''+v).replace(/"/g,'""')}"`).join(','));
-  const blob=new Blob([[h.join(','),...rows].join('\n')],{type:'text/csv'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intelprop.csv';a.click();
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='intelprop.csv';a.click();
 }
 
 function exportXLSX(){
@@ -1433,7 +1447,7 @@ async function saveClient() {
   const phone = document.getElementById('cPhone').value.trim();
   if (!name && !phone) { alert('Please enter at least a name or phone number.'); return; }
 
-  const status = document.getElementById('cSaveStatus');
+  const status = document.getElementById('cSaveStatus') || {textContent:'',style:{}};
   status.textContent = 'Saving...';
 
   const payload = {
@@ -1469,7 +1483,7 @@ function resetClient() {
   Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
   document.getElementById('cMatchCount').textContent = '—';
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
-  document.getElementById('cSaveStatus').textContent = '';
+  // save status cleared
 }
 
 // ── Market Intelligence ──────────────────────────────────────
@@ -1633,6 +1647,18 @@ function renderIntelligence(d) {
   el.innerHTML = html;
 }
 
+
+
+// ── Toggle rental yield column visibility ────────────────────
+function toggleRentalYield() {
+  const purpose = cCriteria.purpose;
+  const showYield = purpose === 'Short-term rental' || purpose === 'Long-term rental';
+  const row = document.getElementById('rentalYieldRow');
+  if (row) row.style.display = showYield ? '' : 'none';
+  // Re-render results if already showing
+  const results = getClientMatches();
+  if (results.length) applyClientFilter();
+}
 
 // ── Portfolio Builder ─────────────────────────────────────────
 const pbCriteria = { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null };
