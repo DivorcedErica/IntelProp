@@ -1318,6 +1318,25 @@ async function saveClient() {
   const status = document.getElementById('cSaveStatus');
   status.textContent = 'Saving...';
 
+  // Gather matched listings
+  const matchedRows = document.querySelectorAll('#cResults tbody tr');
+  const listings = [];
+  matchedRows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 8) {
+      listings.push({
+        developer: cells[0].textContent.trim(),
+        title: cells[1].textContent.trim(),
+        type: cells[2].textContent.trim(),
+        city: cells[3].textContent.trim(),
+        district: cells[4].textContent.trim(),
+        beds: cells[5].textContent.trim(),
+        area: cells[6].textContent.trim(),
+        price: cells[7].textContent.trim()
+      });
+    }
+  });
+
   const payload = {
     name, phone,
     purpose: cCriteria.purpose || '',
@@ -1329,7 +1348,8 @@ async function saveClient() {
     maxSea: cCriteria.maxSea || '',
     delivery: cCriteria.delivery || '',
     notes: document.getElementById('cNotes').value.trim(),
-    matchCount: document.getElementById('cMatchCount').textContent
+    matchCount: document.getElementById('cMatchCount').textContent,
+    listings: listings
   };
 
   try {
