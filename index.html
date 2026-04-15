@@ -1334,7 +1334,9 @@ async function saveClient() {
 
   try {
     if (CLIENTS_ENDPOINT === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('Apps Script URL not set');
-    await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+    const formData = new URLSearchParams();
+    formData.append('data', JSON.stringify(payload));
+    await fetch(CLIENTS_ENDPOINT, { method: 'POST', mode: 'no-cors', body: formData });
     status.textContent = '✓ Saved to Google Sheet — ' + new Date().toLocaleTimeString('en-GB');
     status.style.color = '#15803d';
   } catch(e) {
