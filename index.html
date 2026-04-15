@@ -293,7 +293,7 @@ tr:hover td{background:var(--bg2)}
 
     <!-- CLIENTS -->
     <div id="pClients" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:14px;align-items:end">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
           <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
@@ -301,10 +301,6 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
           <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div style="display:flex;gap:6px">
-          <button onclick="saveClient()" class="btn primary" style="height:34px;white-space:nowrap">💾 Save client</button>
-          <button onclick="testEndpoint()" class="btn" style="height:34px;white-space:nowrap;font-size:11px" title="Send a test row to verify the connection">🔌 Test</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
@@ -385,10 +381,12 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
-        <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="exportClientXLSX()" class="btn primary" style="font-size:11px">↓ Export Excel</button>
+          <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+        </div>
       </div>
       <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
-      <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
     </div>
 
     <!-- DEVELOPERS -->
@@ -411,8 +409,6 @@ tr:hover td{background:var(--bg2)}
 const ANTHROPIC_KEY = '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';
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GID = '248082817';
-const CLIENTS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzcNsMixrRwPKUgN_OsQzJUTAvnxruilnSPIj-vKz0T1KeR1AZHwhVAM3INtqC6XNzL/exec';
-
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
 const rentalCache = {};
@@ -1164,112 +1160,6 @@ function applyClientFilter(){
     <tbody>${rows}</tbody></table>`;
 }
 
-function buildPayload(){
-  const results=getClientMatches();
-  const listings=results.slice(0,100).map(d=>({
-    developer: d.developer||'',
-    title:     d.title||'',
-    type:      d.type||'',
-    city:      d.city||'',
-    district:  d.district||'',
-    beds:      d.bedrooms!=null?String(d.bedrooms):'',
-    area:      d.area!=null?d.area+' m²':'',
-    price:     d.price!=null?'€'+d.price.toLocaleString():'',
-  }));
-  return{
-    payload:{
-      name:      document.getElementById('cName').value.trim(),
-      phone:     document.getElementById('cPhone').value.trim(),
-      purpose:   cCriteria.purpose||'',
-      budgetMin: cCriteria.budgetMin||'',
-      budgetMax: cCriteria.budgetMax||'',
-      cities:    cCriteria.cities,
-      types:     cCriteria.types,
-      bedrooms:  cCriteria.beds,
-      maxSea:    cCriteria.maxSea||'',
-      delivery:  cCriteria.delivery||'',
-      notes:     document.getElementById('cNotes').value.trim(),
-      matchCount:results.length,
-      listings,
-    },
-    results,
-  };
-}
-
-// Send to Apps Script using fetch no-cors (follows Google's redirects, fire-and-forget)
-// Falls back to JSONP if needed. Both run in parallel; whichever works first wins.
-async function sendToSheet(payload, statusEl) {
-  const encoded = encodeURIComponent(JSON.stringify(payload));
-  const url = CLIENTS_ENDPOINT + '?data=' + encoded;
-
-  // Method A: fetch no-cors — always "succeeds" from browser perspective, no response body
-  const fetchPromise = fetch(url, { method:'GET', mode:'no-cors', cache:'no-store' })
-    .then(() => 'fetch-ok')
-    .catch(err => { console.warn('fetch no-cors failed:', err); return null; });
-
-  // Method B: JSONP — gets actual callback if script redirects are followed
-  const jsonpPromise = new Promise(resolve => {
-    const cb = 'sc_' + Date.now();
-    const s  = document.createElement('script');
-    const t  = setTimeout(() => { delete window[cb]; s.remove(); resolve(null); }, 9000);
-    window[cb] = () => { clearTimeout(t); delete window[cb]; s.remove(); resolve('jsonp-ok'); };
-    s.src = url + '&callback=' + cb;
-    s.onerror = () => { clearTimeout(t); s.remove(); resolve(null); };
-    document.head.appendChild(s);
-  });
-
-  // Race: if fetch resolves first (it's usually instant) we assume success.
-  // JSONP confirmation within 9s is a bonus.
-  const winner = await Promise.race([fetchPromise, jsonpPromise]);
-  if (winner) return winner;
-
-  // Both returned null — throw so caller can show error
-  throw new Error('Both fetch and JSONP failed to reach the endpoint');
-}
-
-async function saveClient(){
-  const name  = document.getElementById('cName').value.trim();
-  const phone = document.getElementById('cPhone').value.trim();
-  if(!name&&!phone){alert('Please enter at least a name or phone number.');return;}
-
-  const status = document.getElementById('cSaveStatus');
-  status.textContent = 'Saving…';
-  status.style.color = 'var(--mu)';
-
-  const {payload} = buildPayload();
-
-  try{
-    const method = await sendToSheet(payload, status);
-    status.textContent = '✓ Sent — ' + new Date().toLocaleTimeString('en-GB') + ' · Check Clients sheet to confirm';
-    status.style.color = '#15803d';
-    console.log('Save method used:', method, payload);
-  }catch(e){
-    status.textContent = '⚠ Failed: ' + e.message + ' — check console';
-    status.style.color = 'var(--red)';
-    console.error('saveClient error:', e, 'Endpoint:', CLIENTS_ENDPOINT);
-  }
-}
-
-async function testEndpoint(){
-  const status = document.getElementById('cSaveStatus');
-  status.textContent = 'Testing endpoint…';
-  status.style.color = 'var(--mu)';
-  const testPayload = {
-    name:'⚡ CONNECTION TEST', phone:'000', purpose:'test',
-    budgetMin:0, budgetMax:0, cities:[], types:[], bedrooms:[],
-    maxSea:'', delivery:'', notes:'Delete this row — automated test',
-    matchCount:0, listings:[]
-  };
-  try{
-    const method = await sendToSheet(testPayload, status);
-    status.textContent = '✓ Test sent (' + method + ') — check Clients sheet for a "CONNECTION TEST" row';
-    status.style.color = '#15803d';
-  }catch(e){
-    status.textContent = '⚠ Test failed: ' + e.message;
-    status.style.color = 'var(--red)';
-    console.error('testEndpoint error:', e);
-  }
-}
 
 function resetClient(){
   document.getElementById('cName').value='';
@@ -1279,7 +1169,42 @@ function resetClient(){
   Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
   document.getElementById('cMatchCount').textContent='—';
   document.getElementById('cResults').innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
-  document.getElementById('cSaveStatus').textContent='';
+}
+
+function exportClientXLSX(){
+  const results=getClientMatches();
+  if(!results.length){alert('No matching listings to export.');return;}
+  const name=document.getElementById('cName').value.trim()||'Client';
+  const phone=document.getElementById('cPhone').value.trim();
+  const notes=document.getElementById('cNotes').value.trim();
+  // Summary header rows
+  const meta=[
+    ['Client',name],
+    ['Phone',phone||'—'],
+    ['Purpose',cCriteria.purpose||'—'],
+    ['Budget',cCriteria.budgetMin!=null?`€${(+cCriteria.budgetMin).toLocaleString()} – €${(+cCriteria.budgetMax).toLocaleString()}`:'—'],
+    ['Cities',cCriteria.cities.join(', ')||'Any'],
+    ['Types',cCriteria.types.join(', ')||'Any'],
+    ['Bedrooms',cCriteria.beds.join(', ')||'Any'],
+    ['Max sea distance',cCriteria.maxSea&&cCriteria.maxSea<999?cCriteria.maxSea+'km':'Any'],
+    ['Notes',notes||'—'],
+    ['Matched listings',results.length],
+    [],
+    ['Developer','Title','Type','City','District','Complex','Beds','Area m²','Price (€)','€/m²','Sea distance'],
+  ];
+  const rows=results.map(d=>[
+    d.developer||'',d.title||'',d.type||'',d.city||'',d.district||'',d.complex||'',
+    d.bedrooms!=null?d.bedrooms:'',d.area!=null?d.area:'',
+    d.price!=null?d.price:'',d.ppm!=null?d.ppm:'',
+    d.seaDist!=null?(d.seaDist<1?(Math.round(d.seaDist*1000)+'m'):(d.seaDist.toFixed(1)+'km')):'',
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([...meta,...rows]);
+  ws['!cols']=[20,30,12,12,18,20,6,8,14,8,12].map(w=>({wch:w}));
+  // Bold the header rows
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Client Brief');
+  const filename=`intelprop_${name.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb,filename);
 }
 
 // ── Market Intelligence ───────────────────────────────────────
