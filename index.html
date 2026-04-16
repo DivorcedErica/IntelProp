@@ -531,7 +531,7 @@ tr:hover td{background:var(--bg2)}
 
 <script>
 // ── Add your Anthropic API key here ──
-const ANTHROPIC_KEY = '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';
+const ANTHROPIC_KEY = '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';
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GID = '248082817';
 let PS = 25;
@@ -908,7 +908,7 @@ async function getRentalData(id) {
   const prompt=`Search Bazaraki.com, Spitogatos.cy, and Rightmove Cyprus for current rental listings of ${d.bedrooms!=null?d.bedrooms+' bedroom':''} ${(d.type||'property').toLowerCase()}${d.complex?' in '+d.complex+' complex,':''} in ${d.district}, ${d.city}, Cyprus${d.area?` around ${d.area}m²`:''}.
 Respond ONLY with valid JSON, no markdown:
 {"short_term_low":int|null,"short_term_high":int|null,"short_term_occupancy_low":int|null,"short_term_occupancy_high":int|null,"long_term_low":int|null,"long_term_high":int|null,"long_term_occupancy":int|null,"sources_found":["bazaraki"|"spitogatos"|"rightmove"],"comparables_count":int,"note":"string max 140 chars"}`;
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+  const res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||'API '+res.status);}
   const data=await res.json();
   const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -1550,14 +1550,9 @@ Respond ONLY with valid JSON, no markdown:
 
   try {
     document.getElementById('intelStep').textContent = 'Analysing rental yields...';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
@@ -1723,7 +1718,7 @@ async function fetchLiveYield(d, purpose) {
 Purpose: ${purpose}.
 Respond ONLY with a JSON object: {"monthly_low":int,"monthly_high":int,"gross_yield_pct":float,"source":"brief source note"}`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/proxy', {
       method: 'POST',
       headers: {'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:200,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
