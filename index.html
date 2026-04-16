@@ -2597,20 +2597,22 @@ function exportPropertyPDF(id) {
     if (!pos) return '';
     const yoy = RICS_DATA.yoyGrowth[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
     const proj = d.price ? Math.round(d.price*(1+yoy/100)) : null;
-    return \`<div class="section-title">Market positioning</div>
-    <div style="background:#f7f7f6;border-radius:8px;padding:14px 16px;margin-bottom:6px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:13px;font-weight:600">\${pos.label}</div>
-        <div style="font-size:11px;color:#888">\${pos.percentile}th percentile · \${pos.compCount} comparables</div>
-      </div>
-      <div style="font-size:12px;color:#444;margin-bottom:10px;line-height:1.6">\${pos.narrative}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:\${proj?'10px':'0'}">
-        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">This property</div><div style="font-size:13px;font-weight:600">€\${pos.ppm.toLocaleString()}/m²</div></div>
-        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">Market median</div><div style="font-size:13px;font-weight:600">€\${pos.median.toLocaleString()}/m²</div></div>
-        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">vs median</div><div style="font-size:13px;font-weight:600;color:\${pos.diffPct<=0?'#15803d':pos.diffPct<=15?'#b8860b':'#9d174d'}">\${pos.diffPct>0?'+':''}\${pos.diffPct}%</div></div>
-      </div>
-      \${proj?\`<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:6px;padding:8px 12px"><div style="font-size:11px;color:#888">Projected value in 12 months (RICS +\${yoy}% YoY)</div><div style="font-size:14px;font-weight:700;color:#15803d">€\${proj.toLocaleString()}</div></div>\`:''}
-    </div>\`;
+    const projRow = proj ? '<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:6px;padding:8px 12px"><div style="font-size:11px;color:#888">Projected value in 12 months (RICS +' + yoy + '% YoY)</div><div style="font-size:14px;font-weight:700;color:#15803d">€' + proj.toLocaleString() + '</div></div>' : '';
+    const diffColor = pos.diffPct<=0?'#15803d':pos.diffPct<=15?'#b8860b':'#9d174d';
+    return '<div class="section-title">Market positioning</div>'
+      + '<div style="background:#f7f7f6;border-radius:8px;padding:14px 16px;margin-bottom:6px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      + '<div style="font-size:13px;font-weight:600">' + pos.label + '</div>'
+      + '<div style="font-size:11px;color:#888">' + pos.percentile + 'th percentile · ' + pos.compCount + ' comparables</div>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#444;margin-bottom:10px;line-height:1.6">' + pos.narrative + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:' + (proj?'10px':'0') + '">'
+      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">This property</div><div style="font-size:13px;font-weight:600">€' + pos.ppm.toLocaleString() + '/m²</div></div>'
+      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">Market median</div><div style="font-size:13px;font-weight:600">€' + pos.median.toLocaleString() + '/m²</div></div>'
+      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">vs median</div><div style="font-size:13px;font-weight:600;color:' + diffColor + '">' + (pos.diffPct>0?'+':'') + pos.diffPct + '%</div></div>'
+      + '</div>'
+      + projRow
+      + '</div>';
   })()}
   <!-- RICS Market Context -->
   <div class="section-title">Market context — RICS/KPMG Q4 2025</div>
@@ -2794,14 +2796,14 @@ function renderMarketPositioning(d) {
     const yoy = RICS_DATA?.yoyGrowth?.[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
     const proj = d.price ? Math.round(d.price*(1+yoy/100)) : null;
     if (!proj) return '';
-    return \`<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Market Positioning</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:6px;padding:10px 14px;border:1px solid var(--bd)">
-        <div style="font-size:12px;color:var(--tx)">📈 Projected value in 12 months <span style="font-size:10px;color:var(--mu)">(RICS +\${yoy}% YoY)</span></div>
-        <div style="font-size:16px;font-weight:700;color:#15803d">€\${proj.toLocaleString()}</div>
-      </div>
-      <div style="font-size:9px;color:var(--mu);margin-top:6px">Based on RICS/KPMG Q4 2025 Cyprus index · Not a formal valuation</div>
-    </div>\`;
+    return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px">'
+      + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Market Positioning</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:6px;padding:10px 14px;border:1px solid var(--bd)">'
+      + '<div style="font-size:12px;color:var(--tx)">📈 Projected value in 12 months <span style="font-size:10px;color:var(--mu)">(RICS +' + yoy + '% YoY)</span></div>'
+      + '<div style="font-size:16px;font-weight:700;color:#15803d">€' + proj.toLocaleString() + '</div>'
+      + '</div>'
+      + '<div style="font-size:9px;color:var(--mu);margin-top:6px">Based on RICS/KPMG Q4 2025 Cyprus index · Not a formal valuation</div>'
+      + '</div>';
   }
 
   const barPct = Math.min(98, Math.max(2, pos.percentile));
