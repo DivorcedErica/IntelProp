@@ -1105,7 +1105,7 @@ async function renderMap() {
       const pos = { lat: coords[0]+jitter[0], lng: coords[1]+jitter[1] };
       const marker = new google.maps.Marker({
         position: pos,
-        map: gMap,
+        map: null,
         title: d.title,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
@@ -1136,30 +1136,36 @@ async function renderMap() {
     });
   }
 
-  // Use marker clustering for performance
-  if (window.markerClusterer && gMarkers.length > 0) {
-    gClusterer = new markerClusterer.MarkerClusterer({
-      map: gMap,
-      markers: gMarkers,
-      algorithm: new markerClusterer.SuperClusterAlgorithm({ maxZoom: 14, radius: 60 }),
-      renderer: {
-        render: ({ count, position }) => new google.maps.Marker({
-          position,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: '#1a1a1a',
-            fillOpacity: 0.85,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-            scale: count > 100 ? 18 : count > 20 ? 15 : 12,
-          },
-          label: { text: String(count), color: '#fff', fontSize: '11px', fontWeight: '600' },
-          zIndex: 999,
-        })
-      }
-    });
-    // Remove markers from map directly (clusterer handles placement)
-    gMarkers.forEach(m => m.setMap(null));
+  // Marker clustering for performance
+  try {
+    if (typeof markerClusterer !== 'undefined' && gMarkers.length > 0) {
+      gClusterer = new markerClusterer.MarkerClusterer({
+        map: gMap,
+        markers: gMarkers,
+        algorithm: new markerClusterer.SuperClusterAlgorithm({ maxZoom: 14, radius: 60 }),
+        renderer: {
+          render: ({ count, position }) => new google.maps.Marker({
+            position,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              fillColor: '#1a1a1a',
+              fillOpacity: 0.85,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              scale: count > 100 ? 18 : count > 20 ? 15 : 12,
+            },
+            label: { text: String(count), color: '#fff', fontSize: '11px', fontWeight: '600' },
+            zIndex: 999,
+          })
+        }
+      });
+    } else {
+      // Fallback: add markers directly to map
+      gMarkers.forEach(m => m.setMap(gMap));
+    }
+  } catch(e) {
+    // If clustering fails, just show markers directly
+    gMarkers.forEach(m => m.setMap(gMap));
   }
 }
 
