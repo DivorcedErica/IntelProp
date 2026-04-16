@@ -1030,7 +1030,7 @@ async function init() {
           imageUrl: null,
           lat: null,
           lng: null,
-          projectUrl: (()=>{ const v=(''+(g(17)||'')).replace(/__/g,'').trim(); return v&&v.startsWith('http')?v:null; })(),
+          projectUrl: null,
         };
       });
     } catch(e1) {
@@ -1064,7 +1064,7 @@ async function init() {
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
           imageUrl: null,
           lat: null, lng: null,
-          projectUrl: (()=>{ const v=(g(17)||'').replace(/__/g,'').trim(); return v&&v.startsWith('http')?v:null; })(),
+          projectUrl: null,
         };
       });
     }
@@ -1091,7 +1091,7 @@ async function init() {
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
-  if(all.length>0) console.log('projectUrl sample:', all[0].projectUrl);
+
   } catch (e) {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
   }
@@ -1385,11 +1385,7 @@ function openModal(id, e) {
   const on=sl.has(d.id);
   const img=d.imageUrl;
   document.getElementById('modalContent').innerHTML=`
-    ${d.projectUrl ? `
-      <div style="width:100%;height:420px;border-radius:16px 16px 0 0;overflow:hidden;position:relative;background:#f0f0f0">
-        <iframe src="${d.projectUrl}" style="width:100%;height:100%;border:none;display:block" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
-        <a href="${d.projectUrl}" target="_blank" rel="noopener" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-size:11px;padding:5px 12px;border-radius:99px;text-decoration:none;z-index:10">↗ Open full page</a>
-      </div>` : ``}
+
     <div class="modal-body">
       <div class="modal-header">
         <div style="flex:1;min-width:0">
@@ -1441,7 +1437,6 @@ function openModal(id, e) {
       </div>
       <div class="modal-actions">
         <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
-        ${d.projectUrl?`<a class="btn primary" href="${d.projectUrl}" target="_blank" rel="noopener" style="text-decoration:none">🔗 View on dom.com.cy</a>`:`<a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>`}
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
