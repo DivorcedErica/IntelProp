@@ -263,6 +263,13 @@ tr:hover td{background:var(--bg2)}
 .analytics-score-bar{height:6px;border-radius:99px;background:var(--bd);overflow:hidden;margin-top:4px}
 .analytics-score-fill{height:100%;border-radius:99px;background:var(--tx)}
 @media(max-width:768px){.analytics-charts{grid-template-columns:1fr}.analytics-sidebar{display:none}}
+
+/* ── Analytics split view ── */
+.an-card{display:flex;gap:0;background:var(--bg);border-bottom:1px solid var(--bd);cursor:pointer;transition:background .1s}
+.an-card:hover,.an-card-active{background:#f0f4ff}
+@media(prefers-color-scheme:dark){.an-card:hover,.an-card-active{background:#2a2a3a}}
+.an-card-img{width:110px;min-width:110px;height:90px;flex-shrink:0;overflow:hidden}
+.an-card-body{flex:1;padding:10px 12px;min-width:0}
 </style>
 </head>
 <body>
@@ -656,30 +663,47 @@ tr:hover td{background:var(--bg2)}
 
     <!-- ANALYTICS -->
     <div id="pAnalytics" style="display:none">
-      <div class="analytics-wrap">
-        <!-- Sidebar -->
-        <div class="analytics-sidebar">
-          <div class="analytics-nav-section">Market insights</div>
-          <div class="analytics-nav-item on" onclick="analyticsNav(this,'overview')">📊 Overview</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'occupancy')">📅 Occupancy</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'revenue')">💰 Revenue</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'rates')">🏷 Rates</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'seasonality')">📈 Seasonality</div>
-          <div class="analytics-nav-section">Tools</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'rentalizer')">🔢 Rentalizer</div>
-          <div class="analytics-nav-item" onclick="analyticsNav(this,'comparison')">⚖ City compare</div>
+      <!-- Top filters bar -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--bd);align-items:center">
+        <select id="anCity" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:120px">
+          <option value="">All cities</option>
+        </select>
+        <select id="anType" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:120px">
+          <option value="">All types</option>
+        </select>
+        <select id="anBeds" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:110px">
+          <option value="">Any beds</option>
+        </select>
+        <select id="anSea" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:130px">
+          <option value="">Any distance</option>
+          <option value="0.3">Beachfront</option>
+          <option value="1">Under 1km</option>
+          <option value="3">Under 3km</option>
+          <option value="8">Under 8km</option>
+        </select>
+        <select id="anSort" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:140px">
+          <option value="revenue">↓ Annual revenue</option>
+          <option value="adr">↓ Daily rate (ADR)</option>
+          <option value="occupancy">↓ Occupancy</option>
+          <option value="yield">↓ Gross yield</option>
+          <option value="price">↓ Price</option>
+        </select>
+        <div style="margin-left:auto;font-size:11px;color:var(--mu)" id="anDataNote"></div>
+        <button onclick="anToggleView()" id="anViewBtn" class="btn" style="font-size:11px">📊 Market stats</button>
+      </div>
+      <!-- Stats bar -->
+      <div id="anStatsBar" style="display:none;margin-bottom:12px"></div>
+      <!-- Split view: listings left, map right -->
+      <div style="display:grid;grid-template-columns:420px 1fr;gap:0;height:680px;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
+        <!-- Left: listing cards -->
+        <div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)">
+          <div id="anListings"><div class="empty">Loading...</div></div>
         </div>
-        <!-- Main area -->
-        <div class="analytics-main">
-          <div class="analytics-filters">
-            <select id="anCity" onchange="renderAnalytics()"><option value="">All cities</option></select>
-            <select id="anType" onchange="renderAnalytics()"><option value="">All types</option></select>
-            <select id="anBeds" onchange="renderAnalytics()"><option value="">Any beds</option></select>
-            <div style="margin-left:auto;font-size:11px;color:var(--mu);align-self:center" id="anDataNote"></div>
-          </div>
-          <div id="analyticsContent">
-            <div class="empty">Loading analytics...</div>
-          </div>
+        <!-- Right: Google Map -->
+        <div style="position:relative">
+          <div id="anMap" style="width:100%;height:100%"></div>
+          <!-- Hover card -->
+          <div id="anHoverCard" style="display:none;position:absolute;bottom:16px;left:16px;right:16px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:10;max-width:320px"></div>
         </div>
       </div>
     </div>
@@ -2465,59 +2489,166 @@ function getAnalyticsPool() {
   });
 }
 
+let anMap2 = null, anMarkers2 = [], anInfoWindow2 = null, anStatsVisible = false;
+
 function initAnalytics() {
-  // Populate filters
-  const anCityEl = document.getElementById('anCity');
-  const anTypeEl = document.getElementById('anType');
-  const anBedsEl = document.getElementById('anBeds');
-  if (anCityEl && anCityEl.options.length === 1) {
-    [...new Set(all.map(d=>d.city).filter(Boolean))].sort().forEach(v => {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; anCityEl.appendChild(o);
-    });
+  const ids = {anCity: all.map(d=>d.city), anType: all.map(d=>d.type), anBeds: all.map(d=>d.bedrooms)};
+  if (document.getElementById('anCity').options.length === 1) {
+    [...new Set(ids.anCity.filter(Boolean))].sort().forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anCity').appendChild(o); });
+    [...new Set(ids.anType.filter(Boolean))].sort().forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anType').appendChild(o); });
+    [...new Set(ids.anBeds.filter(v=>v!=null))].sort((a,b)=>a-b).forEach(b => { const o=document.createElement('option');o.value=b;o.textContent=b+' bed'+(b!==1?'s':'');document.getElementById('anBeds').appendChild(o); });
   }
-  if (anTypeEl && anTypeEl.options.length === 1) {
-    [...new Set(all.map(d=>d.type).filter(Boolean))].sort().forEach(v => {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; anTypeEl.appendChild(o);
-    });
-  }
-  if (anBedsEl && anBedsEl.options.length === 1) {
-    [...new Set(all.map(d=>d.bedrooms).filter(v=>v!=null))].sort((a,b)=>a-b).forEach(b => {
-      const o = document.createElement('option'); o.value = b; o.textContent = b + ' bed' + (b!==1?'s':''); anBedsEl.appendChild(o);
-    });
-  }
-  renderAnalytics();
+  renderAnalyticsListings();
 }
 
-function analyticsNav(el, section) {
-  document.querySelectorAll('.analytics-nav-item').forEach(i => i.classList.remove('on'));
-  el.classList.add('on');
-  analyticsSection = section;
-  renderAnalytics();
+function getAnalyticsPool() {
+  const city=document.getElementById('anCity')?.value||'';
+  const type=document.getElementById('anType')?.value||'';
+  const beds=document.getElementById('anBeds')?.value||'';
+  const sea=document.getElementById('anSea')?.value||'';
+  return all.filter(d => {
+    if (city && d.city!==city) return false;
+    if (type && d.type!==type) return false;
+    if (beds && d.bedrooms!==+beds) return false;
+    if (sea && (d.seaDist==null||d.seaDist>+sea)) return false;
+    return true;
+  });
 }
 
-function renderAnalytics() {
+function anToggleView() {
+  anStatsVisible = !anStatsVisible;
+  document.getElementById('anViewBtn').textContent = anStatsVisible ? '✕ Hide stats' : '📊 Market stats';
+  const sb = document.getElementById('anStatsBar');
+  if (anStatsVisible) { renderAnStatsBar(getAnalyticsPool()); sb.style.display=''; }
+  else sb.style.display='none';
+}
+
+function renderAnStatsBar(pool) {
+  const m = pool.map(calcPropertyMetrics);
+  if (!m.length) return;
+  const avgADR=Math.round(m.reduce((s,x)=>s+x.ADR,0)/m.length);
+  const avgOcc=(m.reduce((s,x)=>s+x.occupancy,0)/m.length*100).toFixed(1);
+  const avgRev=Math.round(m.reduce((s,x)=>s+x.annualRevenue,0)/m.length);
+  const avgYield=(m.reduce((s,x)=>s+x.grossYield,0)/m.length).toFixed(1);
+  document.getElementById('anStatsBar').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px">
+    <div class="analytics-kpi"><div class="analytics-kpi-label">Active listings</div><div class="analytics-kpi-value">${pool.length.toLocaleString()}</div></div>
+    <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate</div><div class="analytics-kpi-value">€${avgADR}</div></div>
+    <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div></div>
+    <div class="analytics-kpi"><div class="analytics-kpi-label">Annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div></div>
+    <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgYield}%</div></div>
+  </div>`;
+}
+
+function renderAnalyticsListings() {
   const pool = getAnalyticsPool();
-  if (!pool.length) {
-    document.getElementById('analyticsContent').innerHTML = '<div class="empty">No data matches filters.</div>';
-    return;
-  }
-  // Destroy existing charts
-  Object.values(anCharts).forEach(c => { try { c.destroy(); } catch(e){} });
-  anCharts = {};
+  const sort = document.getElementById('anSort')?.value || 'revenue';
+  document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings`;
+  if (anStatsVisible) renderAnStatsBar(pool);
 
-  switch(analyticsSection) {
-    case 'overview':    renderAnalyticsOverview(pool); break;
-    case 'occupancy':   renderAnalyticsOccupancy(pool); break;
-    case 'revenue':     renderAnalyticsRevenue(pool); break;
-    case 'rates':       renderAnalyticsRates(pool); break;
-    case 'seasonality': renderAnalyticsSeasonality(pool); break;
-    case 'rentalizer':  renderAnalyticsRentalizer(pool); break;
-    case 'comparison':  renderAnalyticsComparison(); break;
-    default:            renderAnalyticsOverview(pool);
-  }
+  const scored = pool.map(d=>({...d,...calcPropertyMetrics(d)})).sort((a,b)=>{
+    if(sort==='revenue') return b.annualRevenue-a.annualRevenue;
+    if(sort==='adr') return b.ADR-a.ADR;
+    if(sort==='occupancy') return b.occupancy-a.occupancy;
+    if(sort==='yield') return b.grossYield-a.grossYield;
+    if(sort==='price') return (b.price||0)-(a.price||0);
+    return 0;
+  });
 
-  document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings · AirDNA methodology`;
+  const cards = scored.slice(0,60).map(d=>{
+    const img=d.imageUrl;
+    return `<div class="an-card" onclick="anCardClick(${d.id})" onmouseenter="anCardHover(${d.id})" onmouseleave="anCardLeave()">
+      <div class="an-card-img">${img?`<img src="${img}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;background:var(--bg2);display:flex;align-items:center;justify-content:center;color:var(--bd)">⊞</div>`}</div>
+      <div class="an-card-body">
+        <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:2px">
+          <div style="font-size:11px;font-weight:600;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title}</div>
+          <div style="font-size:12px;font-weight:700;flex-shrink:0">${d.price?'€'+d.price.toLocaleString():'—'}</div>
+        </div>
+        <div style="font-size:10px;color:var(--mu);margin-bottom:5px">${d.city}${d.district?', '+d.district:''} · ${d.type||''}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">
+          <div style="background:var(--bg2);border-radius:4px;padding:3px 4px;text-align:center"><div style="font-size:8px;color:var(--mu)">Revenue</div><div style="font-size:10px;font-weight:600">€${(d.annualRevenue/1000).toFixed(0)}k</div></div>
+          <div style="background:var(--bg2);border-radius:4px;padding:3px 4px;text-align:center"><div style="font-size:8px;color:var(--mu)">Occ.</div><div style="font-size:10px;font-weight:600">${(d.occupancy*100).toFixed(0)}%</div></div>
+          <div style="background:var(--bg2);border-radius:4px;padding:3px 4px;text-align:center"><div style="font-size:8px;color:var(--mu)">ADR</div><div style="font-size:10px;font-weight:600">€${d.ADR}</div></div>
+          <div style="background:var(--bg2);border-radius:4px;padding:3px 4px;text-align:center;${d.grossYield>=7?'outline:1px solid #86efac':''}"><div style="font-size:8px;color:var(--mu)">Yield</div><div style="font-size:10px;font-weight:600;color:${d.grossYield>=7?'#15803d':d.grossYield>=5?'#b8860b':'#6b7280'}">${d.grossYield.toFixed(1)}%</div></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('anListings').innerHTML = scored.length
+    ? cards + (scored.length>60?`<div style="padding:10px;text-align:center;font-size:11px;color:var(--mu)">Top 60 of ${scored.length.toLocaleString()} · Use filters to narrow</div>`:'')
+    : '<div class="empty">No listings match.</div>';
+
+  renderAnalyticsMap(scored.slice(0,300));
 }
+
+function renderAnalyticsMap(pool) {
+  if (!googleMapsReady || !window.google) { setTimeout(()=>renderAnalyticsMap(pool),500); return; }
+  const mapEl = document.getElementById('anMap');
+  if (!mapEl) return;
+  if (!anMap2) {
+    anMap2 = new google.maps.Map(mapEl, {
+      center:{lat:34.9,lng:33.1}, zoom:9,
+      mapTypeControl:true, mapTypeControlOptions:{style:google.maps.MapTypeControlStyle.HORIZONTAL_BAR,mapTypeIds:['roadmap','satellite','hybrid']},
+      zoomControl:true, streetViewControl:false, fullscreenControl:true,
+      draggableCursor:'default', draggingCursor:'grabbing',
+      styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
+    });
+    anInfoWindow2 = new google.maps.InfoWindow();
+  }
+  anMarkers2.forEach(m=>m.setMap(null)); anMarkers2=[];
+  const locs={};
+  pool.forEach(d=>{
+    const key=`${d.district||''},${d.city}`;
+    if(!locs[key]) locs[key]={city:d.city,district:d.district,items:[]};
+    locs[key].items.push(d);
+  });
+  for (const loc of Object.values(locs)) {
+    const fb=DISTRICT_FALLBACK[loc.district]||CITY_FALLBACK[loc.city];
+    if(!fb) continue;
+    loc.items.forEach(d=>{
+      const jitter=[(Math.random()-0.5)*0.005,(Math.random()-0.5)*0.005];
+      const pos={lat:fb[0]+jitter[0],lng:fb[1]+jitter[1]};
+      const yColor=d.grossYield>=7?'#15803d':d.grossYield>=5?'#b8860b':'#6b7280';
+      const marker=new google.maps.Marker({position:pos,map:anMap2,title:d.title,
+        icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:yColor,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7}});
+      marker.addListener('click',()=>{
+        anInfoWindow2.setContent(`<div style="min-width:200px;padding:4px;font-size:13px">
+          <div style="font-weight:600;margin-bottom:2px">${d.title}</div>
+          <div style="font-size:11px;color:#666;margin-bottom:6px">${d.developer} · ${d.city}</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:6px">${d.price?'€'+d.price.toLocaleString():'—'}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;margin-bottom:8px">
+            <span>📅 ${(d.occupancy*100).toFixed(0)}% occ.</span><span>💰 €${d.ADR}/night</span>
+            <span>📈 €${(d.annualRevenue/1000).toFixed(0)}k/yr</span><span style="color:${d.grossYield>=7?'#15803d':'#b8860b'}">🎯 ${d.grossYield.toFixed(1)}% yield</span>
+          </div>
+          <button onclick="openModal(${d.id})" style="width:100%;height:30px;font-size:11px;border:none;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">View details →</button>
+        </div>`);
+        anInfoWindow2.open(anMap2,marker);
+        document.querySelectorAll('.an-card').forEach(c=>c.classList.remove('an-card-active'));
+        const card=document.querySelector(`[onmouseenter="anCardHover(${d.id})"]`);
+        if(card){card.classList.add('an-card-active');card.scrollIntoView({behavior:'smooth',block:'nearest'});}
+      });
+      marker._data=d;
+      anMarkers2.push(marker);
+    });
+  }
+  const city=document.getElementById('anCity')?.value;
+  if(city&&CITY_FALLBACK[city]){anMap2.setCenter({lat:CITY_FALLBACK[city][0],lng:CITY_FALLBACK[city][1]});anMap2.setZoom(12);}
+}
+
+function anCardClick(id){
+  const marker=anMarkers2.find(m=>m._data?.id===id);
+  if(marker&&anMap2){anMap2.panTo(marker.getPosition());google.maps.event.trigger(marker,'click');}
+  else openModal(id);
+}
+function anCardHover(id){
+  const m=anMarkers2.find(m=>m._data?.id===id);
+  if(m)m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:'#1a1a1a',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5,scale:11});
+}
+function anCardLeave(){
+  anMarkers2.forEach(m=>{if(!m._data)return;const c=m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7});});
+}
+function renderAnalytics(){renderAnalyticsListings();}
+function analyticsNav(){}
 
 function renderAnalyticsOverview(pool) {
   const metrics = pool.map(calcPropertyMetrics);
