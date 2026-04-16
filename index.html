@@ -1230,3 +1230,1093 @@ async function renderMap() {
     gMarkers.forEach(m => m.setMap(gMap));
   }
 }
+
+// ── Detail modal ──
+function openModal(id, e) {
+  e&&e.stopPropagation();
+  const d=all.find(x=>x.id===id);
+  if(!d)return;
+  const on=sl.has(d.id);
+  const img=d.imageUrl;
+  document.getElementById('modalContent').innerHTML=`
+    ${img?`<img class="modal-img" src="${img}" alt="${d.title}"><div class="modal-reflection"><img src="${img}" alt="" aria-hidden="true"></div>`:``}
+    <div class="modal-body">
+      <div class="modal-header">
+        <div style="flex:1;min-width:0">
+          <div style="margin-bottom:6px">${tagBadge(d.type)}${d.seaDist!=null?' '+seaBadge(d.seaDist):''}</div>
+          <div class="modal-title">${d.title}</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:4px">${d.developer}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:16px">
+          <div class="modal-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+          ${d.ppm!=null?`<div class="modal-ppm">€${d.ppm.toLocaleString()} / m²</div>`:''}
+        </div>
+      </div>
+      <div class="modal-meta">
+        ${d.complex ? `<div class="meta-cell"><div class="meta-label">Complex</div><div class="meta-value">${d.complex}</div></div>` : ''}
+        <div class="meta-cell"><div class="meta-label">City</div><div class="meta-value">${d.city||'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">District</div><div class="meta-value">${d.district||'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">Bedrooms</div><div class="meta-value">${d.bedrooms!=null?d.bedrooms:'—'}</div></div>
+        <div class="meta-cell"><div class="meta-label">Total area</div><div class="meta-value">${d.area!=null?d.area+' m²':'—'}</div></div>
+        ${d.plot!=null?`<div class="meta-cell"><div class="meta-label">Plot size</div><div class="meta-value">${d.plot} m²</div></div>`:''}
+        <div class="meta-cell"><div class="meta-label">Added</div><div class="meta-value">${d.addedOn||'—'}</div></div>
+        <div class="meta-cell" id="modal-sea-${d.id}"><div class="meta-label">Distance to sea</div><div class="meta-value">${d.seaDist!=null?seaBadge(d.seaDist):'—'}</div></div>
+      </div>
+      <div class="modal-section-title">Location</div>
+      <div class="modal-map" id="modalMap"></div>
+      <div class="modal-section-title">Rental Intelligence</div>
+      <div id="modalRentalArea">
+        <button class="rental-btn" id="rbtn-modal-${d.id}" onclick="triggerModalRental(${d.id})">◈ Market rental data</button>
+        <div class="rental-panel" id="rpanel-modal-${d.id}" style="display:none"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
+        <a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>
+        <button class="btn" onclick="closeModalDirect()">Close</button>
+      </div>
+    </div>`;
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(async ()=>{
+    const coords = await getCoords(d);
+    if(coords&&document.getElementById('modalMap')&&window.google){
+      const mm = new google.maps.Map(document.getElementById('modalMap'), {
+        center: { lat: coords[0], lng: coords[1] },
+        zoom: 15,
+        zoomControl: false,
+        streetViewControl: true,
+        mapTypeControl: true,
+        mapTypeControlOptions: { style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, mapTypeIds: ['roadmap','satellite','hybrid'] },
+        fullscreenControl: false,
+        gestureHandling: 'none',
+      });
+      new google.maps.Marker({
+        position: { lat: coords[0], lng: coords[1] },
+        map: mm,
+        icon: { path: google.maps.SymbolPath.CIRCLE, fillColor: pinColor(d.type), fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2, scale: 9 }
+      });
+      const {beach,dist} = nearestSea(coords[0],coords[1]);
+      d.seaDist = dist; d.nearestBeach = beach.name;
+      const cardBadge = document.getElementById('sea-'+d.id);
+      if(cardBadge) cardBadge.innerHTML = seaBadge(dist);
+      const modalSea = document.getElementById('modal-sea-'+d.id);
+      if(modalSea) modalSea.querySelector('.meta-value').innerHTML = seaBadge(dist);
+    }
+  },100);
+}
+
+async function triggerModalRental(id) {
+  const btn=document.getElementById(`rbtn-modal-${id}`);
+  const panel=document.getElementById(`rpanel-modal-${id}`);
+  if(!btn||!panel)return;
+  if(panel.dataset.loaded){
+    const vis=panel.style.display!=='none';
+    panel.style.display=vis?'none':'';
+    btn.textContent=vis?'◈ Market rental data':'▲ Hide rental data';
+    return;
+  }
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin">◈</span> Searching…';
+  try {
+    const r=await getRentalData(id);
+    const allSrc=['bazaraki','spitogatos','rightmove'];
+    const srcNames={bazaraki:'Bazaraki',spitogatos:'Spitogatos',rightmove:'Rightmove'};
+    const pills=allSrc.map(s=>`<span class="src ${r.sources_found&&r.sources_found.includes(s)?'found':''}">${srcNames[s]}</span>`).join('');
+    const stCell=(r.short_term_low&&r.short_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Short-term (holiday)</div><div class="rp-cell-val">€${r.short_term_low.toLocaleString()}–€${r.short_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.short_term_occupancy_low?`<div class="rp-cell-sub">Occupancy ${r.short_term_occupancy_low}–${r.short_term_occupancy_high}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Short-term</div><div class="rp-cell-sub" style="margin-top:6px">No data found</div></div>`;
+    const ltCell=(r.long_term_low&&r.long_term_high)?`<div class="rp-cell"><div class="rp-cell-lbl">Long-term (monthly)</div><div class="rp-cell-val">€${r.long_term_low.toLocaleString()}–€${r.long_term_high.toLocaleString()}<span style="font-size:10px;font-weight:400">/mo</span></div>${r.long_term_occupancy?`<div class="rp-cell-sub">Occupancy ~${r.long_term_occupancy}%</div>`:''}</div>`:`<div class="rp-cell"><div class="rp-cell-lbl">Long-term</div><div class="rp-cell-sub" style="margin-top:6px">No data found</div></div>`;
+    panel.innerHTML=`<div class="rp-title"><span>Market Rental Data</span></div><div class="rp-sources">${pills}</div><div class="rp-row">${stCell}${ltCell}</div><div class="rp-note">${r.note||''}</div><div class="rp-disc">Live data from Bazaraki, Spitogatos & Rightmove Cyprus.</div>`;
+    panel.dataset.loaded='1'; panel.style.display='';
+    btn.textContent='▲ Hide rental data';
+  } catch(e) {
+    panel.innerHTML=`<div style="font-size:11px;color:var(--mu)">Could not fetch. ${e.message}</div>`;
+    panel.dataset.loaded='1'; panel.style.display=''; btn.textContent='▲ Hide rental data';
+  }
+  btn.disabled=false;
+}
+
+function heartFromModal(id) {
+  sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
+  document.getElementById('slBadge').textContent=sl.size;
+  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  const btn=document.getElementById('modalHeartBtn');
+  if(btn)btn.textContent=on?'♥ Remove from shortlist':'♡ Add to shortlist';
+  document.querySelectorAll('.hb, .card-heart').forEach(b => {
+    const oc = b.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) { b.classList.toggle('on', on); b.textContent = on ? '♥' : '♡'; }
+  });
+  if(tab==='shortlist') renderSL();
+}
+
+function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
+function closeModalDirect() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ── Card ──
+function renderCard(d) {
+  const img=d.imageUrl; const on=sl.has(d.id);
+  return `<div class="prop-card" onclick="openModal(${d.id})">
+    <button class="card-heart ${on?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${on?'♥':'♡'}</button>
+    <div class="card-img-wrap">${img?`<img src="${img}" alt="${d.title}" loading="lazy">`:`<div class="card-img-placeholder"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".25"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size:10px;color:var(--mu)">No image</span></div>`}</div>
+    ${img?`<div class="reflection-wrap"><img src="${img}" alt="" aria-hidden="true" loading="lazy"></div>`:'<div style="height:8px"></div>'}
+    <div class="card-body">
+      <div style="margin-bottom:6px">${tagBadge(d.type)}</div>
+      <div class="card-title">${d.title}</div>
+      <div class="card-dev">${d.developer}</div>
+      ${d.complex ? `<div style="font-size:11px;color:var(--tx);font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.complex}</div>` : ''}
+      <div class="card-facts">${[d.city&&d.district?`${d.city}, ${d.district}`:d.city||d.district,d.bedrooms!=null?`${d.bedrooms} bed${d.bedrooms!==1?'s':''}`:null,d.area!=null?`${d.area} m²`:null].filter(Boolean).join(' · ')}</div>
+      <div class="card-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
+        ${d.ppm!=null?`<span class="card-ppm">€${d.ppm.toLocaleString()} / m²</span>`:''}
+        <span id="sea-${d.id}">${d.seaDist!=null?seaBadge(d.seaDist):'<span style="font-size:10px;color:var(--mu)">...</span>'}</span>
+      </div>
+      <button class="rental-btn" id="rbtn-${d.id}" onclick="triggerRental(${d.id},event)">◈ Market rental data</button>
+      <div class="rental-panel" id="rpanel-${d.id}" style="display:none"></div>
+      <a href="${googleSearchUrl(d)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="display:flex;width:100%;margin-top:6px;height:28px;font-size:11px;font-weight:500;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer;align-items:center;justify-content:center;gap:4px;text-decoration:none">↗ Search on Google</a>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const start=(page-1)*PS, data=filt.slice(start,start+PS), tot=Math.ceil(filt.length/PS)||1;
+  document.getElementById('cShown').textContent=filt.length.toLocaleString();
+  document.getElementById('cTotal').textContent=all.length.toLocaleString();
+  const ps=filt.filter(d=>d.price).map(d=>d.price);
+  const ms=filt.filter(d=>d.ppm).map(d=>d.ppm);
+  document.getElementById('aPrice').textContent=ps.length?'€'+Math.round(ps.reduce((a,b)=>a+b)/ps.length).toLocaleString():'—';
+  document.getElementById('aPpm').textContent=ms.length?'€'+Math.round(ms.reduce((a,b)=>a+b)/ms.length).toLocaleString():'—';
+  document.getElementById('pInfo').textContent=`Page ${page} of ${tot}`;
+  document.getElementById('bPrev').disabled=page<=1;
+  document.getElementById('bNext').disabled=page>=tot;
+  if(!data.length){document.getElementById('mainView').innerHTML=`<div class="empty">No listings match.</div>`;return;}
+  if(view==='table'){
+    const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px"><col style="width:36px">';
+    const lbl={developer:'Developer',title:'Title',type:'Type',city:'City',district:'District',bedrooms:'Beds',area:'Area m²',price:'Price',ppm:'€/m²'};
+    const hs=Object.keys(lbl).map(k=>`<th onclick="sortBy('${k}')">${lbl[k]}${sc===k?(sa?' ↑':' ↓'):''}</th>`).join('');
+    const rows=data.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td title="${d.developer||''}">${d.developer||'—'}</td>
+      <td title="${d.title||''}${d.complex?' · '+d.complex:''}">${d.title||'—'}${d.complex?`<span style="color:var(--mu);font-size:10px"> · ${d.complex}</span>`:''}</td>
+      <td>${tagBadge(d.type)}</td>
+      <td>${d.city||'—'}</td>
+      <td>${d.district||'—'}</td>
+      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+      <td style="font-weight:600;white-space:nowrap">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      <td style="text-align:right;white-space:nowrap;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+    </tr>`).join('');
+    document.getElementById('mainView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr>${hs}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else {
+    document.getElementById('mainView').innerHTML=`<div style="padding:12px"><div class="cards">${data.map(d=>renderCard(d)).join('')}</div></div>`;
+  }
+}
+
+function heart(id) {
+  sl.has(id)?sl.delete(id):sl.add(id);
+  const on = sl.has(id);
+  document.getElementById('slBadge').textContent=sl.size;
+  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  document.querySelectorAll('.hb, .card-heart').forEach(btn => {
+    const oc = btn.getAttribute('onclick') || '';
+    if (oc.includes('heart(' + id + ')')) { btn.classList.toggle('on', on); btn.textContent = on ? '♥' : '♡'; }
+  });
+  if(tab==='shortlist') renderSL();
+}
+
+function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
+function pg(d){page+=d;render();window.scrollTo(0,0);}
+function setView(v){
+  view=v;
+  document.getElementById('vTable').classList.toggle('on',v==='table');
+  document.getElementById('vCards').classList.toggle('on',v==='cards');
+  render();
+}
+function setPS(n){
+  PS=n;
+  [25,50,100].forEach(x=>{const el=document.getElementById('ps'+x);if(el)el.classList.toggle('on',x===n);});
+  page=1;render();
+}
+function clearFilters(){
+  document.getElementById('q').value='';
+  document.getElementById('fCity').value='';
+  document.getElementById('fType').value='';
+  document.getElementById('fBeds').value='';
+  const fSea=document.getElementById('fSea');if(fSea)fSea.value='';
+  const slider=document.getElementById('priceR');slider.value=slider.max;
+  const pinput=document.getElementById('priceInput');pinput.value='';pinput.placeholder='Any';
+  doFilter();
+}
+
+function gotoTab(t,el){
+  tab=t;
+  ['listings','map','intelligence','clients','portfolio','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
+  if(t==='intelligence'){loadIntelligence(false);}
+  if(t==='shortlist')renderSL();
+}
+
+function renderDev(filterDev) {
+  const m = {};
+  all.forEach(d => {
+    if (!d.developer) return;
+    if (!m[d.developer]) m[d.developer] = { name: d.developer, n: 0, prices: [], cities: new Set() };
+    m[d.developer].n++;
+    if (d.price) m[d.developer].prices.push(d.price);
+    if (d.city) m[d.developer].cities.add(d.city);
+  });
+  const devs = Object.values(m).sort((a, b) => b.n - a.n);
+
+  if (filterDev) {
+    const devListings = all.filter(d => d.developer === filterDev);
+    const cw = '<col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px">';
+    const rows = devListings.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td title="${d.title||''}">${d.title||'—'}</td>
+      <td>${tagBadge(d.type)}</td>
+      <td>${d.city||'—'}</td>
+      <td>${d.district||'—'}</td>
+      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+      <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      <td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
+    </tr>`).join('');
+    document.getElementById('devView').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button onclick="renderDev()" class="btn" style="font-size:11px">← All developers</button>
+        <div>
+          <div style="font-size:14px;font-weight:600">${filterDev}</div>
+          <div style="font-size:11px;color:var(--mu)">${devListings.length} listings</div>
+        </div>
+      </div>
+      <div class="twrap"><table><colgroup>${cw}</colgroup>
+        <thead><tr><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+    return;
+  }
+
+  document.getElementById('devView').innerHTML = `<div class="dg">${devs.map(d => {
+    const avg = d.prices.length ? Math.round(d.prices.reduce((a,b)=>a+b)/d.prices.length) : null;
+    const mn = d.prices.length ? Math.min(...d.prices) : null;
+    const mx = d.prices.length ? Math.max(...d.prices) : null;
+    return `<div class="dc" style="cursor:pointer" onclick="renderDev('${d.name.replace(/'/g,"\'")}')">
+      <div class="dn" title="${d.name}">${d.name}</div>
+      <div class="ds2">
+        <div class="di">Listings<b>${d.n}</b></div>
+        <div class="di">Avg price<b>${avg?'€'+avg.toLocaleString():'—'}</b></div>
+        <div class="di">Min<b>${mn?'€'+mn.toLocaleString():'—'}</b></div>
+        <div class="di">Max<b>${mx?'€'+mx.toLocaleString():'—'}</b></div>
+      </div>
+      <div class="dci">${[...d.cities].join(' · ')}</div>
+      <div style="margin-top:8px;font-size:10px;color:var(--mu)">Click to view all listings →</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderSL(){
+  if(!sl.size){document.getElementById('slView').innerHTML=`<div class="empty">No listings shortlisted.<br>Click ♡ to add.</div>`;return;}
+  const items=all.filter(d=>sl.has(d.id));
+  if(view==='cards'){document.getElementById('slView').innerHTML=`<div style="padding:12px"><div class="cards">${items.map(d=>renderCard(d)).join('')}</div></div>`;return;}
+  const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px"><col style="width:36px">';
+  const rows=items.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
+    <td>${d.developer}</td><td>${d.title}</td><td>${tagBadge(d.type)}</td>
+    <td>${d.city}</td><td>${d.district}</td><td>${d.complex||'—'}</td>
+    <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+    <td style="text-align:right">${d.area!=null?d.area.toLocaleString():'—'}</td>
+    <td style="font-weight:500">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+    <td style="text-align:right">${d.ppm!=null?d.ppm.toLocaleString():'—'}</td>
+    <td style="text-align:center"><button class="hb on" onclick="event.stopPropagation();heart(${d.id})">♥</button></td>
+  </tr>`).join('');
+  document.getElementById('slView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr><th>Developer</th><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Complex</th><th>Beds</th><th>Area m²</th><th>Price</th><th>€/m²</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function exportCSV(){
+  if(!filt.length){alert('No data to export.');return;}
+  const h=['Developer','Title','Complex','Type','City','District','Bedrooms','Area m2','Price EUR','EUR per m2','Price Text','Added On'];
+  const rows=filt.map(d=>[d.developer,d.title,d.complex??'',d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.price??'',d.ppm??'',d.priceText,d.addedOn].map(v=>`"${(''+v).replace(/"/g,'""')}"`).join(','));
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='intelprop.csv';a.click();
+}
+
+function exportXLSX(){
+  if(!sl.size){alert('Add listings to your shortlist first.');return;}
+  const items=all.filter(d=>sl.has(d.id));
+  const ws=XLSX.utils.aoa_to_sheet([['Developer','Title','Type','City','District','Bedrooms','Area m²','Plot m²','Price (€)','€/m²','Price Text','Added On','Image URL'],...items.map(d=>[d.developer,d.title,d.type,d.city,d.district,d.bedrooms??'',d.area??'',d.plot??'',d.price??'',d.ppm??'',d.priceText,d.addedOn,d.imageUrl??''])]);
+  ws['!cols']=[30,40,14,14,20,10,10,10,14,10,25,16,40].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Shortlist');
+  XLSX.writeFile(wb,`intelprop_shortlist_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ── Client Call ──────────────────────────────────────────────
+const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
+let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
+
+function toggleCrit(btn, key) {
+  const group = btn.parentElement;
+  group.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (key === 'budget') {
+    cCriteria.budgetMin = btn.dataset.min !== undefined ? +btn.dataset.min : 0;
+    cCriteria.budgetMax = btn.dataset.max !== undefined ? +btn.dataset.max : 99000000;
+  } else if (key === 'sea') {
+    cCriteria.maxSea = +btn.dataset.val || null;
+  } else {
+    cCriteria[key] = btn.textContent.trim();
+  }
+  applyClientFilter();
+}
+
+function toggleMulti(btn, key) {
+  btn.classList.toggle('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (btn.classList.contains('on')) {
+    if (!cCriteria[key].includes(val)) cCriteria[key].push(val);
+  } else {
+    cCriteria[key] = cCriteria[key].filter(v => v !== val);
+  }
+  applyClientFilter();
+}
+
+function getClientMatches() {
+  return all.filter(d => {
+    if (cCriteria.budgetMin !== null && cCriteria.budgetMax !== null) {
+      const p = d.price || 0;
+      if (p < cCriteria.budgetMin || p > cCriteria.budgetMax) return false;
+    }
+    if (cCriteria.types.length > 0) {
+      if (!cCriteria.types.some(ct => (d.type||'').toLowerCase().includes(ct.toLowerCase()))) return false;
+    }
+    if (cCriteria.beds.length > 0) {
+      const has5plus = cCriteria.beds.includes('5+');
+      const numBeds = cCriteria.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
+      const hasStudio = cCriteria.beds.includes('Studio');
+      let match = false;
+      if (hasStudio && (d.bedrooms === 0 || d.bedrooms === null)) match = true;
+      if (numBeds.includes(d.bedrooms)) match = true;
+      if (has5plus && d.bedrooms >= 5) match = true;
+      if (!match) return false;
+    }
+    if (cCriteria.cities.length > 0) {
+      if (!cCriteria.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
+    }
+    if (cCriteria.maxSea !== null && cCriteria.maxSea < 999) {
+      if (d.seaDist == null || d.seaDist > cCriteria.maxSea) return false;
+    }
+    return true;
+  });
+}
+
+function estimateYield(d, purpose) {
+  const cityBase = {
+    Limassol:  purpose === 'Short-term rental' ? 6.8 : 5.2,
+    Larnaca:   purpose === 'Short-term rental' ? 7.2 : 6.0,
+    Paphos:    purpose === 'Short-term rental' ? 7.5 : 6.3,
+    Nicosia:   purpose === 'Short-term rental' ? 5.4 : 5.2,
+    Famagusta: purpose === 'Short-term rental' ? 6.2 : 6.5,
+  };
+  let y = cityBase[d.city] ?? 5.8;
+  const t = (d.type||'').toLowerCase();
+  if (t.includes('apartment')) y += 0.6;
+  if (t.includes('penthouse')) y -= 0.3;
+  if (t.includes('villa')) y -= 0.5;
+  if (t.includes('house')) y -= 0.4;
+  if (d.bedrooms === 1) y += 0.5;
+  if (d.bedrooms === 2) y += 0.3;
+  if (d.bedrooms === 3) y += 0.1;
+  if ((d.bedrooms||0) >= 4) y -= 0.4;
+  if (d.seaDist != null) {
+    if (d.seaDist < 0.5) y += purpose === 'Short-term rental' ? 1.2 : 0.2;
+    else if (d.seaDist < 1) y += purpose === 'Short-term rental' ? 0.8 : 0.1;
+    else if (d.seaDist < 3) y += 0.3;
+    else if (d.seaDist > 15) y -= 0.3;
+  }
+  if (d.ppm != null) {
+    if (d.ppm < 2500) y += 0.6;
+    else if (d.ppm < 3500) y += 0.3;
+    else if (d.ppm > 6000) y -= 0.4;
+    else if (d.ppm > 8000) y -= 0.7;
+  }
+  const mgmtFee = purpose === 'Short-term rental' ? 0.20 : purpose === 'Long-term rental' ? 0.08 : 0;
+  const grossYield = Math.max(3.5, Math.min(10.5, y));
+  return Math.round(grossYield * (1 - mgmtFee) * 10) / 10;
+}
+
+function estimateRentRange(d, purpose) {
+  if (!d.price) return null;
+  const mgmtFee = purpose === 'Short-term rental' ? 0.20 : purpose === 'Long-term rental' ? 0.08 : 0;
+  const netYield = estimateYield(d, purpose);
+  const grossYield = mgmtFee > 0 ? netYield / (1 - mgmtFee) : netYield;
+  const grossMonthly = d.price * (grossYield / 100) / 12;
+  const netMonthly = d.price * (netYield / 100) / 12;
+  const low  = Math.round(grossMonthly * 0.85 / 50) * 50;
+  const high = Math.round(grossMonthly * 1.15 / 50) * 50;
+  const netLow  = Math.round(netMonthly * 0.85 / 50) * 50;
+  const netHigh = Math.round(netMonthly * 1.15 / 50) * 50;
+  return { low, high, netLow, netHigh, yPct: netYield, grossYield: Math.round(grossYield*10)/10, mgmtFee };
+}
+
+function applyClientFilter(resetPg) {
+  if (resetPg !== false) cPage = 1;
+  const results = getClientMatches();
+  document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
+  if (!results.length) {
+    document.getElementById('cResults').innerHTML = '<div class="empty">No listings match these criteria.</div>';
+    return;
+  }
+  if (cSortKey) {
+    const pur = cCriteria.purpose || 'Long-term rental';
+    results.sort((a, b) => {
+      let av = cSortKey === 'yield' ? estimateYield(a, pur) : a[cSortKey];
+      let bv = cSortKey === 'yield' ? estimateYield(b, pur) : b[cSortKey];
+      if (av == null) av = cSortAsc ? Infinity : -Infinity;
+      if (bv == null) bv = cSortAsc ? Infinity : -Infinity;
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      return cSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
+  }
+  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
+  const cTot = Math.ceil(results.length / cPS) || 1;
+  const top = results.slice((cPage-1)*cPS, cPage*cPS);
+  const arrow = k => cSortKey===k?(cSortAsc?'↑':'↓'):'↕';
+  const yieldHeader = showYield
+    ? `<th onclick="sortClientBy('yield')" style="cursor:pointer">Rental / Yield ${arrow('yield')}</th>`
+    : '<th>€/m²</th>';
+  const rows = top.map(d => {
+    const yieldCell = showYield ? (() => {
+      const r = estimateRentRange(d, cCriteria.purpose);
+      if (!r) return '<td>—</td>';
+      return `<td style="font-size:11px;white-space:nowrap"><div style="font-weight:500">€${r.low.toLocaleString()}–€${r.high.toLocaleString()}/mo</div><div style="color:#15803d;font-size:10px">€${r.netLow.toLocaleString()}–€${r.netHigh.toLocaleString()} net</div><div style="color:var(--mu);font-size:10px">${r.grossYield.toFixed(1)}% gross · ${r.yPct.toFixed(1)}% net</div></td>`;
+    })() : `<td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>`;
+    return `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td title="${d.developer||''}">${d.developer||'—'}</td>
+      <td title="${d.title||''}">${d.title||'—'}</td>
+      <td>${tagBadge(d.type)}</td>
+      <td>${d.city||'—'}</td>
+      <td>${d.district||'—'}</td>
+      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+      <td style="font-weight:600" onclick="sortClientBy('price')" >${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      ${yieldCell}
+      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cResults').innerHTML = `
+    <table style="min-width:900px"><thead><tr>
+      <th onclick="sortClientBy('developer')" style="cursor:pointer">Developer ${arrow('developer')}</th>
+      <th onclick="sortClientBy('title')" style="cursor:pointer">Title ${arrow('title')}</th>
+      <th onclick="sortClientBy('type')" style="cursor:pointer">Type ${arrow('type')}</th>
+      <th onclick="sortClientBy('city')" style="cursor:pointer">City ${arrow('city')}</th>
+      <th onclick="sortClientBy('district')" style="cursor:pointer">District ${arrow('district')}</th>
+      <th onclick="sortClientBy('bedrooms')" style="cursor:pointer">Beds ${arrow('bedrooms')}</th>
+      <th onclick="sortClientBy('area')" style="cursor:pointer">Area ${arrow('area')}</th>
+      <th onclick="sortClientBy('price')" style="cursor:pointer">Price ${arrow('price')}</th>
+      ${yieldHeader}<th></th>
+    </tr></thead><tbody>${rows}</tbody></table>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;padding:0 4px">
+      <div style="display:flex;align-items:center;gap:5px">
+        <span style="font-size:11px;color:var(--mu)">Per page</span>
+        <button class="vtb ${cPS===25?'on':''}" onclick="setCPS(25)">25</button>
+        <button class="vtb ${cPS===50?'on':''}" onclick="setCPS(50)">50</button>
+        <button class="vtb ${cPS===100?'on':''}" onclick="setCPS(100)">100</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="cPg(-1)" ${cPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
+        <span style="font-size:11px;color:var(--mu)">Page ${cPage} of ${cTot} · ${results.length.toLocaleString()} listings</span>
+        <button onclick="cPg(1)" ${cPage>=cTot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
+      </div>
+    </div>`;
+}
+
+function sortClientBy(key) {
+  if (cSortKey === key) cSortAsc = !cSortAsc;
+  else { cSortKey = key; cSortAsc = false; }
+  applyClientFilter(false);
+}
+function setCPS(n) { cPS = n; cPage = 1; applyClientFilter(); }
+function cPg(d) { cPage += d; applyClientFilter(false); }
+
+function resetClient() {
+  document.getElementById('cName').value = '';
+  document.getElementById('cPhone').value = '';
+  document.getElementById('cNotes').value = '';
+  document.querySelectorAll('#pClients .crit-btn.on').forEach(b => b.classList.remove('on'));
+  Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
+  document.getElementById('cMatchCount').textContent = '—';
+  document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
+  const cs = document.getElementById('cSaveStatus'); if(cs) cs.textContent = '';
+}
+
+// ── Market Intelligence ──────────────────────────────────────
+let intelLoaded = false;
+async function loadIntelligence(force) {
+  if (intelLoaded && !force) return;
+  const el = document.getElementById('intelContent');
+  const btn = document.getElementById('intelRefreshBtn');
+  el.innerHTML = `<div class="intel-loading"><div><span class="spin">◈</span> Searching AirDNA, Bazaraki, Spitogatos...</div><div class="intel-step" id="intelStep">Fetching yield data...</div></div>`;
+  if(btn) btn.disabled = true;
+  const cityStats = {};
+  all.forEach(d => {
+    if(!d.city||!d.price) return;
+    if(!cityStats[d.city]) cityStats[d.city] = {prices:[],types:{}};
+    cityStats[d.city].prices.push(d.price);
+    cityStats[d.city].types[d.type] = (cityStats[d.city].types[d.type]||0)+1;
+  });
+  const cityContext = Object.entries(cityStats).map(([city,s])=>
+    `${city}: avg price €${Math.round(s.prices.reduce((a,b)=>a+b)/s.prices.length).toLocaleString()}, ${s.prices.length} listings`
+  ).join('; ');
+  const prompt = `You are a Cyprus real estate market analyst. Search the web for current 2025-2026 data from AirDNA, Bazaraki.com, Spitogatos.cy, and Cyprus property market reports.
+Context from our listings database: ${cityContext}
+You MUST respond with ONLY a valid JSON object. No text before or after. No markdown. Start with { and end with }.
+{
+  "summary": "2-3 sentence executive summary",
+  "airbnb": [{"rank":1,"area":"name","nightly_rate":int,"occupancy_pct":int,"annual_revenue":int,"gross_yield_pct":float,"note":"short insight"}],
+  "longterm": [{"rank":1,"area":"name","monthly_low":int,"monthly_high":int,"gross_yield_pct":float,"note":"short insight"}],
+  "appreciation": [{"area":"name","growth_pct":float,"period":"e.g. 2023-2025","note":"short insight"}],
+  "by_type": [{"type":"Villa","yield_pct":float,"note":"short insight"}],
+  "sweet_spots": [{"budget":"Under €300k","area":"name","type":"property type","reason":"short reason"}],
+  "last_updated": "today's date"
+}`;
+  try {
+    const res = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||'API '+res.status); }
+    const data = await res.json();
+    const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    const jsonMatch = txt.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    const intel = JSON.parse(jsonMatch[0]);
+    intelLoaded = true;
+    renderIntelligence(intel);
+  } catch(e) {
+    el.innerHTML = `<div class="empty">Could not load market intelligence.<br><small style="opacity:.6">${e.message}</small></div>`;
+  }
+  if(btn) btn.disabled = false;
+}
+
+function yieldBadge(pct) {
+  if(!pct) return '';
+  const cls = pct>=7?'intel-high':pct>=5?'intel-mid':'intel-low';
+  return `<span class="intel-badge ${cls}">${pct.toFixed(1)}% yield</span>`;
+}
+
+function renderIntelligence(d) {
+  const el = document.getElementById('intelContent');
+  let html = `<div class="intel-summary">${d.summary||''}<br><span style="font-size:10px;color:var(--mu)">Last updated: ${d.last_updated||'today'} · Sources: AirDNA, Bazaraki, Spitogatos</span></div>`;
+  html += '<div class="intel-grid">';
+  if(d.airbnb?.length) {
+    html += `<div class="intel-card"><div class="intel-card-title"><span>🏖</span> Top areas — Airbnb yield</div>
+      ${d.airbnb.map(r=>`<div class="intel-row"><div><div class="intel-row-label">${r.rank}. ${r.area}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val"><div class="intel-row-main">€${(r.nightly_rate||0).toLocaleString()}/night</div><div class="intel-row-sec">${r.occupancy_pct||0}% occ · ${yieldBadge(r.gross_yield_pct)}</div></div></div>`).join('')}</div>`;
+  }
+  if(d.longterm?.length) {
+    html += `<div class="intel-card"><div class="intel-card-title"><span>🏠</span> Top areas — long-term yield</div>
+      ${d.longterm.map(r=>`<div class="intel-row"><div><div class="intel-row-label">${r.rank}. ${r.area}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val"><div class="intel-row-main">€${(r.monthly_low||0).toLocaleString()}–€${(r.monthly_high||0).toLocaleString()}/mo</div><div class="intel-row-sec">${yieldBadge(r.gross_yield_pct)}</div></div></div>`).join('')}</div>`;
+  }
+  if(d.appreciation?.length) {
+    html += `<div class="intel-card"><div class="intel-card-title"><span>📈</span> Price appreciation</div>
+      ${d.appreciation.map(r=>`<div class="intel-row"><div><div class="intel-row-label">${r.area}</div><div class="intel-row-sub">${r.period||''} · ${r.note||''}</div></div>
+        <div class="intel-row-val"><div class="intel-row-main" style="color:${(r.growth_pct||0)>0?'#15803d':'#991b1b'}">+${r.growth_pct||0}%</div></div></div>`).join('')}</div>`;
+  }
+  if(d.by_type?.length) {
+    html += `<div class="intel-card"><div class="intel-card-title"><span>🏗</span> Best by property type</div>
+      ${d.by_type.map((r,i)=>`<div class="intel-row"><div><div class="intel-row-label">${i+1}. ${r.type}</div><div class="intel-row-sub">${r.note||''}</div></div>
+        <div class="intel-row-val">${yieldBadge(r.yield_pct)}</div></div>`).join('')}</div>`;
+  }
+  html += '</div>';
+  if(d.sweet_spots?.length) {
+    html += `<div class="intel-card" style="margin-bottom:0"><div class="intel-card-title"><span>💡</span> Sweet spots by budget</div>
+      ${d.sweet_spots.map(r=>`<div class="intel-row"><div><div class="intel-row-label">${r.budget}</div><div class="intel-row-sub">${r.reason||''}</div></div>
+        <div class="intel-row-val"><div class="intel-row-main">${r.area}</div><div class="intel-row-sec">${r.type||''}</div></div></div>`).join('')}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ── Advanced tuning ───────────────────────────────────────────
+let pbCustomWeights = null;
+const PB_WEIGHT_LABELS = {
+  yield:        { label: 'Rental yield',         icon: '💰', desc: 'How much the property earns as a % of price' },
+  appreciation: { label: 'Capital appreciation', icon: '📈', desc: 'Expected price growth over time' },
+  sea:          { label: 'Sea proximity',         icon: '🌊', desc: 'Distance to the nearest beach' },
+  efficiency:   { label: 'Price efficiency',      icon: '💡', desc: '€/m² vs city average — value for money' },
+  diversity:    { label: 'Portfolio diversity',   icon: '🗺',  desc: 'Spread across cities and property types' },
+};
+
+function toggleAdvancedTuning() {
+  const panel = document.getElementById('pbAdvancedPanel');
+  const btn = document.getElementById('pbAdvancedBtn');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  btn.textContent = isOpen ? '⚙ Advanced tuning' : '▲ Hide tuning';
+  if (!isOpen) renderWeightSliders();
+}
+
+function getDefaultWeights() {
+  const rental = pbCriteria.rental || '';
+  const objective = pbCriteria.objective || '';
+  const isST = rental.includes('Short-term');
+  const isLT = rental.includes('Long-term') && !rental.includes('Mixed');
+  const isMixed = rental.includes('Mixed');
+  const isMaxYield = objective.includes('Max yield');
+  const isMaxAp = objective.includes('Max appreciation');
+  const isBalanced = objective.includes('Balanced');
+  const isDiversified = objective.includes('Diversified');
+  if (isST && isMaxYield)    return {yield:55,appreciation:5,sea:25,efficiency:12,diversity:3};
+  if (isST && isMaxAp)       return {yield:20,appreciation:45,sea:22,efficiency:8,diversity:5};
+  if (isST && isBalanced)    return {yield:38,appreciation:25,sea:22,efficiency:10,diversity:5};
+  if (isST && isDiversified) return {yield:30,appreciation:15,sea:20,efficiency:10,diversity:25};
+  if (isLT && isMaxYield)    return {yield:60,appreciation:8,sea:8,efficiency:22,diversity:2};
+  if (isLT && isMaxAp)       return {yield:15,appreciation:50,sea:12,efficiency:15,diversity:8};
+  if (isLT && isBalanced)    return {yield:40,appreciation:28,sea:10,efficiency:15,diversity:7};
+  if (isLT && isDiversified) return {yield:30,appreciation:18,sea:8,efficiency:14,diversity:30};
+  if (isMixed && isMaxYield) return {yield:52,appreciation:8,sea:18,efficiency:15,diversity:7};
+  if (isMixed && isMaxAp)    return {yield:18,appreciation:47,sea:18,efficiency:10,diversity:7};
+  if (isMixed && isBalanced) return {yield:38,appreciation:27,sea:16,efficiency:12,diversity:7};
+  if (isMixed && isDiversified) return {yield:28,appreciation:20,sea:14,efficiency:10,diversity:28};
+  return {yield:35,appreciation:25,sea:18,efficiency:12,diversity:10};
+}
+
+function renderWeightSliders() {
+  const weights = pbCustomWeights || getDefaultWeights();
+  const container = document.getElementById('pbWeightSliders');
+  container.innerHTML = Object.entries(PB_WEIGHT_LABELS).map(([key, meta]) => `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:14px">${meta.icon}</span>
+          <div><div style="font-size:12px;font-weight:500;color:var(--tx)">${meta.label}</div><div style="font-size:10px;color:var(--mu)">${meta.desc}</div></div>
+        </div>
+        <span id="wval-${key}" style="font-size:13px;font-weight:700;color:var(--tx);min-width:36px;text-align:right">${weights[key]}%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:6px;background:var(--bd);border-radius:99px;position:relative">
+          <div id="wbar-${key}" style="height:100%;background:var(--tx);border-radius:99px;width:${Math.min(100,weights[key]*2)}%"></div>
+        </div>
+        <input type="range" id="wslider-${key}" min="0" max="50" step="1" value="${weights[key]}"
+          oninput="pbWeightChange('${key}', this.value)"
+          style="width:120px;accent-color:var(--tx)">
+      </div>
+    </div>`).join('');
+  updateWeightTotal();
+}
+
+function pbWeightChange(key, val) {
+  if (!pbCustomWeights) pbCustomWeights = {...getDefaultWeights()};
+  pbCustomWeights[key] = +val;
+  const bar = document.getElementById('wbar-'+key);
+  const label = document.getElementById('wval-'+key);
+  if (bar) bar.style.width = Math.min(100, +val*2) + '%';
+  if (label) label.textContent = val + '%';
+  updateWeightTotal();
+}
+
+function updateWeightTotal() {
+  const weights = pbCustomWeights || getDefaultWeights();
+  const total = Object.values(weights).reduce((s,v) => s+v, 0);
+  const el = document.getElementById('pbWeightTotal');
+  if (el) { el.textContent = total + '%'; el.style.color = total === 100 ? 'var(--tx)' : total > 100 ? 'var(--red)' : 'var(--gold)'; }
+}
+
+function resetAdvancedWeights() { pbCustomWeights = null; renderWeightSliders(); }
+
+// ── Global portfolio state ────────────────────────────────────
+const pbPortfolio = { selected: [], pool: [], strategy: null, risk: null, budget: null };
+const pbCriteria = { budget: null, rental: null, objective: null, assets: 2, cities: [], types: [], risk: null, sea: null };
+
+function pbToggle(btn, key) {
+  btn.parentElement.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (key === 'pbBudget') {
+    pbCriteria.budget = +val;
+    const ci = document.getElementById('pbCustomBudget'); if (ci) ci.value = '';
+    const bd = document.getElementById('pbBudgetDisplay'); if (bd) bd.textContent = '';
+  }
+  else if (key === 'pbAssets') pbCriteria.assets = +val;
+  else if (key === 'pbRental') pbCriteria.rental = val;
+  else if (key === 'pbObjective') pbCriteria.objective = val;
+  else if (key === 'pbRisk') pbCriteria.risk = val;
+  else if (key === 'pbSea') pbCriteria.sea = +val;
+}
+
+function pbMulti(btn, key) {
+  btn.classList.toggle('on');
+  const val = btn.dataset.val || btn.textContent.trim();
+  if (!pbCriteria[key]) pbCriteria[key] = [];
+  if (btn.classList.contains('on')) { if (!pbCriteria[key].includes(val)) pbCriteria[key].push(val); }
+  else pbCriteria[key] = pbCriteria[key].filter(v => v !== val);
+}
+
+function pbSetCustomBudget(val) {
+  const n = parseInt(val.replace(/[^0-9]/g, ''));
+  if (!n || n < 50000) { pbCriteria.budget = null; document.getElementById('pbBudgetDisplay').textContent = ''; return; }
+  pbCriteria.budget = n;
+  document.querySelectorAll('#pbBudgetGroup .crit-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('pbBudgetDisplay').textContent = '→ €' + n.toLocaleString();
+}
+
+function resetPortfolioBuilder() {
+  document.getElementById('pbName').value = '';
+  document.getElementById('pbNotes').value = '';
+  document.getElementById('pbStatus').textContent = '';
+  const ci = document.getElementById('pbCustomBudget'); if (ci) ci.value = '';
+  const bd = document.getElementById('pbBudgetDisplay'); if (bd) bd.textContent = '';
+  document.querySelectorAll('#pPortfolio .crit-btn.on').forEach(b => b.classList.remove('on'));
+  Object.assign(pbCriteria, { budget: null, rental: null, objective: null, assets: 2, cities: [], types: [], risk: null, sea: null });
+  document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div>';
+}
+
+function scoreAsset(d, strategy, risk, portfolio, budget) {
+  const isST = strategy.includes('Short-term');
+  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+  const isMixed = strategy.includes('Mixed');
+  const isMaxYield = strategy.includes('Max yield');
+  const isGrowth = strategy.includes('Max appreciation');
+  const isBalanced = strategy.includes('Balanced');
+  const isDiversified = strategy.includes('Diversified');
+
+  let _wDefault;
+  if (isST && isMaxYield)           _wDefault = {yield:0.55,appreciation:0.05,sea:0.25,efficiency:0.12,diversity:0.03};
+  else if (isST && isGrowth)        _wDefault = {yield:0.20,appreciation:0.45,sea:0.22,efficiency:0.08,diversity:0.05};
+  else if (isST && isBalanced)      _wDefault = {yield:0.38,appreciation:0.25,sea:0.22,efficiency:0.10,diversity:0.05};
+  else if (isST && isDiversified)   _wDefault = {yield:0.30,appreciation:0.15,sea:0.20,efficiency:0.10,diversity:0.25};
+  else if (isLT && isMaxYield)      _wDefault = {yield:0.60,appreciation:0.08,sea:0.08,efficiency:0.22,diversity:0.02};
+  else if (isLT && isGrowth)        _wDefault = {yield:0.15,appreciation:0.50,sea:0.12,efficiency:0.15,diversity:0.08};
+  else if (isLT && isBalanced)      _wDefault = {yield:0.40,appreciation:0.28,sea:0.10,efficiency:0.15,diversity:0.07};
+  else if (isLT && isDiversified)   _wDefault = {yield:0.30,appreciation:0.18,sea:0.08,efficiency:0.14,diversity:0.30};
+  else if (isMixed && isMaxYield)   _wDefault = {yield:0.52,appreciation:0.08,sea:0.18,efficiency:0.15,diversity:0.07};
+  else if (isMixed && isGrowth)     _wDefault = {yield:0.18,appreciation:0.47,sea:0.18,efficiency:0.10,diversity:0.07};
+  else if (isMixed && isBalanced)   _wDefault = {yield:0.38,appreciation:0.27,sea:0.16,efficiency:0.12,diversity:0.07};
+  else if (isMixed && isDiversified) _wDefault = {yield:0.28,appreciation:0.20,sea:0.14,efficiency:0.10,diversity:0.28};
+  else _wDefault = {yield:0.35,appreciation:0.25,sea:0.18,efficiency:0.12,diversity:0.10};
+
+  let w;
+  if (pbCustomWeights) {
+    const total = Object.values(pbCustomWeights).reduce((s,v)=>s+v,0)||100;
+    w = Object.fromEntries(Object.entries(pbCustomWeights).map(([k,v])=>[k,v/total]));
+  } else { w = _wDefault; }
+
+  const purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : 'Long-term rental';
+  const yPct = estimateYield(d, purpose);
+  const yieldScore = Math.min(100, (yPct/10)*100);
+
+  const cityAp = isST
+    ? {Paphos:90,Larnaca:85,Limassol:80,Famagusta:78,Nicosia:28}
+    : isGrowth
+    ? {Limassol:95,Paphos:88,Larnaca:70,Famagusta:72,Nicosia:50}
+    : {Limassol:90,Nicosia:78,Larnaca:65,Paphos:62,Famagusta:55};
+  const typeAp = {villa:85,penthouse:80,apartment:60,house:55,flat:50};
+  const cityAScore = cityAp[d.city]||55;
+  const tk = (d.type||'').toLowerCase();
+  const typeAScore = Object.entries(typeAp).find(([k])=>tk.includes(k))?.[1]||55;
+  let ppmScore = 60;
+  if (d.ppm!=null){if(d.ppm<2000)ppmScore=95;else if(d.ppm<3000)ppmScore=80;else if(d.ppm<4500)ppmScore=65;else if(d.ppm<6000)ppmScore=50;else ppmScore=35;}
+  const appreciationScore = cityAScore*0.4+typeAScore*0.3+ppmScore*0.3;
+
+  let seaScore=40;
+  if(d.seaDist!=null){
+    if(isST){if(d.seaDist<0.3)seaScore=100;else if(d.seaDist<0.5)seaScore=97;else if(d.seaDist<1)seaScore=90;else if(d.seaDist<2)seaScore=80;else if(d.seaDist<5)seaScore=60;else if(d.seaDist<10)seaScore=35;else seaScore=15;}
+    else{if(d.seaDist<0.3)seaScore=85;else if(d.seaDist<1)seaScore=75;else if(d.seaDist<3)seaScore=65;else if(d.seaDist<8)seaScore=55;else if(d.seaDist<20)seaScore=40;else seaScore=25;}
+  }
+
+  const cityAvgPpm={Limassol:6200,Paphos:4000,Larnaca:3400,Famagusta:2900,Nicosia:3600};
+  const avg=cityAvgPpm[d.city]||4200;
+  let effScore=50;
+  if(d.ppm!=null){
+    const r=d.ppm/avg;
+    if(r<0.65)effScore=95;else if(r<0.80)effScore=82;else if(r<0.92)effScore=70;
+    else if(r<1.05)effScore=58;else if(r<1.20)effScore=42;else if(r<1.40)effScore=28;else effScore=15;
+  }
+
+  const usedCities=new Set(portfolio.map(x=>x.city));
+  const usedTypes=new Set(portfolio.map(x=>(x.type||'').toLowerCase()));
+  let divScore=50;
+  if(!usedCities.has(d.city))divScore+=30;
+  if(!usedTypes.has(tk))divScore+=20;
+  divScore=Math.min(100,divScore);
+
+  let riskMult=1.0;
+  if(risk==='Conservative'){if(d.price>600000)riskMult*=0.85;if(tk.match(/villa|penthouse/))riskMult*=0.9;if(d.city==='Famagusta')riskMult*=0.9;}
+  else if(risk==='Aggressive'){if(d.city==='Limassol'||d.city==='Paphos')riskMult*=1.1;if(tk.match(/villa|penthouse/))riskMult*=1.05;}
+
+  let deliveryMult=1.0;
+  if((isST||isLT)&&d.addedOn){
+    const yr=parseInt((d.addedOn||'').slice(-4));
+    if(yr>=2028)deliveryMult=isST?0.72:0.80;
+    else if(yr>=2027)deliveryMult=isST?0.82:0.88;
+    else if(yr>=2026)deliveryMult=isST?0.90:0.93;
+  }
+  if(isGrowth&&d.addedOn){const yr=parseInt((d.addedOn||'').slice(-4));if(yr>=2027)deliveryMult=1.08;else if(yr>=2026)deliveryMult=1.04;}
+
+  let concPenalty=1.0;
+  const cityCount=portfolio.filter(x=>x.city===d.city).length;
+  const cityVal=portfolio.filter(x=>x.city===d.city).reduce((s,x)=>s+(x.price||0),0);
+  if(cityCount>=3)concPenalty*=0.7;else if(cityCount>=2)concPenalty*=0.85;
+  if(budget>0&&(cityVal+(d.price||0))/budget>0.5)concPenalty*=0.8;
+
+  const liquidityMult={Limassol:1.10,Paphos:1.00,Larnaca:1.00,Nicosia:0.95,Famagusta:0.85}[d.city]||1.0;
+  const prBonus = (d.price||0) >= 300000 ? 1.06 : 1.0;
+
+  const total=(w.yield*yieldScore+w.appreciation*appreciationScore+w.sea*seaScore+w.efficiency*effScore+w.diversity*divScore)*riskMult*deliveryMult*concPenalty*liquidityMult*prBonus;
+  return {total, yPct};
+}
+
+function buildPortfolio() {
+  const status = document.getElementById('pbStatus');
+  if (!pbCriteria.budget) { status.textContent = '⚠ Please select a budget.'; return; }
+  if (!pbCriteria.rental) { status.textContent = '⚠ Please select a rental purpose.'; return; }
+  if (!pbCriteria.objective) { status.textContent = '⚠ Please select an investment objective.'; return; }
+  status.textContent = '';
+  const strategy = pbCriteria.rental + ' | ' + pbCriteria.objective;
+  const risk = pbCriteria.risk || 'Moderate';
+  const budget = pbCriteria.budget;
+  const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
+
+  let pool = all.filter(d => {
+    if (!d.price || d.price > budget) return false;
+    if (pbCriteria.cities.length > 0 && !pbCriteria.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
+    if (pbCriteria.types.length > 0 && !pbCriteria.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
+    if (pbCriteria.sea && pbCriteria.sea < 999 && (d.seaDist == null || d.seaDist > pbCriteria.sea)) return false;
+    return true;
+  });
+
+  if (pool.length < 3) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Not enough listings match. Try broadening the filters.</div>';
+    return;
+  }
+
+  pbPortfolio.selected = [];
+  pbPortfolio.pool = pool;
+  pbPortfolio.strategy = strategy;
+  pbPortfolio.risk = risk;
+  pbPortfolio.budget = budget;
+  const selected = pbPortfolio.selected;
+
+  const getRemaining = () => budget - selected.reduce((s,x) => s+(x.price||0), 0);
+  const getAvailable = () => pool.filter(d => !selected.find(x => x.id === d.id) && (d.price||0) <= getRemaining());
+
+  while (getAvailable().length > 0) {
+    const remaining = getRemaining();
+    if (remaining < budget * 0.04) break;
+    const used = 1 - remaining / budget;
+    if (selected.length >= maxAssets && used >= 0.88) break;
+    if (selected.length >= maxAssets * 4) break;
+    const candidates = getAvailable().map(d => {
+      const {total, yPct} = scoreAsset(d, strategy, risk, selected, budget);
+      const isST = strategy.includes('Short-term');
+      const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+      const isMixed = strategy.includes('Mixed');
+      const portfolioST = selected.filter(x => x._purpose === 'Short-term rental').length;
+      const portfolioLT = selected.filter(x => x._purpose === 'Long-term rental').length;
+      const _purpose = isST ? 'Short-term rental'
+                     : isLT ? 'Long-term rental'
+                     : isMixed ? (portfolioST <= portfolioLT ? 'Short-term rental' : 'Long-term rental')
+                     : 'Long-term rental';
+      return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100), _purpose};
+    }).sort((a,b) => b.score - a.score);
+    if (!candidates.length) break;
+    selected.push(candidates[0]);
+  }
+
+  if (!selected.length) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Could not allocate assets within budget. Try broadening criteria.</div>';
+    return;
+  }
+  pbRebuildOutput();
+}
+
+function pbRemoveAsset(id) {
+  pbPortfolio.selected = pbPortfolio.selected.filter(x => x.id !== id);
+  pbRebuildOutput();
+}
+
+function pbSwapAsset(id) {
+  const { selected, pool, strategy, risk, budget } = pbPortfolio;
+  const asset = selected.find(x => x.id === id);
+  if (!asset) return;
+  const remaining = selected.filter(x => x.id !== id);
+  const usedBudget = remaining.reduce((s,x) => s+(x.price||0), 0);
+  const maxPrice = budget - usedBudget;
+  const alternatives = pool
+    .filter(d => !selected.find(x => x.id === d.id) && (d.price||0) <= maxPrice)
+    .map(d => {
+      const {total, yPct} = scoreAsset(d, strategy, risk, remaining, budget);
+      const isST = strategy.includes('Short-term');
+      const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+      const _purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : 'Long-term rental';
+      return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100), _purpose};
+    })
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (!alternatives.length) { alert('No suitable alternatives found.'); return; }
+
+  // Find and remove any existing alternatives panel
+  const existingAlt = document.getElementById('alt-panel-'+id);
+  if (existingAlt) { existingAlt.remove(); return; }
+
+  const altHtml = `<div id="alt-panel-${id}" style="border:1px solid var(--gold);border-radius:10px;padding:14px;background:rgba(184,134,11,.04);margin-top:8px;grid-column:1/-1">
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:10px">↻ 3 Suggested alternatives</div>
+    ${alternatives.map(a => `
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" onclick="pbReplaceAsset(${id}, ${a.id})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px">${a.title||'—'}</div>
+            <div style="font-size:11px;color:var(--mu)">${a.developer||'—'} · ${a.city||'—'}${a.district?', '+a.district:''}</div>
+            <div style="font-size:11px;color:var(--mu)">${a.type||'—'}${a.bedrooms!=null?' · '+a.bedrooms+' bed':''}${a.area!=null?' · '+a.area+' m²':''}</div>
+            ${a.seaDist!=null?'<div style="margin-top:4px">'+seaBadge(a.seaDist)+'</div>':''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:16px;font-weight:700">€${(a.price||0).toLocaleString()}</div>
+            <div style="font-size:11px;color:#15803d;font-weight:500">${a.estimatedYield.toFixed(1)}% net yield</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--gold);font-weight:500">↻ Use this instead</div>
+      </div>`).join('')}
+    <button onclick="document.getElementById('alt-panel-${id}').remove()" style="width:100%;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer;margin-top:4px">Cancel</button>
+  </div>`;
+
+  const cards = document.querySelector('.portfolio-cards');
+  if (cards) cards.insertAdjacentHTML('beforeend', altHtml);
+}
+
+function pbReplaceAsset(oldId, newId) {
+  const { selected, pool, strategy, risk, budget } = pbPortfolio;
+  const newAsset = pool.find(x => x.id === newId);
+  if (!newAsset) return;
+  const idx = selected.findIndex(x => x.id === oldId);
+  if (idx === -1) return;
+  const remaining = selected.filter(x => x.id !== oldId);
+  const isST = strategy.includes('Short-term');
+  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+  const _purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : 'Long-term rental';
+  const {total, yPct} = scoreAsset(newAsset, strategy, risk, remaining, budget);
+  const enriched = {...newAsset, score: total, estimatedYield: yPct, estimatedAnnualIncome: (newAsset.price||0)*(yPct/100), _purpose};
+  pbPortfolio.selected = [...remaining.slice(0, idx), enriched, ...remaining.slice(idx)];
+  pbRebuildOutput();
+}
+
+function pbRebuildOutput() {
+  const { selected, strategy, risk, budget } = pbPortfolio;
+  if (!selected.length) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">All assets removed. Click Build Portfolio to start again.</div>';
+    return;
+  }
+  const name = document.getElementById('pbName').value.trim() || 'Investor';
+  const notes = document.getElementById('pbNotes').value.trim();
+  const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
+  const totalIncome = selected.reduce((s,d) => s+(d.estimatedAnnualIncome||0), 0);
+  const blendedYield = totalPrice ? (totalIncome/totalPrice)*100 : 0;
+  const leftover = budget - totalPrice;
+  const stCount = selected.filter(x=>x._purpose==='Short-term rental').length;
+  const ltCount = selected.filter(x=>x._purpose==='Long-term rental').length;
+
+  const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
+    const ca = selected.filter(d=>d.city===city);
+    const cp = ca.reduce((s,d)=>s+(d.price||0),0);
+    const stC = ca.filter(x=>x._purpose==='Short-term rental').length;
+    const ltC = ca.filter(x=>x._purpose==='Long-term rental').length;
+    const pNote = stC&&ltC?`${stC} ST · ${ltC} LT`:stC?`${stC} ST`:ltC?`${ltC} LT`:`${ca.length} asset${ca.length!==1?'s':''}`;
+    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${pNote} · €${cp.toLocaleString()}</div></div></div>`;
+  }).join('');
+
+  const cards = selected.map((d,i) => `
+    <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <div class="portfolio-card-role">Asset ${i+1}</div>
+        ${d._purpose?`<div class="portfolio-card-role" style="background:var(--bg2);border-color:var(--gold);color:var(--gold)">${d._purpose}</div>`:''}
+      </div>
+      <div class="portfolio-card-title">${d.title||'—'}</div>
+      <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
+      <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
+      <div class="portfolio-card-price">€${(d.price||0).toLocaleString()}</div>
+      <div style="margin:4px 0;display:flex;gap:4px;flex-wrap:wrap">
+        ${d.seaDist!=null?seaBadge(d.seaDist):''}
+        ${(d.price||0)>=300000?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#15803d">PR eligible</span>':''}
+        <span style="font-size:9px;color:var(--mu);font-style:italic">+19% VAT if new build</span>
+      </div>
+      <div class="portfolio-mini-grid">
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
+        ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button onclick="event.stopPropagation();pbRemoveAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>
+        <button onclick="event.stopPropagation();pbSwapAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">↻ Alternatives</button>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('pbOutput').innerHTML = `
+    <div class="portfolio-shell">
+      <div class="portfolio-head">
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${pbCriteria.rental||'—'} · ${pbCriteria.objective||'—'} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
+      </div>
+      <div class="portfolio-grid">
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Rental purpose</div><div class="portfolio-kpi-value" style="font-size:13px">${pbCriteria.rental||'—'}</div><div class="portfolio-kpi-sub">${pbCriteria.objective||''}</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Assets</div><div class="portfolio-kpi-value">${selected.length}</div><div class="portfolio-kpi-sub">from ${pbPortfolio.pool.length.toLocaleString()} matching</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${budget.toLocaleString()}</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Net after mgmt fees</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Net rental est.</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees</div></div>
+        ${stCount||ltCount?`<div class="portfolio-kpi"><div class="portfolio-kpi-label">Rental split</div><div class="portfolio-kpi-value">${stCount} ST · ${ltCount} LT</div><div class="portfolio-kpi-sub">Short vs long-term</div></div>`:''}
+        <div class="portfolio-kpi" style="border:1px solid rgba(231,76,60,.25);background:rgba(231,76,60,.04)"><div class="portfolio-kpi-label" style="color:var(--red)">VAT exposure</div><div class="portfolio-kpi-value" style="color:var(--red)">€${Math.round(totalPrice*0.19).toLocaleString()}</div><div class="portfolio-kpi-sub">If all new builds @ 19%</div></div>
+        <div class="portfolio-kpi" style="border:1px solid rgba(184,134,11,.25);background:rgba(184,134,11,.04)"><div class="portfolio-kpi-label" style="color:var(--gold)">Total outlay</div><div class="portfolio-kpi-value" style="color:var(--gold)">€${Math.round(totalPrice*1.19).toLocaleString()}</div><div class="portfolio-kpi-sub">Purchase + VAT worst case</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0">
+        <div class="intel-card"><div class="intel-card-title"><span>🏙</span> City allocation</div>${cityBreakdown}</div>
+        <div class="intel-card"><div class="intel-card-title"><span>📋</span> Notes</div><div style="font-size:12px;color:var(--tx);line-height:1.7;padding:4px 0">${notes||'No additional notes.'}</div></div>
+      </div>
+      <div class="portfolio-section">
+        <div class="portfolio-section-title">Selected assets — click to view · use buttons to remove or swap</div>
+        <div class="portfolio-cards">${cards}</div>
+      </div>
+    </div>`;
+}
+
+// ── Auth ─────────────────────────────────────────────────────
+const USERS = [
+  { username: 'Yaniv', password: 'Yh_Law20!4', role: 'Admin', active: true },
+  { username: 'Emma',  password: '3mm4!2026',  role: 'User',  active: true },
+];
+let currentUser = null;
+
+function doLogin() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginError');
+  const user = USERS.find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p && x.active);
+  if (!user) { err.textContent = 'Invalid username or password.'; document.getElementById('loginPass').value = ''; return; }
+  currentUser = user;
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('mainShell').style.display = '';
+  const topBtns = document.querySelector('.top-btns');
+  if (topBtns) {
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size:11px;color:var(--mu);display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);height:34px;background:var(--bg)';
+    badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#15803d;display:inline-block"></span> ${user.username} <span style="color:var(--bd)">|</span> <span style="cursor:pointer;color:var(--mu)" onclick="doLogout()">Sign out</span>`;
+    topBtns.prepend(badge);
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('mainShell').style.display = 'none';
+  document.getElementById('loginWrap').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+}
+
+init();
+</script>
+</body>
+</html>
