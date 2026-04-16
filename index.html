@@ -163,18 +163,18 @@ tr:hover td{background:var(--bg2)}
 .modal-reflection img{width:100%;height:260px;object-fit:cover;display:block;transform:scaleY(-1);margin-top:-190px}
 .modal-reflection::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.05) 0%,rgba(255,255,255,1) 100%)}
 @media(prefers-color-scheme:dark){.modal-reflection::after{background:linear-gradient(to bottom,rgba(28,28,28,.05) 0%,rgba(28,28,28,1) 100%)}}
-.modal-body{padding:20px 24px 28px}
+.modal-body{padding:14px 20px 20px}
 .modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;gap:12px}
 .modal-title{font-size:17px;font-weight:600;line-height:1.35;color:var(--tx)}
 .modal-price{font-size:22px;font-weight:700;color:var(--tx);white-space:nowrap}
 .modal-ppm{font-size:11px;color:var(--mu);text-align:right;margin-top:2px}
-.modal-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px}
+.modal-meta{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-bottom:10px}
 .meta-cell{background:var(--bg2);border-radius:var(--r);padding:9px 12px}
 .meta-label{font-size:9px;color:var(--mu);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:500}
 .meta-value{font-size:13px;font-weight:500;color:var(--tx)}
 .modal-section-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:8px;margin-top:16px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
 .modal-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
-.modal-map{height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
+.modal-map{height:130px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
 
 /* ── Pag / dev / shortlist ── */
 .pag{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px}
@@ -283,6 +283,7 @@ tr:hover td{background:var(--bg2)}
   <div class="modal" id="modal">
     <button class="modal-close" onclick="closeModalDirect()">✕</button>
     <div id="modalContent"></div>
+    <div id="modalScrollHint" style="position:sticky;bottom:0;left:0;right:0;text-align:center;padding:6px;background:linear-gradient(to top,var(--bg),transparent);font-size:11px;color:var(--mu);pointer-events:none">↓ Scroll for investment data</div>
   </div>
 </div>
 
@@ -1458,6 +1459,14 @@ function openModal(id, e) {
     </div>`;
   document.getElementById('modalBackdrop').classList.add('open');
   document.body.style.overflow='hidden';
+  // Hide scroll hint when user scrolls modal
+  setTimeout(()=>{
+    const modal = document.getElementById('modal');
+    if(modal) modal.addEventListener('scroll', ()=>{
+      const hint = document.getElementById('modalScrollHint');
+      if(hint) hint.style.display = modal.scrollTop > 50 ? 'none' : '';
+    }, {once:false});
+  }, 100);
   setTimeout(async ()=>{
     const coords = await getCoords(d);
     if(coords&&document.getElementById('modalMap')&&window.google){
@@ -2697,7 +2706,9 @@ function doLogout() {
 
 // ── Market Positioning (comparable-based) ────────────────────
 function calcMarketPositioning(d) {
-  if (!d.ppm || !d.city || !d.type) return null;
+  // Calculate ppm if missing but price and area exist
+  if (!d.ppm && d.price && d.area) d = {...d, ppm: Math.round(d.price/d.area)};
+  if (!d.ppm || !d.city) return null;
 
   // Find comparables: same city, same type, has ppm
   const comps = all.filter(x =>
@@ -2707,10 +2718,10 @@ function calcMarketPositioning(d) {
     (x.type||'').toLowerCase().includes((d.type||'').toLowerCase().split(' ')[0].toLowerCase())
   );
 
-  if (comps.length < 5) {
+  if (comps.length < 3) {
     // Fallback: same city, any type
     const cityComps = all.filter(x => x.id !== d.id && x.city === d.city && x.ppm != null);
-    if (cityComps.length < 5) return null;
+    if (cityComps.length < 3) return null;
     return calcPositioningFromComps(d, cityComps, 'city');
   }
 
