@@ -264,6 +264,10 @@ tr:hover td{background:var(--bg2)}
 .analytics-score-fill{height:100%;border-radius:99px;background:var(--tx)}
 @media(max-width:768px){.analytics-charts{grid-template-columns:1fr}.analytics-sidebar{display:none}}
 
+/* ── Analytics sidebar ── */
+.an-nav{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:12px;color:var(--mu);cursor:pointer;transition:background .12s,color .12s;white-space:nowrap;border-right:2px solid transparent}
+.an-nav:hover{background:var(--bg2);color:var(--tx)}
+.an-nav[data-active="true"]{background:var(--bg2);color:var(--tx);font-weight:500;border-right-color:var(--tx)}
 /* ── Analytics split view ── */
 .an-card{display:flex;gap:0;background:var(--bg);border-bottom:1px solid var(--bd);cursor:pointer;transition:background .1s}
 .an-card:hover,.an-card-active{background:#f0f4ff}
@@ -663,47 +667,82 @@ tr:hover td{background:var(--bg2)}
 
     <!-- ANALYTICS -->
     <div id="pAnalytics" style="display:none">
-      <!-- Top filters bar -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--bd);align-items:center">
-        <select id="anCity" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:120px">
-          <option value="">All cities</option>
-        </select>
-        <select id="anType" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:120px">
-          <option value="">All types</option>
-        </select>
-        <select id="anBeds" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:110px">
-          <option value="">Any beds</option>
-        </select>
-        <select id="anSea" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:130px">
-          <option value="">Any distance</option>
-          <option value="0.3">Beachfront</option>
-          <option value="1">Under 1km</option>
-          <option value="3">Under 3km</option>
-          <option value="8">Under 8km</option>
-        </select>
-        <select id="anSort" onchange="renderAnalyticsListings()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);min-width:140px">
-          <option value="revenue">↓ Annual revenue</option>
-          <option value="adr">↓ Daily rate (ADR)</option>
-          <option value="occupancy">↓ Occupancy</option>
-          <option value="yield">↓ Gross yield</option>
-          <option value="price">↓ Price</option>
-        </select>
-        <div style="margin-left:auto;font-size:11px;color:var(--mu)" id="anDataNote"></div>
-        <button onclick="anToggleView()" id="anViewBtn" class="btn" style="font-size:11px">📊 Market stats</button>
-      </div>
-      <!-- Stats bar -->
-      <div id="anStatsBar" style="display:none;margin-bottom:12px"></div>
-      <!-- Split view: listings left, map right -->
-      <div style="display:grid;grid-template-columns:420px 1fr;gap:0;height:680px;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
-        <!-- Left: listing cards -->
-        <div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)">
-          <div id="anListings"><div class="empty">Loading...</div></div>
+      <div style="display:flex;gap:0;min-height:760px;margin:-20px;border-top:1px solid var(--bd)">
+
+        <!-- ── Left sidebar (AirDNA style) ── -->
+        <div style="width:168px;flex-shrink:0;border-right:1px solid var(--bd);background:var(--bg);display:flex;flex-direction:column">
+          <div style="padding:14px 16px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">Market insights</div>
+          <div class="an-nav" onclick="anSection(this,'overview')" data-active="true">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Overview
+          </div>
+          <div class="an-nav" onclick="anSection(this,'listings')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            Listings
+          </div>
+          <div class="an-nav" onclick="anSection(this,'occupancy')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Occupancy
+          </div>
+          <div class="an-nav" onclick="anSection(this,'revenue')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            Revenue
+          </div>
+          <div class="an-nav" onclick="anSection(this,'rates')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            Rates
+          </div>
+          <div class="an-nav" onclick="anSection(this,'seasonality')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Seasonality
+          </div>
+          <div style="padding:14px 16px 8px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-top:4px">Tools</div>
+          <div class="an-nav" onclick="anSection(this,'rentalizer')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Rentalizer
+          </div>
+          <div class="an-nav" onclick="anSection(this,'comparison')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            City compare
+          </div>
         </div>
-        <!-- Right: Google Map -->
-        <div style="position:relative">
-          <div id="anMap" style="width:100%;height:100%"></div>
-          <!-- Hover card -->
-          <div id="anHoverCard" style="display:none;position:absolute;bottom:16px;left:16px;right:16px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px;box-shadow:0 4px 20px rgba(0,0,0,.12);z-index:10;max-width:320px"></div>
+
+        <!-- ── Main content area ── -->
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+          <!-- Filters bar -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--bd);align-items:center;background:var(--bg)">
+            <select id="anCity" onchange="anRefresh()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx)">
+              <option value="">All cities</option>
+            </select>
+            <select id="anType" onchange="anRefresh()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx)">
+              <option value="">All types</option>
+            </select>
+            <select id="anBeds" onchange="anRefresh()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx)">
+              <option value="">Any beds</option>
+            </select>
+            <select id="anSea" onchange="anRefresh()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx)">
+              <option value="">Any distance</option>
+              <option value="0.3">Beachfront</option>
+              <option value="1">Under 1km</option>
+              <option value="3">Under 3km</option>
+              <option value="8">Under 8km</option>
+            </select>
+            <select id="anSort" onchange="anRefresh()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx)">
+              <option value="revenue">↓ Revenue</option>
+              <option value="adr">↓ Daily rate</option>
+              <option value="occupancy">↓ Occupancy</option>
+              <option value="yield">↓ Yield</option>
+              <option value="price">↓ Price</option>
+            </select>
+            <div style="margin-left:auto;font-size:11px;color:var(--mu)" id="anDataNote"></div>
+          </div>
+
+          <!-- Section content -->
+          <div id="anSectionContent" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+            <!-- populated by JS -->
+          </div>
+
         </div>
       </div>
     </div>
@@ -2498,7 +2537,10 @@ function initAnalytics() {
     [...new Set(ids.anType.filter(Boolean))].sort().forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anType').appendChild(o); });
     [...new Set(ids.anBeds.filter(v=>v!=null))].sort((a,b)=>a-b).forEach(b => { const o=document.createElement('option');o.value=b;o.textContent=b+' bed'+(b!==1?'s':'');document.getElementById('anBeds').appendChild(o); });
   }
-  renderAnalyticsListings();
+  // Set default section
+  document.querySelector('.an-nav')?.setAttribute('data-active','true');
+  document.querySelector('.an-nav')?.setAttribute('data-section','overview');
+  anRenderSection('overview');
 }
 
 function getAnalyticsPool() {
@@ -2647,8 +2689,63 @@ function anCardHover(id){
 function anCardLeave(){
   anMarkers2.forEach(m=>{if(!m._data)return;const c=m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7});});
 }
-function renderAnalytics(){renderAnalyticsListings();}
-function analyticsNav(){}
+function anRefresh() {
+  const section = document.querySelector('.an-nav[data-active="true"]')?.dataset?.section || 'overview';
+  anRenderSection(section);
+}
+
+function anSection(el, section) {
+  document.querySelectorAll('.an-nav').forEach(n => { n.removeAttribute('data-active'); delete n.dataset.active; });
+  el.setAttribute('data-active','true');
+  el.dataset.section = section;
+  anRenderSection(section);
+}
+
+function anRenderSection(section) {
+  const pool = getAnalyticsPool();
+  const el = document.getElementById('anSectionContent');
+  if (!el) return;
+
+  // Destroy existing charts
+  Object.values(anCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  anCharts = {};
+
+  document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings`;
+
+  if (section === 'listings') {
+    // Split view: cards + map
+    el.innerHTML = `<div style="display:grid;grid-template-columns:380px 1fr;flex:1;height:100%;overflow:hidden">
+      <div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)" id="anListings"><div class="empty">Loading...</div></div>
+      <div style="position:relative"><div id="anMap" style="width:100%;height:100%"></div></div>
+    </div>`;
+    renderAnalyticsListings();
+  } else if (section === 'overview') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsOverview(pool);
+  } else if (section === 'occupancy') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsOccupancy(pool);
+  } else if (section === 'revenue') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsRevenue(pool);
+  } else if (section === 'rates') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsRates(pool);
+  } else if (section === 'seasonality') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsSeasonality(pool);
+  } else if (section === 'rentalizer') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsRentalizer(pool);
+  } else if (section === 'comparison') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsComparison();
+  }
+}
+
+function renderAnalytics() { anRenderSection('overview'); }
+function analyticsNav() {}
+function anToggleView() {}
 
 function renderAnalyticsOverview(pool) {
   const metrics = pool.map(calcPropertyMetrics);
