@@ -481,15 +481,13 @@ tr:hover td{background:var(--bg2)}
             <span id="pbBudgetDisplay" style="font-size:12px;font-weight:500;color:var(--tx)"></span>
           </div>
         </div>
-        <div>
+        <div style="grid-column:1/-1">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Rental purpose</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbRentalGroup">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="pbRentalGroup">
             <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Short-term — Airbnb</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Long-term — steady income</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Mixed — ST + LT blend</button>
           </div>
-        </div>
-        <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Investment objective</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbObjectiveGroup">
             <button class="crit-btn" onclick="pbToggle(this,'pbObjective')">Max yield</button>
@@ -2171,7 +2169,14 @@ function buildPortfolio() {
       return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100)};
     }).sort((a,b) => b.score - a.score);
     if (!candidates.length) break;
-    const chosen = {...candidates[0], _purpose: purpose};
+    const _rental = pbCriteria.rental || '';
+    const _portfolioST = selected.filter(x => x._purpose === 'Short-term rental').length;
+    const _portfolioLT = selected.filter(x => x._purpose === 'Long-term rental').length;
+    const _purpose = _rental.includes('Short-term') ? 'Short-term rental'
+                   : _rental.includes('Long-term') && !_rental.includes('Mixed') ? 'Long-term rental'
+                   : _rental.includes('Mixed') ? (_portfolioST <= _portfolioLT ? 'Short-term rental' : 'Long-term rental')
+                   : 'Long-term rental';
+    const chosen = {...candidates[0], _purpose: _purpose};
     selected.push(chosen);
   }
 
