@@ -1385,17 +1385,11 @@ function openModal(id, e) {
   const on=sl.has(d.id);
   const img=d.imageUrl;
   document.getElementById('modalContent').innerHTML=`
-    <a href="${d.projectUrl||googleSearchUrl(d)}" target="_blank" rel="noopener" style="display:block;text-decoration:none">
-      <div style="width:100%;height:220px;background:linear-gradient(135deg,#1a1a1a 0%,#333 100%);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;cursor:pointer;position:relative;overflow:hidden">
-        ${img ? `<img src="${img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0" onerror="this.style.display='none'">` : ''}
-        <div style="position:relative;z-index:1;text-align:center;padding:16px">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2" opacity=".5" style="margin-bottom:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-          <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:4px">${d.title}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.6)">${d.developer} · ${d.city}</div>
-          <div style="margin-top:10px;font-size:11px;background:rgba(255,255,255,0.15);color:#fff;padding:5px 14px;border-radius:99px;display:inline-block">↗ View listing on dom.com.cy</div>
-        </div>
-      </div>
-    </a>
+    ${d.projectUrl ? `
+      <div style="width:100%;height:420px;border-radius:16px 16px 0 0;overflow:hidden;position:relative;background:#f0f0f0">
+        <iframe src="${d.projectUrl}" style="width:100%;height:100%;border:none;display:block" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+        <a href="${d.projectUrl}" target="_blank" rel="noopener" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-size:11px;padding:5px 12px;border-radius:99px;text-decoration:none;z-index:10">↗ Open full page</a>
+      </div>` : ``}
     <div class="modal-body">
       <div class="modal-header">
         <div style="flex:1;min-width:0">
