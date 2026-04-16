@@ -1899,16 +1899,17 @@ function buildPortfolio() {
     selected.push(d);
   }
   
-  // Pass 3: if still under budget by >10%, try to swap lower-scored assets for higher-priced ones
-  // to better utilise the budget
-  const remaining = () => pbCriteria.budget - selected.reduce((s,x) => s+(x.price||0), 0);
-  if (selected.length > 0 && remaining() > pbCriteria.budget * 0.1) {
-    // Try adding more assets if budget allows
+  // Pass 3: keep adding assets until budget is >90% used or no more fit
+  const getRemaining = () => pbCriteria.budget - selected.reduce((s,x) => s+(x.price||0), 0);
+  let improved = true;
+  while (improved && getRemaining() > pbCriteria.budget * 0.08) {
+    improved = false;
     for (const d of scored) {
       if (selected.find(x => x.id === d.id)) continue;
-      if (remaining() >= (d.price||0)) {
+      if ((d.price||0) <= getRemaining()) {
         selected.push(d);
-        if (selected.length >= maxAssets * 2) break; // allow up to 2x assets to use budget
+        improved = true;
+        break; // restart loop with updated remaining
       }
     }
   }
