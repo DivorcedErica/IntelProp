@@ -482,14 +482,20 @@ tr:hover td{background:var(--bg2)}
           </div>
         </div>
         <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Investment strategy</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbStrategyGroup">
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Short-term rental — Airbnb</button>
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Long-term rental — steady income</button>
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Mixed — ST + LT blend</button>
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Growth — capital appreciation</button>
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Balanced — yield + growth</button>
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Diversified — spread risk</button>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Rental purpose</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbRentalGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Short-term — Airbnb</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Long-term — steady income</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbRental')">Mixed — ST + LT blend</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Investment objective</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbObjectiveGroup">
+            <button class="crit-btn" onclick="pbToggle(this,'pbObjective')">Max yield</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbObjective')">Max appreciation</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbObjective')">Balanced — yield + growth</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbObjective')">Diversified — spread risk</button>
           </div>
         </div>
         <div>
@@ -1847,7 +1853,7 @@ function cPg(d) { cPage += d; applyClientFilter(); }
 
 
 // ── Portfolio Builder ─────────────────────────────────────────
-const pbCriteria = { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null };
+const pbCriteria = { budget: null, rental: null, objective: null, assets: 2, cities: [], types: [], risk: null, sea: null };
 
 function pbToggle(btn, key) {
   btn.parentElement.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
@@ -1855,14 +1861,14 @@ function pbToggle(btn, key) {
   const val = btn.dataset.val || btn.textContent.trim();
   if (key === 'pbBudget') {
     pbCriteria.budget = +val;
-    // Clear custom input when a preset is selected
     const ci = document.getElementById('pbCustomBudget');
     if (ci) ci.value = '';
     const bd = document.getElementById('pbBudgetDisplay');
     if (bd) bd.textContent = '';
   }
   else if (key === 'pbAssets') pbCriteria.assets = +val;
-  else if (key === 'pbStrategy') pbCriteria.strategy = val;
+  else if (key === 'pbRental') pbCriteria.rental = val;
+  else if (key === 'pbObjective') pbCriteria.objective = val;
   else if (key === 'pbRisk') pbCriteria.risk = val;
   else if (key === 'pbSea') pbCriteria.sea = +val;
 }
@@ -1897,7 +1903,7 @@ function resetPortfolioBuilder() {
   const bd = document.getElementById('pbBudgetDisplay');
   if (bd) bd.textContent = '';
   document.querySelectorAll('#pPortfolio .crit-btn.on').forEach(b => b.classList.remove('on'));
-  Object.assign(pbCriteria, { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null });
+  Object.assign(pbCriteria, { budget: null, rental: null, objective: null, assets: 2, cities: [], types: [], risk: null, sea: null });
   document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div>';
 }
 
@@ -1922,18 +1928,28 @@ function toggleAdvancedTuning() {
 }
 
 function getDefaultWeights() {
-  const strategy = pbCriteria.strategy || '';
-  const isST = strategy.includes('Short-term');
-  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
-  const isMixed = strategy.includes('Mixed');
-  const isGrowth = strategy.includes('Growth');
-  const isBalanced = strategy.includes('Balanced');
-  return isST      ? {yield:45,appreciation:15,sea:25,efficiency:10,diversity:5}
-       : isLT      ? {yield:55,appreciation:10,sea:10,efficiency:20,diversity:5}
-       : isMixed   ? {yield:48,appreciation:12,sea:18,efficiency:15,diversity:7}
-       : isGrowth  ? {yield:10,appreciation:50,sea:22,efficiency:10,diversity:8}
-       : isBalanced? {yield:35,appreciation:28,sea:18,efficiency:10,diversity:9}
-       :             {yield:22,appreciation:18,sea:15,efficiency:10,diversity:35};
+  const rental = pbCriteria.rental || '';
+  const objective = pbCriteria.objective || '';
+  const isST = rental.includes('Short-term');
+  const isLT = rental.includes('Long-term') && !rental.includes('Mixed');
+  const isMixed = rental.includes('Mixed');
+  const isMaxYield = objective.includes('Max yield');
+  const isMaxAp = objective.includes('Max appreciation');
+  const isBalanced = objective.includes('Balanced');
+  const isDiversified = objective.includes('Diversified');
+  if (isST && isMaxYield)    return {yield:55,appreciation:5,sea:25,efficiency:12,diversity:3};
+  if (isST && isMaxAp)       return {yield:20,appreciation:45,sea:22,efficiency:8,diversity:5};
+  if (isST && isBalanced)    return {yield:38,appreciation:25,sea:22,efficiency:10,diversity:5};
+  if (isST && isDiversified) return {yield:30,appreciation:15,sea:20,efficiency:10,diversity:25};
+  if (isLT && isMaxYield)    return {yield:60,appreciation:8,sea:8,efficiency:22,diversity:2};
+  if (isLT && isMaxAp)       return {yield:15,appreciation:50,sea:12,efficiency:15,diversity:8};
+  if (isLT && isBalanced)    return {yield:40,appreciation:28,sea:10,efficiency:15,diversity:7};
+  if (isLT && isDiversified) return {yield:30,appreciation:18,sea:8,efficiency:14,diversity:30};
+  if (isMixed && isMaxYield) return {yield:52,appreciation:8,sea:18,efficiency:15,diversity:7};
+  if (isMixed && isMaxAp)    return {yield:18,appreciation:47,sea:18,efficiency:10,diversity:7};
+  if (isMixed && isBalanced) return {yield:38,appreciation:27,sea:16,efficiency:12,diversity:7};
+  if (isMixed && isDiversified) return {yield:28,appreciation:20,sea:14,efficiency:10,diversity:28};
+  return {yield:35,appreciation:25,sea:18,efficiency:12,diversity:10};
 }
 
 function renderWeightSliders() {
@@ -1996,19 +2012,31 @@ function resetAdvancedWeights() {
 const pbPortfolio = { selected: [], pool: [], strategy: null, risk: null, budget: null };
 
 function scoreAsset(d, strategy, risk, portfolio, budget) {
+  // Parse composite strategy "rental | objective"
   const isST = strategy.includes('Short-term');
   const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
   const isMixed = strategy.includes('Mixed');
-  const isGrowth = strategy.includes('Growth');
+  const isMaxYield = strategy.includes('Max yield');
+  const isMaxAppreciation = strategy.includes('Max appreciation');
+  const isGrowth = isMaxAppreciation;
   const isBalanced = strategy.includes('Balanced');
   const isDiversified = strategy.includes('Diversified');
   // Use custom weights if set, otherwise strategy defaults
-  const _wDefault = isST     ? {yield:0.45,appreciation:0.15,sea:0.25,efficiency:0.10,diversity:0.05}
-          : isLT             ? {yield:0.55,appreciation:0.10,sea:0.10,efficiency:0.20,diversity:0.05}
-          : isMixed          ? {yield:0.48,appreciation:0.12,sea:0.18,efficiency:0.15,diversity:0.07}
-          : isGrowth         ? {yield:0.10,appreciation:0.50,sea:0.22,efficiency:0.10,diversity:0.08}
-          : isBalanced       ? {yield:0.35,appreciation:0.28,sea:0.18,efficiency:0.10,diversity:0.09}
-          :                    {yield:0.22,appreciation:0.18,sea:0.15,efficiency:0.10,diversity:0.35};
+  // 2D weight matrix: rental purpose × investment objective
+  let _wDefault;
+  if (isST && isMaxYield)           _wDefault = {yield:0.55,appreciation:0.05,sea:0.25,efficiency:0.12,diversity:0.03};
+  else if (isST && isMaxAppreciation) _wDefault = {yield:0.20,appreciation:0.45,sea:0.22,efficiency:0.08,diversity:0.05};
+  else if (isST && isBalanced)      _wDefault = {yield:0.38,appreciation:0.25,sea:0.22,efficiency:0.10,diversity:0.05};
+  else if (isST && isDiversified)   _wDefault = {yield:0.30,appreciation:0.15,sea:0.20,efficiency:0.10,diversity:0.25};
+  else if (isLT && isMaxYield)      _wDefault = {yield:0.60,appreciation:0.08,sea:0.08,efficiency:0.22,diversity:0.02};
+  else if (isLT && isMaxAppreciation) _wDefault = {yield:0.15,appreciation:0.50,sea:0.12,efficiency:0.15,diversity:0.08};
+  else if (isLT && isBalanced)      _wDefault = {yield:0.40,appreciation:0.28,sea:0.10,efficiency:0.15,diversity:0.07};
+  else if (isLT && isDiversified)   _wDefault = {yield:0.30,appreciation:0.18,sea:0.08,efficiency:0.14,diversity:0.30};
+  else if (isMixed && isMaxYield)   _wDefault = {yield:0.52,appreciation:0.08,sea:0.18,efficiency:0.15,diversity:0.07};
+  else if (isMixed && isMaxAppreciation) _wDefault = {yield:0.18,appreciation:0.47,sea:0.18,efficiency:0.10,diversity:0.07};
+  else if (isMixed && isBalanced)   _wDefault = {yield:0.38,appreciation:0.27,sea:0.16,efficiency:0.12,diversity:0.07};
+  else if (isMixed && isDiversified) _wDefault = {yield:0.28,appreciation:0.20,sea:0.14,efficiency:0.10,diversity:0.28};
+  else _wDefault = {yield:0.35,appreciation:0.25,sea:0.18,efficiency:0.12,diversity:0.10};
   // Normalize custom weights to fractions summing to 1
   let w;
   if (pbCustomWeights) {
@@ -2023,7 +2051,6 @@ function scoreAsset(d, strategy, risk, portfolio, budget) {
   const purpose = isST ? 'Short-term rental'
                 : isLT ? 'Long-term rental'
                 : isMixed ? (portfolioST <= portfolioLT ? 'Short-term rental' : 'Long-term rental')
-                : isGrowth ? 'Own use'
                 : 'Long-term rental';
   const yPct = estimateYield(d, purpose);
   const yieldScore = Math.min(100, (yPct/10)*100);
@@ -2101,9 +2128,11 @@ function scoreAsset(d, strategy, risk, portfolio, budget) {
 function buildPortfolio() {
   const status = document.getElementById('pbStatus');
   if (!pbCriteria.budget) { status.textContent = '⚠ Please select a budget.'; return; }
-  if (!pbCriteria.strategy) { status.textContent = '⚠ Please select a strategy.'; return; }
+  if (!pbCriteria.rental) { status.textContent = '⚠ Please select a rental purpose (ST / LT / Mixed).'; return; }
+  if (!pbCriteria.objective) { status.textContent = '⚠ Please select an investment objective.'; return; }
   status.textContent = '';
-  const strategy = pbCriteria.strategy;
+  // Combine rental + objective into a composite strategy string
+  const strategy = pbCriteria.rental + ' | ' + pbCriteria.objective;
   const risk = pbCriteria.risk || 'Moderate';
   const budget = pbCriteria.budget;
   const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
@@ -2198,7 +2227,7 @@ function _buildPortfolioOutputUnused(selected, strategy, risk, budget, pool) {
   document.getElementById('pbOutput').innerHTML = `
     <div class="portfolio-shell">
       <div class="portfolio-head">
-        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${pbCriteria.rental||'—'} · ${pbCriteria.objective||'—'} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
       </div>
       <div class="portfolio-grid">
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
@@ -2356,7 +2385,7 @@ function pbRebuildOutput() {
   document.getElementById('pbOutput').innerHTML = `
     <div class="portfolio-shell">
       <div class="portfolio-head">
-        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${pbCriteria.rental||'—'} · ${pbCriteria.objective||'—'} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
       </div>
       <div class="portfolio-grid">
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
