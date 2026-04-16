@@ -2776,18 +2776,6 @@ function calcPropertyMetrics(d) {
   return { ADR, occupancy, revPAR, annualRevenue, grossYield, netYield };
 }
 
-function getAnalyticsPool() {
-  const city = document.getElementById('anCity')?.value || '';
-  const type = document.getElementById('anType')?.value || '';
-  const beds = document.getElementById('anBeds')?.value || '';
-  return all.filter(d => {
-    if (city && d.city !== city) return false;
-    if (type && d.type !== type) return false;
-    if (beds && d.bedrooms !== +beds) return false;
-    return true;
-  });
-}
-
 let anMap2 = null, anMarkers2 = [], anInfoWindow2 = null, anStatsVisible = false;
 
 function initAnalytics() {
