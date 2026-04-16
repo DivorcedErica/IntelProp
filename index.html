@@ -1385,9 +1385,9 @@ function openModal(id, e) {
   const on=sl.has(d.id);
   const img=d.imageUrl;
   document.getElementById('modalContent').innerHTML=`
-    <div style="width:100%;height:220px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-      <div style="font-size:11px;color:var(--mu);opacity:.5">No image available</div>
+    <div id="modalImgArea" style="width:100%;height:220px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px">
+      <div class="spin" style="font-size:20px;opacity:.3">◈</div>
+      <div style="font-size:11px;color:var(--mu);opacity:.5">Loading image…</div>
     </div>
     <div class="modal-body">
       <div class="modal-header">
@@ -1447,6 +1447,8 @@ function openModal(id, e) {
     </div>`;
   document.getElementById('modalBackdrop').classList.add('open');
   document.body.style.overflow='hidden';
+  // Load property image on demand
+  loadModalImage(d);
   // Market Positioning + RICS
   const posEl = document.getElementById('modalPositioning');
   if (posEl) posEl.innerHTML = renderMarketPositioning(d);
@@ -3337,6 +3339,78 @@ function renderAnalyticsComparison() {
       }}
     });
   }, 50);
+}
+
+
+// ── On-demand property image search ─────────────────────────
+const imgCache = {};
+
+async function loadModalImage(d) {
+  const area = document.getElementById('modalImgArea');
+  if (!area) return;
+
+  // Check cache first
+  const cacheKey = d.complex || d.developer + d.city;
+  if (imgCache[cacheKey]) {
+    renderModalImg(area, imgCache[cacheKey], d);
+    return;
+  }
+
+  // Build search query
+  const query = d.complex && d.complex !== 'Standalone'
+    ? d.complex + ' ' + d.city + ' Cyprus property'
+    : d.developer + ' ' + d.city + ' Cyprus real estate';
+
+  try {
+    const res = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        tools: [{type: 'web_search_20250305', name: 'web_search'}],
+        messages: [{
+          role: 'user',
+          content: 'Search for a photo of this Cyprus property development: "' + query + '". Return ONLY the direct image URL (ending in .jpg, .jpeg, .png or .webp) from the developer or a real estate site. No text, just the URL.'
+        }]
+      })
+    });
+
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    const txt = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+
+    // Extract URL from response
+    const urlMatch = txt.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)/i);
+    if (urlMatch) {
+      imgCache[cacheKey] = urlMatch[0];
+      renderModalImg(area, urlMatch[0], d);
+    } else {
+      renderModalImgEmpty(area);
+    }
+  } catch(e) {
+    renderModalImgEmpty(area);
+  }
+}
+
+function renderModalImg(area, url, d) {
+  var img = document.createElement('img');
+  img.src = url;
+  img.alt = d.title;
+  img.style.cssText = 'width:100%;height:220px;object-fit:cover;border-radius:16px 16px 0 0;display:block';
+  img.onerror = function() { renderModalImgEmpty(area); };
+  area.innerHTML = '';
+  area.style.cssText = 'width:100%;border-radius:16px 16px 0 0;overflow:hidden';
+  area.appendChild(img);
+}
+
+function renderModalImgEmpty(area) {
+  area.style.cssText = 'width:100%;height:220px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px';
+  area.innerHTML = '';
+  var div = document.createElement('div');
+  div.style.cssText = 'text-align:center;opacity:.4';
+  div.innerHTML = '<div style="font-size:11px;color:var(--mu);margin-top:8px">No image found</div>';
+  area.appendChild(div);
 }
 
 
