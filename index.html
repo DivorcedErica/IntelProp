@@ -6,6 +6,7 @@
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI&libraries=places,geometry&callback=initGoogleMaps" async defer></script>
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#fff;--bg2:#f7f7f6;--bd:rgba(0,0,0,0.1);--tx:#1a1a1a;--mu:#888;--r:8px;--red:#e74c3c;--gold:#b8860b}
@@ -677,7 +678,7 @@ function seaBadge(dist){
   const cls=dist<1?'sea-vclose':dist<3?'sea-close':dist<8?'sea-mid':dist<20?'sea-far':'sea-inland';
   return`<span class="sea-badge ${cls}">${km} from sea</span>`;
 }
-let gMap = null, gMarkers = [], gInfoWindow = null;
+let gMap = null, gMarkers = [], gInfoWindow = null, gClusterer = null;
 let googleMapsReady = false;
 
 function initGoogleMaps() {
@@ -700,6 +701,8 @@ function initMap() {
     },
     streetViewControl: true,
     fullscreenControl: true,
+    draggableCursor: 'default',
+    draggingCursor: 'grabbing',
     styles: [
       { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
     ]
@@ -1069,6 +1072,8 @@ async function triggerRental(id,e) {
 async function renderMap() {
   if (!googleMapsReady) { setTimeout(renderMap, 500); return; }
   initMap();
+  // Clear existing markers and clusterer
+  if (gClusterer) { gClusterer.clearMarkers(); gClusterer = null; }
   gMarkers.forEach(m => m.setMap(null)); gMarkers = [];
 
   const city = document.getElementById('mCity').value;
@@ -1134,6 +1139,32 @@ async function renderMap() {
       });
       gMarkers.push(marker);
     });
+  }
+
+  // Use marker clustering for performance
+  if (window.markerClusterer && gMarkers.length > 0) {
+    gClusterer = new markerClusterer.MarkerClusterer({
+      map: gMap,
+      markers: gMarkers,
+      algorithm: new markerClusterer.SuperClusterAlgorithm({ maxZoom: 14, radius: 60 }),
+      renderer: {
+        render: ({ count, position }) => new google.maps.Marker({
+          position,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            fillColor: '#1a1a1a',
+            fillOpacity: 0.85,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+            scale: count > 100 ? 18 : count > 20 ? 15 : 12,
+          },
+          label: { text: String(count), color: '#fff', fontSize: '11px', fontWeight: '600' },
+          zIndex: 999,
+        })
+      }
+    });
+    // Remove markers from map directly (clusterer handles placement)
+    gMarkers.forEach(m => m.setMap(null));
   }
 }
 
