@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// Must be defined before Google Maps loads
+window.initGoogleMaps = function() {
+  window.googleMapsReady = true;
+  var mapEl = document.getElementById('pMap');
+  if (mapEl && mapEl.style.display !== 'none') {
+    window.initMap && window.initMap();
+  }
+};
+</script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI&libraries=places,geometry&callback=initGoogleMaps" async defer></script>
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <style>
@@ -694,6 +704,8 @@ function initMap() {
       style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
       mapTypeIds: ['roadmap', 'satellite', 'hybrid', 'terrain']
     },
+    zoomControl: true,
+    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
     streetViewControl: true,
     fullscreenControl: true,
     draggableCursor: 'default',
@@ -2469,14 +2481,6 @@ function pbRebuildOutput() {
     </div>`;
 }
 
-
-// ── Google Maps init callback (must be global before Maps loads) ──
-window.initGoogleMaps = function() {
-  googleMapsReady = true;
-  if (document.getElementById('pMap') && document.getElementById('pMap').style.display !== 'none') {
-    initMap();
-  }
-};
 
 // ── Auth ─────────────────────────────────────────────────────
 const USERS = [
