@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI&libraries=places,geometry&callback=initGoogleMaps" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#fff;--bg2:#f7f7f6;--bd:rgba(0,0,0,0.1);--tx:#1a1a1a;--mu:#888;--r:8px;--red:#e74c3c;--gold:#b8860b}
@@ -334,7 +333,7 @@ tr:hover td{background:var(--bg2)}
       <div id="mapWrap">
         <div id="map"></div>
         <div class="map-legend">
-          <div class="map-legend-item"><span class="map-dot" style="background:#1d4ed8"></span>Flat/Apartment</div>
+          <div class="map-legend-item"><span class="map-dot" style="background:#1d4ed8"></span>Apartment</div>
           <div class="map-legend-item"><span class="map-dot" style="background:#15803d"></span>House</div>
           <div class="map-legend-item"><span class="map-dot" style="background:#92400e"></span>Villa</div>
           <div class="map-legend-item"><span class="map-dot" style="background:#9d174d"></span>Penthouse</div>
@@ -617,8 +616,9 @@ tr:hover td{background:var(--bg2)}
 
 <script>
 // ── Add your Anthropic API key here ──
-const ANTHROPIC_KEY = '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';
+const ANTHROPIC_KEY = ''; // Key handled by proxy
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
+const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
@@ -677,7 +677,35 @@ function seaBadge(dist){
   const cls=dist<1?'sea-vclose':dist<3?'sea-close':dist<8?'sea-mid':dist<20?'sea-far':'sea-inland';
   return`<span class="sea-badge ${cls}">${km} from sea</span>`;
 }
-let leafMap = null, markers = [];
+let gMap = null, gMarkers = [], gInfoWindow = null;
+let googleMapsReady = false;
+
+function initGoogleMaps() {
+  googleMapsReady = true;
+  if (document.getElementById('pMap').style.display !== 'none') {
+    initMap();
+  }
+}
+
+function initMap() {
+  if (!googleMapsReady || !google || !google.maps) return;
+  if (gMap) return; // already initialized
+  gMap = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 34.9, lng: 33.1 },
+    zoom: 9,
+    mapTypeControl: true,
+    mapTypeControlOptions: {
+      style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+      mapTypeIds: ['roadmap', 'satellite', 'hybrid', 'terrain']
+    },
+    streetViewControl: true,
+    fullscreenControl: true,
+    styles: [
+      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+    ]
+  });
+  gInfoWindow = new google.maps.InfoWindow();
+}
 
 // ── Fallback coordinates: district first, then city ──
 const DISTRICT_FALLBACK = {
@@ -727,35 +755,38 @@ async function geocode(city, district) {
   const key = `${district||''},${city},Cyprus`.toLowerCase();
   if (geocodeCache[key]) return geocodeCache[key];
 
-  // Try district + city first, fall back to city only
-  const queries = district
-    ? [`${district}, ${city}, Cyprus`, `${city}, Cyprus`]
-    : [`${city}, Cyprus`];
-
-  for (const q of queries) {
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=cy`;
-      const res = await fetch(url, { headers: { 'Accept-Language': 'en', 'User-Agent': 'IntelProp/1.0' } });
-      const data = await res.json();
-      if (data && data[0]) {
-        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+  if (googleMapsReady && google && google.maps) {
+    const queries = district
+      ? [`${district}, ${city}, Cyprus`, `${city}, Cyprus`]
+      : [`${city}, Cyprus`];
+    for (const q of queries) {
+      try {
+        const geocoder = new google.maps.Geocoder();
+        const result = await new Promise((resolve, reject) => {
+          geocoder.geocode({ address: q, region: 'cy' }, (results, status) => {
+            if (status === 'OK' && results[0]) resolve(results[0]);
+            else reject(new Error(status));
+          });
+        });
+        const loc = result.geometry.location;
+        const coords = [loc.lat(), loc.lng()];
         geocodeCache[key] = coords;
         return coords;
-      }
-    } catch(e) { /* try next */ }
+      } catch(e) { /* try next */ }
+    }
   }
 
-  // Final fallback: city centre
-  const fb = CITY_FALLBACK[city];
+  // Fallback to district/city static coords
+  const fb = DISTRICT_FALLBACK[district] || CITY_FALLBACK[city];
   if (fb) {
-    // Small jitter so pins don't all stack
-    const jitter = [(Math.random()-0.5)*0.01, (Math.random()-0.5)*0.01];
+    const jitter = [(Math.random()-0.5)*0.008, (Math.random()-0.5)*0.008];
     const coords = [fb[0]+jitter[0], fb[1]+jitter[1]];
     geocodeCache[key] = coords;
     return coords;
   }
   return null;
 }
+
 
 async function getCoords(d) {
   // If sheet has lat/lng columns, use those
@@ -1036,11 +1067,9 @@ async function triggerRental(id,e) {
 
 // ── Map ──
 async function renderMap() {
-  if (!leafMap) {
-    leafMap = L.map('map').setView([34.9, 33.1], 9);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(leafMap);
-  }
-  markers.forEach(m => m.remove()); markers = [];
+  if (!googleMapsReady) { setTimeout(renderMap, 500); return; }
+  initMap();
+  gMarkers.forEach(m => m.setMap(null)); gMarkers = [];
 
   const city = document.getElementById('mCity').value;
   const type = document.getElementById('mType').value;
@@ -1059,8 +1088,6 @@ async function renderMap() {
 
   document.getElementById('mapCount').textContent = `${mapData.length.toLocaleString()} listings`;
 
-  // Geocode and plot in batches to respect Nominatim rate limit (1 req/sec)
-  // Group by unique city+district to minimise API calls
   const uniqueLocs = {};
   mapData.forEach(d => {
     const key = `${d.district||''},${d.city}`;
@@ -1068,37 +1095,48 @@ async function renderMap() {
     uniqueLocs[key].ids.push(d.id);
   });
 
-  let delay = 0;
   for (const [key, loc] of Object.entries(uniqueLocs)) {
-    setTimeout(async () => {
-      const coords = await geocode(loc.city, loc.district);
-      if (!coords) return;
-      // Plot each property at this location with small jitter
-      loc.ids.forEach((id, idx) => {
-        const d = all.find(x => x.id === id);
-        if (!d) return;
-        const jitter = [(Math.random()-0.5)*0.008, (Math.random()-0.5)*0.008];
-        const pin = [coords[0]+jitter[0], coords[1]+jitter[1]];
-        const color = pinColor(d.type);
-        const m = L.marker(pin, { icon: createPin(color) }).addTo(leafMap);
-        m.bindPopup(`<div style="font-size:12px;min-width:180px">
-          <div style="font-weight:600;margin-bottom:4px;line-height:1.3">${d.title}</div>
-          <div style="color:#888;font-size:11px;margin-bottom:6px">${d.city}${d.district ? ', '+d.district : ''}</div>
-          <div style="display:flex;gap:8px;font-size:11px;margin-bottom:8px">
-            ${d.bedrooms!=null?`<span>${d.bedrooms} beds</span>`:''}
-            ${d.area!=null?`<span>${d.area} m²</span>`:''}
-          </div>
-          <div style="font-size:15px;font-weight:700;margin-bottom:8px">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
-          <button onclick="openModal(${d.id})" style="width:100%;height:28px;font-size:11px;font-weight:500;border:1px solid #1a1a1a;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">View details</button>
-        </div>`, { maxWidth: 220 });
-        markers.push(m);
+    const coords = await geocode(loc.city, loc.district);
+    if (!coords) continue;
+    loc.ids.forEach(id => {
+      const d = all.find(x => x.id === id);
+      if (!d) return;
+      const jitter = [(Math.random()-0.5)*0.006, (Math.random()-0.5)*0.006];
+      const pos = { lat: coords[0]+jitter[0], lng: coords[1]+jitter[1] };
+      const marker = new google.maps.Marker({
+        position: pos,
+        map: gMap,
+        title: d.title,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: pinColor(d.type),
+          fillOpacity: 0.92,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          scale: 7,
+        }
       });
-    }, delay);
-    // Only delay if not cached
-    const cacheKey = `${loc.district||''},${loc.city},cyprus`;
-    if (!geocodeCache[cacheKey.toLowerCase()]) delay += 1100; // 1.1s between uncached requests
+      marker.addListener('click', () => {
+        gInfoWindow.setContent(`
+          <div style="font-size:13px;min-width:200px;padding:4px">
+            <div style="font-weight:600;margin-bottom:4px;font-size:14px">${d.title}</div>
+            <div style="color:#666;font-size:12px;margin-bottom:4px">${d.developer}</div>
+            <div style="color:#666;font-size:12px;margin-bottom:8px">${d.city}${d.district?', '+d.district:''}</div>
+            <div style="display:flex;gap:10px;font-size:12px;margin-bottom:8px;color:#444">
+              ${d.bedrooms!=null?`<span>🛏 ${d.bedrooms} beds</span>`:''}
+              ${d.area!=null?`<span>📐 ${d.area} m²</span>`:''}
+              ${d.seaDist!=null?`<span>🌊 ${d.seaDist<1?(Math.round(d.seaDist*1000)+'m'):(d.seaDist.toFixed(1)+'km')}</span>`:''}
+            </div>
+            <div style="font-size:18px;font-weight:700;margin-bottom:10px">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
+            <button onclick="openModal(${d.id})" style="width:100%;height:32px;font-size:12px;font-weight:500;border:none;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">View details →</button>
+          </div>`);
+        gInfoWindow.open(gMap, marker);
+      });
+      gMarkers.push(marker);
+    });
   }
 }
+
 
 // ── Detail modal ──
 function openModal(id, e) {
@@ -1152,9 +1190,31 @@ function openModal(id, e) {
   setTimeout(async ()=>{
     const coords = await getCoords(d);
     if(coords&&document.getElementById('modalMap')){
-      const mm=L.map('modalMap',{zoomControl:false,dragging:false,scrollWheelZoom:false}).setView(coords,15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(mm);
-      L.marker(coords,{icon:createPin(pinColor(d.type))}).addTo(mm);
+      const mm = new google.maps.Map(document.getElementById('modalMap'), {
+        center: { lat: coords[0], lng: coords[1] },
+        zoom: 15,
+        zoomControl: false,
+        streetViewControl: true,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+          mapTypeIds: ['roadmap','satellite','hybrid']
+        },
+        fullscreenControl: false,
+        gestureHandling: 'none',
+      });
+      new google.maps.Marker({
+        position: { lat: coords[0], lng: coords[1] },
+        map: mm,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: pinColor(d.type),
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          scale: 9,
+        }
+      });
       // Compute sea distance from real coords
       const {beach,dist} = nearestSea(coords[0],coords[1]);
       d.seaDist = dist; d.nearestBeach = beach.name;
@@ -1339,7 +1399,7 @@ function gotoTab(t,el){
   ['listings','map','intelligence','clients','portfolio','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
-  if(t==='map'){setTimeout(()=>{if(leafMap)leafMap.invalidateSize();renderMap();},50);}
+  if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='shortlist')renderSL();
 }
@@ -2218,73 +2278,6 @@ function buildPortfolio() {
   pbRebuildOutput();
 }
 
-function _buildPortfolioOutputUnused(selected, strategy, risk, budget, pool) {
-  const name = document.getElementById('pbName').value.trim() || 'Investor';
-  const notes = document.getElementById('pbNotes').value.trim();
-  const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
-  const totalIncome = selected.reduce((s,d) => s+(d.estimatedAnnualIncome||0), 0);
-  const blendedYield = totalPrice ? (totalIncome/totalPrice)*100 : 0;
-  const leftover = budget - totalPrice;
-
-  const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
-    const ca = selected.filter(d=>d.city===city);
-    const cp = ca.reduce((s,d)=>s+(d.price||0),0);
-    const stCount = ca.filter(x=>x._purpose==='Short-term rental').length;
-    const ltCount = ca.filter(x=>x._purpose==='Long-term rental').length;
-    const purposeNote = stCount&&ltCount ? `${stCount} ST · ${ltCount} LT` : stCount ? `${stCount} ST` : ltCount ? `${ltCount} LT` : `${ca.length} asset${ca.length!==1?'s':''}`;
-    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${purposeNote} · €${cp.toLocaleString()}</div></div></div>`;
-  }).join('');
-
-  const cards = selected.map((d,i) => `
-    <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
-      <div style="display:flex;gap:4px;margin-bottom:8px"><div class="portfolio-card-role">Asset ${i+1}</div>${d._purpose?'<div class="portfolio-card-role" style="background:var(--bg2);border-color:var(--gold);color:var(--gold)">'+d._purpose+'</div>':''}</div>
-      <div class="portfolio-card-title">${d.title||'—'}</div>
-      <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
-      <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
-      <div class="portfolio-card-price">€${(d.price||0).toLocaleString()}</div>
-      <div style="margin:4px 0;display:flex;gap:4px;flex-wrap:wrap">
-        ${d.seaDist!=null?seaBadge(d.seaDist):''}
-        ${(d.price||0)>=300000?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#15803d">PR eligible</span>':''}
-        <span style="font-size:9px;color:var(--mu);font-style:italic">+19% VAT if new build</span>
-      </div>
-      <div class="portfolio-mini-grid">
-        <div class="portfolio-mini"><div class="portfolio-mini-label">Net yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
-        <div class="portfolio-mini"><div class="portfolio-mini-label">Net annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
-        ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
-        <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:10px">
-        <button onclick="event.stopPropagation();pbRemoveAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>
-        <button onclick="event.stopPropagation();pbSwapAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">↻ Suggest alternatives</button>
-      </div>
-    </div>`).join('');
-
-  document.getElementById('pbOutput').innerHTML = `
-    <div class="portfolio-shell">
-      <div class="portfolio-head">
-        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${pbCriteria.rental||'—'} · ${pbCriteria.objective||'—'} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
-      </div>
-      <div class="portfolio-grid">
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Assets</div><div class="portfolio-kpi-value">${selected.length}</div><div class="portfolio-kpi-sub">from ${pool.length.toLocaleString()} matching</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${budget.toLocaleString()}</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Net after mgmt fees</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Gross rental est.</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees / reserves</div></div>
-        ${(()=>{const st=selected.filter(x=>x._purpose==='Short-term rental').length;const lt=selected.filter(x=>x._purpose==='Long-term rental').length;return st||lt?`<div class="portfolio-kpi"><div class="portfolio-kpi-label">Rental split</div><div class="portfolio-kpi-value">${st} ST · ${lt} LT</div><div class="portfolio-kpi-sub">Short vs long-term</div></div>`:'';})()}
-        <div class="portfolio-kpi" style="border:1px solid rgba(231,76,60,.25);background:rgba(231,76,60,.04)"><div class="portfolio-kpi-label" style="color:var(--red)">VAT exposure</div><div class="portfolio-kpi-value" style="color:var(--red)">€${Math.round(totalPrice*0.19).toLocaleString()}</div><div class="portfolio-kpi-sub">If all new builds @ 19%</div></div>
-        <div class="portfolio-kpi" style="border:1px solid rgba(184,134,11,.25);background:rgba(184,134,11,.04)"><div class="portfolio-kpi-label" style="color:var(--gold)">Total outlay</div><div class="portfolio-kpi-value" style="color:var(--gold)">€${Math.round(totalPrice*1.19).toLocaleString()}</div><div class="portfolio-kpi-sub">Purchase + VAT (worst case)</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0">
-        <div class="intel-card"><div class="intel-card-title"><span>🏙</span> City allocation</div>${cityBreakdown}</div>
-        <div class="intel-card"><div class="intel-card-title"><span>📋</span> Notes</div><div style="font-size:12px;color:var(--tx);line-height:1.7;padding:4px 0">${notes||'No additional notes.'}</div></div>
-      </div>
-      <div class="portfolio-section">
-        <div class="portfolio-section-title">Selected assets — click to view details</div>
-        <div class="portfolio-cards">${cards}</div>
-      </div>
-    </div>`;
-}
 
 // ── Portfolio asset management ────────────────────────────────
 function pbRemoveAsset(id) {
