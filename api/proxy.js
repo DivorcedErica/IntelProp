@@ -11,7 +11,7 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_KEY,
+        'x-api-key': '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',
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(req.body)
