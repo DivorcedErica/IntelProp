@@ -3349,17 +3349,16 @@ async function loadModalImage(d) {
   const area = document.getElementById('modalImgArea');
   if (!area) return;
 
-  // Check cache first
-  const cacheKey = d.complex || d.developer + d.city;
+  const cacheKey = (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + d.city;
   if (imgCache[cacheKey]) {
+    if (imgCache[cacheKey] === 'none') { renderModalImgEmpty(area); return; }
     renderModalImg(area, imgCache[cacheKey], d);
     return;
   }
 
-  // Build search query
   const query = d.complex && d.complex !== 'Standalone'
-    ? d.complex + ' ' + d.city + ' Cyprus property'
-    : d.developer + ' ' + d.city + ' Cyprus real estate';
+    ? '"' + d.complex + '" Cyprus property site:' + (d.developer||'').toLowerCase().replace(/\s+/g,'') + '.com OR site:bazaraki.com OR site:spitogatos.cy'
+    : '"' + d.developer + '" Cyprus "' + d.city + '" property development';
 
   try {
     const res = await fetch('/api/proxy', {
@@ -3367,11 +3366,11 @@ async function loadModalImage(d) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 200,
+        max_tokens: 400,
         tools: [{type: 'web_search_20250305', name: 'web_search'}],
         messages: [{
           role: 'user',
-          content: 'Search for a photo of this Cyprus property development: "' + query + '". Return ONLY the direct image URL (ending in .jpg, .jpeg, .png or .webp) from the developer or a real estate site. No text, just the URL.'
+          content: 'Find a property photo for: ' + (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + ' in ' + d.city + ' Cyprus. Search the developer website or property portals. Return ONLY one direct image URL ending in .jpg .jpeg .png or .webp. Nothing else. Just the URL on its own line.'
         }]
       })
     });
@@ -3379,16 +3378,16 @@ async function loadModalImage(d) {
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
     const txt = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-
-    // Extract URL from response
-    const urlMatch = txt.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp)/i);
+    const urlMatch = txt.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|webp)(?:\?[^\s]*)?/i);
     if (urlMatch) {
       imgCache[cacheKey] = urlMatch[0];
       renderModalImg(area, urlMatch[0], d);
     } else {
+      imgCache[cacheKey] = 'none';
       renderModalImgEmpty(area);
     }
   } catch(e) {
+    imgCache[cacheKey] = 'none';
     renderModalImgEmpty(area);
   }
 }
