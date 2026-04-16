@@ -1419,6 +1419,10 @@ function openModal(id, e) {
       </div>
       <div class="modal-section-title">Location</div>
       <div class="modal-map" id="modalMap"></div>
+      <div class="modal-section-title">Market Positioning</div>
+      <div id="modalPositioning" style="margin-bottom:4px">
+        ${renderMarketPositioning(d)}
+      </div>
       <div class="modal-section-title">Market Context — RICS/KPMG Q4 2025</div>
       <div id="modalRICS" style="margin-bottom:14px">
         ${(()=>{
@@ -2578,6 +2582,27 @@ function exportPropertyPDF(id) {
     </div>`:''}
   </div>
 
+  <!-- Market Positioning -->
+  ${(()=>{
+    const pos = calcMarketPositioning(d);
+    if (!pos) return '';
+    const yoy = RICS_DATA.yoyGrowth[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
+    const proj = d.price ? Math.round(d.price*(1+yoy/100)) : null;
+    return \`<div class="section-title">Market positioning</div>
+    <div style="background:#f7f7f6;border-radius:8px;padding:14px 16px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600">\${pos.label}</div>
+        <div style="font-size:11px;color:#888">\${pos.percentile}th percentile · \${pos.compCount} comparables</div>
+      </div>
+      <div style="font-size:12px;color:#444;margin-bottom:10px;line-height:1.6">\${pos.narrative}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:\${proj?'10px':'0'}">
+        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">This property</div><div style="font-size:13px;font-weight:600">€\${pos.ppm.toLocaleString()}/m²</div></div>
+        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">Market median</div><div style="font-size:13px;font-weight:600">€\${pos.median.toLocaleString()}/m²</div></div>
+        <div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">vs median</div><div style="font-size:13px;font-weight:600;color:\${pos.diffPct<=0?'#15803d':pos.diffPct<=15?'#b8860b':'#9d174d'}">\${pos.diffPct>0?'+':''}\${pos.diffPct}%</div></div>
+      </div>
+      \${proj?\`<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:6px;padding:8px 12px"><div style="font-size:11px;color:#888">Projected value in 12 months (RICS +\${yoy}% YoY)</div><div style="font-size:14px;font-weight:700;color:#15803d">€\${proj.toLocaleString()}</div></div>\`:''}
+    </div>\`;
+  })()}
   <!-- RICS Market Context -->
   <div class="section-title">Market context — RICS/KPMG Q4 2025</div>
   ${bullets.map(b=>`<div class="rics-item"><div class="rics-icon">${b.icon}</div><div><div class="rics-text">${b.text}</div><div class="rics-source">${b.sub}</div></div></div>`).join('')}
@@ -2668,6 +2693,146 @@ function doLogout() {
 }
 
 
+
+
+// ── Market Positioning (comparable-based) ────────────────────
+function calcMarketPositioning(d) {
+  if (!d.ppm || !d.city || !d.type) return null;
+
+  // Find comparables: same city, same type, has ppm
+  const comps = all.filter(x =>
+    x.id !== d.id &&
+    x.city === d.city &&
+    x.ppm != null &&
+    (x.type||'').toLowerCase().includes((d.type||'').toLowerCase().split(' ')[0].toLowerCase())
+  );
+
+  if (comps.length < 5) {
+    // Fallback: same city, any type
+    const cityComps = all.filter(x => x.id !== d.id && x.city === d.city && x.ppm != null);
+    if (cityComps.length < 5) return null;
+    return calcPositioningFromComps(d, cityComps, 'city');
+  }
+
+  return calcPositioningFromComps(d, comps, 'type');
+}
+
+function calcPositioningFromComps(d, comps, scope) {
+  const ppms = comps.map(x => x.ppm).sort((a,b) => a-b);
+  const avg = Math.round(ppms.reduce((s,v) => s+v, 0) / ppms.length);
+  const median = ppms[Math.floor(ppms.length/2)];
+  const min = ppms[0];
+  const max = ppms[ppms.length-1];
+
+  // Percentile rank of this property
+  const below = ppms.filter(p => p < d.ppm).length;
+  const percentile = Math.round((below / ppms.length) * 100);
+
+  // Price difference vs median
+  const diffPct = Math.round(((d.ppm - median) / median) * 100);
+  const diffAbs = Math.round((d.ppm - median) * (d.area || 100));
+
+  // Sales-positive positioning label
+  let label, color, badge, narrative;
+
+  if (percentile <= 25) {
+    label = 'Strong value entry';
+    color = '#15803d';
+    badge = 'bg:#dcfce7;color:#15803d';
+    narrative = `Priced in the lower ${percentile}th percentile of comparable ${d.city} properties — representing exceptional value for the investor.`;
+  } else if (percentile <= 45) {
+    label = 'Competitive pricing';
+    color = '#15803d';
+    badge = 'bg:#dcfce7;color:#15803d';
+    narrative = `Well-positioned against ${comps.length} comparable properties in ${d.city} — competitively priced for the current market.`;
+  } else if (percentile <= 65) {
+    label = 'At market rate';
+    color = '#b8860b';
+    badge = 'bg:#fef3c7;color:#b8860b';
+    narrative = `Priced in line with the ${d.city} market median — reflecting the property's quality and location premium.`;
+  } else if (percentile <= 80) {
+    label = 'Premium positioning';
+    color = '#b8860b';
+    badge = 'bg:#fef3c7;color:#b8860b';
+    narrative = `Above-average pricing reflects the property's superior specification and location in the ${d.city} market.`;
+  } else {
+    label = 'Luxury segment';
+    color = '#9d174d';
+    badge = 'bg:#fce7f3;color:#9d174d';
+    narrative = `Top-tier pricing within the ${d.city} market — positioned in the luxury segment with ${100-percentile}% of comparables priced lower.`;
+  }
+
+  return {
+    label, color, badge, narrative,
+    percentile, avg, median, min, max,
+    diffPct, diffAbs,
+    compCount: comps.length,
+    scope,
+    city: d.city,
+    type: d.type,
+    ppm: d.ppm
+  };
+}
+
+function renderMarketPositioning(d) {
+  const pos = calcMarketPositioning(d);
+  if (!pos) return '';
+
+  const barPct = Math.min(98, Math.max(2, pos.percentile));
+  const yoyGrowth = RICS_DATA.yoyGrowth[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
+  const projectedValue = d.price ? Math.round(d.price * (1 + yoyGrowth/100)) : null;
+
+  return `
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Market Positioning</div>
+        <span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;${pos.badge}">${pos.label}</span>
+      </div>
+
+      <!-- Percentile bar -->
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-bottom:4px">
+          <span>€${pos.min.toLocaleString()}/m²</span>
+          <span>Median €${pos.median.toLocaleString()}/m²</span>
+          <span>€${pos.max.toLocaleString()}/m²</span>
+        </div>
+        <div style="height:8px;background:linear-gradient(to right,#dcfce7,#fef3c7,#fce7f3);border-radius:99px;position:relative">
+          <div style="position:absolute;top:-3px;width:14px;height:14px;border-radius:50%;background:var(--tx);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transform:translateX(-50%);left:${barPct}%"></div>
+        </div>
+        <div style="font-size:10px;color:var(--mu);margin-top:4px;text-align:center">
+          This property — €${pos.ppm.toLocaleString()}/m² · ${pos.percentile}th percentile of ${pos.compCount} ${pos.city} comparables
+        </div>
+      </div>
+
+      <!-- Narrative -->
+      <div style="font-size:12px;color:var(--tx);line-height:1.6;margin-bottom:10px">${pos.narrative}</div>
+
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--bd)">
+          <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px">Comparable avg</div>
+          <div style="font-size:13px;font-weight:600;margin-top:2px">€${pos.avg.toLocaleString()}/m²</div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--bd)">
+          <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px">vs median</div>
+          <div style="font-size:13px;font-weight:600;margin-top:2px;color:${pos.diffPct<=0?'#15803d':pos.diffPct<=15?'#b8860b':'#9d174d'}">${pos.diffPct>0?'+':''}${pos.diffPct}%</div>
+        </div>
+        <div style="background:var(--bg);border-radius:6px;padding:8px;text-align:center;border:1px solid var(--bd)">
+          <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px">Comparables</div>
+          <div style="font-size:13px;font-weight:600;margin-top:2px">${pos.compCount}</div>
+        </div>
+      </div>
+
+      ${projectedValue ? `
+      <!-- Growth projection -->
+      <div style="background:var(--bg);border-radius:6px;padding:8px 12px;border:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:11px;color:var(--mu)">Projected value in 12 months <span style="font-size:9px">(RICS +${yoyGrowth}% YoY)</span></div>
+        <div style="font-size:13px;font-weight:700;color:#15803d">€${projectedValue.toLocaleString()}</div>
+      </div>` : ''}
+
+      <div style="font-size:9px;color:var(--mu);margin-top:8px">Based on ${pos.compCount} comparable ${pos.type} listings in ${pos.city} · IntelProp database · Not a formal valuation</div>
+    </div>`;
+}
 
 // ── RICS/KPMG Q4 2025 Official Data ─────────────────────────
 const RICS_DATA = {
