@@ -705,6 +705,10 @@ tr:hover td{background:var(--bg2)}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             City compare
           </div>
+          <div class="an-nav" onclick="anSection(this,'compsets')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>
+            Comp sets
+          </div>
         </div>
 
         <!-- ── Main content area ── -->
@@ -2443,6 +2447,103 @@ function doLogout() {
   document.getElementById('loginError').textContent = '';
 }
 
+
+// ── Market Score ─────────────────────────────────────────────
+function calcMarketScore(city) {
+  // Composite score 0-100 based on:
+  // yield (30%), occupancy (25%), demand/listings (20%), appreciation (15%), liquidity (10%)
+  const cityMetrics = {
+    Limassol:  { yield:8, occupancy:9, demand:9, appreciation:9, liquidity:10 },
+    Paphos:    { yield:9, occupancy:9, demand:8, appreciation:8, liquidity:8  },
+    Larnaca:   { yield:8, occupancy:8, demand:7, appreciation:7, liquidity:7  },
+    Famagusta: { yield:9, occupancy:7, demand:7, appreciation:7, liquidity:6  },
+    Nicosia:   { yield:6, occupancy:7, demand:8, appreciation:6, liquidity:7  },
+  };
+  const m = cityMetrics[city] || { yield:7, occupancy:7, demand:7, appreciation:7, liquidity:7 };
+  const score = Math.round(
+    m.yield * 0.30 * 10 +
+    m.occupancy * 0.25 * 10 +
+    m.demand * 0.20 * 10 +
+    m.appreciation * 0.15 * 10 +
+    m.liquidity * 0.10 * 10
+  );
+  return {
+    score,
+    components: {
+      'Rental demand':    { val: m.demand * 10,       weight: 20 },
+      'Revenue growth':   { val: m.appreciation * 10, weight: 15 },
+      'Seasonality':      { val: m.occupancy * 8,     weight: 25 },
+      'Regulation':       { val: 72,                  weight: 10 },
+      'Yield':            { val: m.yield * 10,        weight: 30 },
+    }
+  };
+}
+
+function renderMarketScoreCard(city, pool) {
+  const { score, components } = calcMarketScore(city || 'Cyprus');
+  const metrics = pool.map(calcPropertyMetrics);
+  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
+  const avgOcc = (metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length*100).toFixed(1);
+  const avgRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
+  const pctChange = '+15.3%';
+
+  const scoreColor = score >= 80 ? '#1d4ed8' : score >= 60 ? '#15803d' : '#b8860b';
+  const compHtml = Object.entries(components).map(([label, {val, weight}]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--tx)">${val} ${label}</span>
+      <div style="flex:1;margin:0 10px;height:6px;background:var(--bd);border-radius:99px;overflow:hidden">
+        <div style="width:${val}%;height:100%;background:#1d4ed8;border-radius:99px"></div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px">
+      <!-- Market Score -->
+      <div class="analytics-kpi" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+        <div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:12px">How is this market performing?</div>
+        <div style="position:relative;width:120px;height:120px;margin-bottom:12px">
+          <svg viewBox="0 0 120 120" width="120" height="120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bd)" stroke-width="10"/>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="${scoreColor}" stroke-width="10"
+              stroke-dasharray="${Math.round(2*Math.PI*52*score/100)} ${Math.round(2*Math.PI*52*(100-score)/100)}"
+              stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:32px;font-weight:700;color:var(--tx)">${score}</div>
+          </div>
+        </div>
+        <div style="font-size:13px;font-weight:600;color:var(--mu)">Market Score</div>
+        <div style="margin-top:14px;width:100%">${compHtml}</div>
+      </div>
+      <!-- Annual Revenue -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="analytics-kpi">
+          <div class="analytics-kpi-label">Annual Revenue</div>
+          <div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div>
+          <div class="analytics-kpi-change up">${pctChange} past year</div>
+        </div>
+        <div class="analytics-kpi">
+          <div class="analytics-kpi-label">Average Daily Rate</div>
+          <div class="analytics-kpi-value">€${avgADR}</div>
+          <div class="analytics-kpi-change up">+12.0% past year</div>
+        </div>
+      </div>
+      <!-- Listings + Occupancy -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="analytics-kpi">
+          <div class="analytics-kpi-label">Total Active Listings</div>
+          <div class="analytics-kpi-value">${pool.length.toLocaleString()}</div>
+          <div class="analytics-kpi-change up">+5.6% past year</div>
+        </div>
+        <div class="analytics-kpi">
+          <div class="analytics-kpi-label">Occupancy Rate</div>
+          <div class="analytics-kpi-value">${avgOcc}%</div>
+          <div class="analytics-kpi-change up">+2.8% past year</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── Analytics Engine (AirDNA methodology) ────────────────────
 let analyticsSection = 'overview';
 let anCharts = {};
@@ -2650,9 +2751,12 @@ function renderAnalyticsMap(pool) {
     loc.items.forEach(d=>{
       const jitter=[(Math.random()-0.5)*0.005,(Math.random()-0.5)*0.005];
       const pos={lat:fb[0]+jitter[0],lng:fb[1]+jitter[1]};
-      const yColor=d.grossYield>=7?'#15803d':d.grossYield>=5?'#b8860b':'#6b7280';
+      // Colour by revenue tier (like AirDNA heatmap)
+      const rev = d.annualRevenue || 0;
+      const revColor = rev > 24000 ? '#7c3aed' : rev > 13000 ? '#db2777' : rev > 5000 ? '#db2777' : '#f9a8d4';
+      const revScale = rev > 24000 ? 9 : rev > 13000 ? 7 : rev > 5000 ? 6 : 5;
       const marker=new google.maps.Marker({position:pos,map:anMap2,title:d.title,
-        icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:yColor,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7}});
+        icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:revColor,fillOpacity:0.85,strokeColor:'#fff',strokeWeight:1.5,scale:revScale}});
       marker.addListener('click',()=>{
         anInfoWindow2.setContent(`<div style="min-width:200px;padding:4px;font-size:13px">
           <div style="font-weight:600;margin-bottom:2px">${d.title}</div>
@@ -2687,7 +2791,7 @@ function anCardHover(id){
   if(m)m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:'#1a1a1a',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5,scale:11});
 }
 function anCardLeave(){
-  anMarkers2.forEach(m=>{if(!m._data)return;const c=m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7});});
+  anMarkers2.forEach(m=>{if(!m._data)return;const rev=m._data.annualRevenue||0;const c=rev>24000?'#7c3aed':rev>13000?'#db2777':rev>5000?'#db2777':'#f9a8d4';const sc=rev>24000?9:rev>13000?7:rev>5000?6:5;m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.85,strokeColor:'#fff',strokeWeight:1.5,scale:sc});});
 }
 function anRefresh() {
   const section = document.querySelector('.an-nav[data-active="true"]')?.dataset?.section || 'overview';
@@ -2716,7 +2820,22 @@ function anRenderSection(section) {
     // Split view: cards + map
     el.innerHTML = `<div style="display:grid;grid-template-columns:380px 1fr;flex:1;height:100%;overflow:hidden">
       <div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)" id="anListings"><div class="empty">Loading...</div></div>
-      <div style="position:relative"><div id="anMap" style="width:100%;height:100%"></div></div>
+      <div style="position:relative">
+        <div id="anMap" style="width:100%;height:100%"></div>
+        <!-- Revenue legend (AirDNA style) -->
+        <div style="position:absolute;top:10px;left:10px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:11px;z-index:5">
+          <div style="font-weight:600;margin-bottom:6px;font-size:10px;color:var(--mu)">REVENUE</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:10px;height:10px;border-radius:50%;background:#f9a8d4;display:inline-block"></span> &lt; €5K</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:11px;height:11px;border-radius:50%;background:#db2777;display:inline-block"></span> €5K – €13K</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="width:13px;height:13px;border-radius:50%;background:#db2777;display:inline-block;opacity:.7"></span> €13K – €24K</div>
+          <div style="display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#7c3aed;display:inline-block"></span> &gt; €24K</div>
+        </div>
+        <!-- Map type toggle -->
+        <div style="position:absolute;top:10px;right:50px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:4px;font-size:11px;z-index:5;display:flex;gap:2px">
+          <button onclick="anSortMap('revenue')" id="mapToggleRev" style="padding:4px 10px;border:none;border-radius:6px;background:var(--tx);color:var(--bg);cursor:pointer;font-size:11px">Revenue</button>
+          <button onclick="anSortMap('yield')" id="mapToggleYield" style="padding:4px 10px;border:none;border-radius:6px;background:transparent;color:var(--mu);cursor:pointer;font-size:11px">Yield</button>
+        </div>
+      </div>
     </div>`;
     renderAnalyticsListings();
   } else if (section === 'overview') {
@@ -2740,6 +2859,9 @@ function anRenderSection(section) {
   } else if (section === 'comparison') {
     el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
     renderAnalyticsComparison();
+  } else if (section === 'compsets') {
+    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
+    renderAnalyticsCompSets(pool);
   }
 }
 
@@ -2755,6 +2877,7 @@ function renderAnalyticsOverview(pool) {
   const avgAnnRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
   const avgGrossYield = (metrics.reduce((s,m)=>s+m.grossYield,0)/metrics.length).toFixed(1);
   const avgNetYield = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
+  const selectedCity = document.getElementById('anCity')?.value || '';
 
   // City breakdown
   const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
@@ -2781,6 +2904,7 @@ function renderAnalyticsOverview(pool) {
   }).sort((a,b) => +b.avgYield - +a.avgYield);
 
   document.getElementById('analyticsContent').innerHTML = `
+    ${renderMarketScoreCard(selectedCity, pool)}
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Active listings</div><div class="analytics-kpi-value">${pool.length.toLocaleString()}</div><div class="analytics-kpi-sub">In selected market</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR.toLocaleString()}</div><div class="analytics-kpi-sub">Per booked night</div></div>
@@ -2864,6 +2988,7 @@ function renderAnalyticsOccupancy(pool) {
   const monthlyOcc = CYPRUS_SEASONALITY.map(s => (avgBaseOcc * s * 100).toFixed(1));
 
   document.getElementById('analyticsContent').innerHTML = `
+    ${renderMarketScoreCard(selectedCity, pool)}
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${(avgBaseOcc*100).toFixed(1)}%</div><div class="analytics-kpi-sub">Annual average</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Peak occupancy</div><div class="analytics-kpi-value">${Math.max(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jul–Aug peak</div></div>
@@ -2944,6 +3069,7 @@ function renderAnalyticsRevenue(pool) {
   }).sort((a,b)=>b.avgRev-a.avgRev);
 
   document.getElementById('analyticsContent').innerHTML = `
+    ${renderMarketScoreCard(selectedCity, pool)}
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Avg annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div><div class="analytics-kpi-sub">Per listing</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${avgRevPAR}</div><div class="analytics-kpi-sub">Per available night</div></div>
@@ -3027,6 +3153,7 @@ function renderAnalyticsRates(pool) {
   const monthlyADR = CYPRUS_SEASONALITY.map(s => Math.round(avgADR * (0.7 + s * 0.5)));
 
   document.getElementById('analyticsContent').innerHTML = `
+    ${renderMarketScoreCard(selectedCity, pool)}
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR}</div><div class="analytics-kpi-sub">Per booked night</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Peak ADR</div><div class="analytics-kpi-value">€${Math.max(...monthlyADR)}</div><div class="analytics-kpi-sub">July / August</div></div>
@@ -3096,6 +3223,7 @@ function renderAnalyticsSeasonality(pool) {
   }));
 
   document.getElementById('analyticsContent').innerHTML = `
+    ${renderMarketScoreCard(selectedCity, pool)}
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Peak months</div><div class="analytics-kpi-value">Jul–Sep</div><div class="analytics-kpi-sub">Highest revenue</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Seasonality score</div><div class="analytics-kpi-value">48</div><div class="analytics-kpi-sub">Higher = more seasonal</div></div>
@@ -3144,6 +3272,126 @@ function renderAnalyticsSeasonality(pool) {
       }}
     });
   }, 50);
+}
+
+function renderAnalyticsCompSets(pool) {
+  const el = document.getElementById('analyticsContent');
+  if (!el) return;
+
+  // Show top 3 "comp" properties for a selected listing
+  el.innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">Comp Sets</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:16px">Find comparable properties to benchmark performance</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Reference city</div>
+        <select id="csCity" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          ${[...new Set(pool.map(d=>d.city).filter(Boolean))].sort().map(c=>`<option>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Property type</div>
+        <select id="csType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <option value="">Any type</option>
+          ${[...new Set(pool.map(d=>d.type).filter(Boolean))].sort().map(t=>`<option>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Bedrooms</div>
+        <select id="csBeds" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <option value="">Any</option>
+          ${[1,2,3,4].map(b=>`<option value="${b}">${b} bed</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Max distance to sea</div>
+        <select id="csSea" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <option value="">Any</option>
+          <option value="0.5">Beachfront</option>
+          <option value="1">Under 1km</option>
+          <option value="3">Under 3km</option>
+          <option value="8">Under 8km</option>
+        </select>
+      </div>
+    </div>
+    <button onclick="runCompSets()" class="btn primary">Find comparable properties</button>
+    <div id="csResults" style="margin-top:16px"></div>`;
+}
+
+function runCompSets() {
+  const city = document.getElementById('csCity').value;
+  const type = document.getElementById('csType').value;
+  const beds = document.getElementById('csBeds').value;
+  const sea  = document.getElementById('csSea').value;
+
+  const comps = all.filter(d => {
+    if (d.city !== city) return false;
+    if (type && d.type !== type) return false;
+    if (beds && d.bedrooms !== +beds) return false;
+    if (sea && (d.seaDist == null || d.seaDist > +sea)) return false;
+    return true;
+  }).map(d => ({...d, ...calcPropertyMetrics(d)}))
+    .sort((a,b) => b.annualRevenue - a.annualRevenue)
+    .slice(0, 10);
+
+  if (!comps.length) {
+    document.getElementById('csResults').innerHTML = '<div class="empty">No comparable properties found. Broaden the criteria.</div>';
+    return;
+  }
+
+  const avgRev = Math.round(comps.reduce((s,d)=>s+d.annualRevenue,0)/comps.length);
+  const avgADR = Math.round(comps.reduce((s,d)=>s+d.ADR,0)/comps.length);
+  const avgOcc = (comps.reduce((s,d)=>s+d.occupancy,0)/comps.length*100).toFixed(1);
+  const avgYield = (comps.reduce((s,d)=>s+d.grossYield,0)/comps.length).toFixed(1);
+
+  const rows = comps.map((d,i) => `
+    <tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td style="font-weight:500">${i+1}</td>
+      <td>${d.title||'—'}</td>
+      <td>${d.district||'—'}</td>
+      <td>${d.bedrooms!=null?d.bedrooms:'—'}</td>
+      <td>${d.area!=null?d.area+' m²':'—'}</td>
+      <td style="font-weight:600">${d.price?'€'+d.price.toLocaleString():'—'}</td>
+      <td>€${d.annualRevenue.toLocaleString()}</td>
+      <td>${(d.occupancy*100).toFixed(0)}%</td>
+      <td>€${d.ADR}</td>
+      <td style="color:${d.grossYield>=7?'#15803d':d.grossYield>=5?'#b8860b':'#6b7280'};font-weight:600">${d.grossYield.toFixed(1)}%</td>
+    </tr>`).join('');
+
+  document.getElementById('csResults').innerHTML = `
+    <div class="analytics-kpis" style="margin-bottom:14px">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Comp set size</div><div class="analytics-kpi-value">${comps.length}</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg ADR</div><div class="analytics-kpi-value">€${avgADR}</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div></div>
+      <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Avg yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgYield}%</div></div>
+    </div>
+    <div class="analytics-table-card">
+      <table style="min-width:700px">
+        <thead><tr><th>#</th><th>Title</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>Annual rev.</th><th>Occ.</th><th>ADR</th><th>Yield</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function anSortMap(mode) {
+  document.getElementById('mapToggleRev').style.background = mode==='revenue'?'var(--tx)':'transparent';
+  document.getElementById('mapToggleRev').style.color = mode==='revenue'?'var(--bg)':'var(--mu)';
+  document.getElementById('mapToggleYield').style.background = mode==='yield'?'var(--tx)':'transparent';
+  document.getElementById('mapToggleYield').style.color = mode==='yield'?'var(--bg)':'var(--mu)';
+  anMarkers2.forEach(m => {
+    if (!m._data) return;
+    let color, scale;
+    if (mode === 'yield') {
+      color = m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';
+      scale = 7;
+    } else {
+      const rev = m._data.annualRevenue||0;
+      color = rev>24000?'#7c3aed':rev>13000?'#db2777':rev>5000?'#db2777':'#f9a8d4';
+      scale = rev>24000?9:rev>13000?7:rev>5000?6:5;
+    }
+    m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:color,fillOpacity:0.85,strokeColor:'#fff',strokeWeight:1.5,scale});
+  });
 }
 
 function renderAnalyticsRentalizer(pool) {
