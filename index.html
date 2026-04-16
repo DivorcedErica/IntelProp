@@ -681,12 +681,7 @@ function seaBadge(dist){
 let gMap = null, gMarkers = [], gInfoWindow = null, gClusterer = null;
 let googleMapsReady = false;
 
-function initGoogleMaps() {
-  googleMapsReady = true;
-  if (document.getElementById('pMap').style.display !== 'none') {
-    initMap();
-  }
-}
+// initGoogleMaps defined at top of script
 
 function initMap() {
   if (!googleMapsReady || !google || !google.maps) return;
@@ -2468,6 +2463,14 @@ function pbRebuildOutput() {
     </div>`;
 }
 
+
+// ── Google Maps init callback (must be global before Maps loads) ──
+window.initGoogleMaps = function() {
+  googleMapsReady = true;
+  if (document.getElementById('pMap') && document.getElementById('pMap').style.display !== 'none') {
+    initMap();
+  }
+};
 
 // ── Auth ─────────────────────────────────────────────────────
 const USERS = [
