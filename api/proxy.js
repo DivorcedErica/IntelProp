@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  const key = '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';
+  const key = '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';
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
