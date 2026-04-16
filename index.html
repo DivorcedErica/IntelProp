@@ -322,6 +322,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
+      <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
     </div>
 
@@ -749,6 +750,30 @@ tr:hover td{background:var(--bg2)}
 
         </div>
       </div>
+    </div>
+    <!-- INVESTORS -->
+    <div id="pInvestors" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:13px;font-weight:500">Investor Profiles</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Saved client profiles — auto-created from Client Call</div>
+        </div>
+        <button onclick="document.getElementById('newInvestorForm').style.display=document.getElementById('newInvestorForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New investor</button>
+      </div>
+      <div id="newInvestorForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div>
+            <input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
+            <input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          </div>
+        </div>
+        <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
+      </div>
+      <div id="investorProfilesList"><div class="empty">Loading...</div></div>
     </div>
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
@@ -1394,14 +1419,36 @@ function openModal(id, e) {
       </div>
       <div class="modal-section-title">Location</div>
       <div class="modal-map" id="modalMap"></div>
+      <div class="modal-section-title">Market Context — RICS/KPMG Q4 2025</div>
+      <div id="modalRICS" style="margin-bottom:14px">
+        ${(()=>{
+          const bullets = getRICSContext(d);
+          return '<div style="display:flex;flex-direction:column;gap:6px">' +
+            bullets.map(b => `<div style="display:flex;align-items:flex-start;gap:10px;background:var(--bg2);border-radius:8px;padding:8px 12px;border-left:3px solid var(--gold)">
+              <span style="font-size:16px;flex-shrink:0">${b.icon}</span>
+              <div><div style="font-size:12px;color:var(--tx);line-height:1.5">${b.text}</div>
+              <div style="font-size:10px;color:var(--mu);margin-top:2px">${b.sub}</div></div>
+            </div>`).join('') + '</div>';
+        })()}
+      </div>
       <div class="modal-section-title">Rental Intelligence</div>
       <div id="modalRentalArea">
         <button class="rental-btn" id="rbtn-modal-${d.id}" onclick="triggerModalRental(${d.id})">◈ Market rental data</button>
         <div class="rental-panel" id="rpanel-modal-${d.id}" style="display:none"></div>
       </div>
+      <div id="modalNotePanel" style="display:none;margin-top:12px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Agent note for this property</div>
+        <textarea id="modalNoteText" placeholder="Add your notes about this property for the investor..." style="width:100%;height:80px;padding:8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="saveModalNote(${d.id})" class="btn primary" style="font-size:11px">Save note</button>
+          <button onclick="document.getElementById('modalNotePanel').style.display='none'" class="btn" style="font-size:11px">Cancel</button>
+        </div>
+      </div>
       <div class="modal-actions">
         <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
+        <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>
+        <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
       </div>
     </div>`;
@@ -1581,13 +1628,14 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','map','intelligence','clients','portfolio','developers','analytics','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
+  if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();}
 }
 
 function renderDev(filterDev) {
@@ -1792,6 +1840,7 @@ function estimateRentRange(d, purpose) {
 
 function applyClientFilter(resetPg) {
   if (resetPg !== false) cPage = 1;
+  autoSaveInvestor();
   const results = getClientMatches();
   document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
   if (!results.length) {
@@ -2420,6 +2469,177 @@ const USERS = [
 ];
 let currentUser = null;
 
+// ── PDF Investor Report ──────────────────────────────────────
+function exportPropertyPDF(id) {
+  const d = all.find(x => x.id === id);
+  if (!d) return;
+
+  const agentName = currentUser?.username || 'Your Agent';
+  const clientName = document.getElementById('cName')?.value?.trim() || '';
+  const clientNote = clientName ? getInvestorNote(clientName, id) : '';
+  const rentRange = estimateRentRange(d, 'Short-term rental');
+  const ltRange = estimateRentRange(d, 'Long-term rental');
+  const bullets = getRICSContext(d);
+  const date = new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'});
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Investor Report — ${d.title}</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#1a1a1a; background:#fff; font-size:13px; }
+  .page { max-width:800px; margin:0 auto; padding:40px; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; padding-bottom:20px; border-bottom:2px solid #1a1a1a; }
+  .brand { font-size:22px; font-weight:700; letter-spacing:-.5px; }
+  .brand span { font-weight:300; color:#888; }
+  .date-block { text-align:right; font-size:11px; color:#888; }
+  .client-block { background:#f7f7f6; border-radius:8px; padding:14px 18px; margin-bottom:24px; display:flex; justify-content:space-between; }
+  .section-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#888; margin-bottom:10px; margin-top:24px; padding-bottom:6px; border-bottom:1px solid #eee; }
+  .prop-title { font-size:22px; font-weight:700; margin-bottom:4px; line-height:1.3; }
+  .prop-sub { font-size:13px; color:#666; margin-bottom:16px; }
+  .meta-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
+  .meta-cell { background:#f7f7f6; border-radius:6px; padding:10px 12px; }
+  .meta-label { font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:#888; margin-bottom:3px; }
+  .meta-value { font-size:14px; font-weight:600; }
+  .price-block { display:flex; align-items:flex-end; gap:16px; margin-bottom:24px; padding:16px 20px; background:#1a1a1a; border-radius:10px; color:#fff; }
+  .price-main { font-size:32px; font-weight:700; }
+  .price-sub { font-size:12px; color:#aaa; }
+  .yield-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .yield-card { border:1px solid #eee; border-radius:8px; padding:14px 16px; }
+  .yield-card.gold { border-color:#b8860b; background:#fffbeb; }
+  .yield-label { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:#888; margin-bottom:6px; }
+  .yield-value { font-size:20px; font-weight:700; color:#1a1a1a; }
+  .yield-sub { font-size:11px; color:#888; margin-top:4px; }
+  .rics-item { display:flex; gap:10px; align-items:flex-start; padding:10px 14px; background:#fffbeb; border-radius:6px; border-left:3px solid #b8860b; margin-bottom:8px; }
+  .rics-icon { font-size:16px; flex-shrink:0; }
+  .rics-text { font-size:12px; line-height:1.5; }
+  .rics-source { font-size:10px; color:#888; margin-top:2px; }
+  .note-box { background:#f7f7f6; border-radius:8px; padding:14px 16px; border-left:3px solid #1a1a1a; }
+  .disclaimer { font-size:10px; color:#aaa; margin-top:32px; padding-top:16px; border-top:1px solid #eee; line-height:1.6; }
+  .footer { display:flex; justify-content:space-between; align-items:center; margin-top:24px; padding-top:16px; border-top:2px solid #1a1a1a; font-size:11px; color:#888; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="brand">Intel<span>Prop</span></div>
+      <div style="font-size:11px;color:#888;margin-top:2px">Cyprus Property Intelligence</div>
+    </div>
+    <div class="date-block">
+      <div style="font-weight:600;font-size:13px;color:#1a1a1a">Investor Report</div>
+      <div>${date}</div>
+      <div>Prepared by ${agentName}</div>
+      ${clientName?`<div style="margin-top:4px">For: <strong>${clientName}</strong></div>`:''}
+    </div>
+  </div>
+
+  <!-- Property title -->
+  <div class="prop-title">${d.title}</div>
+  <div class="prop-sub">${d.developer} · ${d.city}${d.district?', '+d.district:''}</div>
+
+  <!-- Price -->
+  <div class="price-block">
+    <div>
+      <div class="price-sub">Asking price</div>
+      <div class="price-main">${d.price?'€'+d.price.toLocaleString():'—'}</div>
+    </div>
+    ${d.ppm?`<div><div class="price-sub">Price per m²</div><div style="font-size:18px;font-weight:600">€${d.ppm.toLocaleString()}</div></div>`:''}
+    ${d.seaDist!=null?`<div><div class="price-sub">Distance to sea</div><div style="font-size:18px;font-weight:600">${d.seaDist<0.3?'Beachfront':d.seaDist<1?Math.round(d.seaDist*1000)+'m':d.seaDist.toFixed(1)+'km'}</div></div>`:''}
+  </div>
+
+  <!-- Property details -->
+  <div class="section-title">Property details</div>
+  <div class="meta-grid">
+    <div class="meta-cell"><div class="meta-label">Type</div><div class="meta-value">${d.type||'—'}</div></div>
+    <div class="meta-cell"><div class="meta-label">Bedrooms</div><div class="meta-value">${d.bedrooms!=null?d.bedrooms:'—'}</div></div>
+    <div class="meta-cell"><div class="meta-label">Total area</div><div class="meta-value">${d.area?d.area+' m²':'—'}</div></div>
+    ${d.plot?`<div class="meta-cell"><div class="meta-label">Plot</div><div class="meta-value">${d.plot} m²</div></div>`:'<div class="meta-cell"><div class="meta-label">Added</div><div class="meta-value">${d.addedOn||'—'}</div></div>'}
+  </div>
+
+  <!-- Investment projections -->
+  <div class="section-title">Investment projections</div>
+  <div class="yield-grid">
+    ${rentRange?`<div class="yield-card gold">
+      <div class="yield-label">Short-term rental (Airbnb)</div>
+      <div class="yield-value">€${rentRange.low.toLocaleString()}–€${rentRange.high.toLocaleString()}/mo</div>
+      <div class="yield-sub">Gross · ${rentRange.grossYield.toFixed(1)}% yield</div>
+      <div class="yield-sub">Net after 20% mgmt: €${rentRange.netLow.toLocaleString()}–€${rentRange.netHigh.toLocaleString()}/mo · ${rentRange.yPct.toFixed(1)}% net yield</div>
+    </div>`:''}
+    ${ltRange?`<div class="yield-card">
+      <div class="yield-label">Long-term rental</div>
+      <div class="yield-value">€${ltRange.low.toLocaleString()}–€${ltRange.high.toLocaleString()}/mo</div>
+      <div class="yield-sub">Gross · ${ltRange.grossYield.toFixed(1)}% yield</div>
+      <div class="yield-sub">Net after 8% mgmt: €${ltRange.netLow.toLocaleString()}–€${ltRange.netHigh.toLocaleString()}/mo · ${ltRange.yPct.toFixed(1)}% net yield</div>
+    </div>`:''}
+  </div>
+
+  <!-- RICS Market Context -->
+  <div class="section-title">Market context — RICS/KPMG Q4 2025</div>
+  ${bullets.map(b=>`<div class="rics-item"><div class="rics-icon">${b.icon}</div><div><div class="rics-text">${b.text}</div><div class="rics-source">${b.sub}</div></div></div>`).join('')}
+
+  <!-- Agent note -->
+  ${clientNote?`<div class="section-title">Agent notes</div><div class="note-box"><div style="font-size:12px;line-height:1.7">${clientNote}</div></div>`:''}
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    This report has been prepared by ${agentName} using IntelProp Cyprus Property Intelligence. Rental projections are estimates based on market data and AirDNA methodology. Market context data sourced from RICS Cyprus Property Index with KPMG in Cyprus, Q4 2025. This document does not constitute a formal valuation or financial advice. All figures are indicative and subject to change. Investors should conduct their own due diligence.
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>IntelProp — Cyprus Property Intelligence · yhabarillc.com</div>
+    <div>${date}</div>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+
+function toggleModalNote(id) {
+  const panel = document.getElementById('modalNotePanel');
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  const name = document.getElementById('cName')?.value?.trim() || '';
+  const existing = getInvestorNote(name, id);
+  if (existing) document.getElementById('modalNoteText').value = existing;
+}
+
+function saveModalNote(id) {
+  const name = document.getElementById('cName')?.value?.trim() || 'General';
+  const note = document.getElementById('modalNoteText').value.trim();
+  if (!note) return;
+  if (name !== 'General') getOrCreateInvestor(name);
+  saveInvestorNote(name, id, note);
+  document.getElementById('modalNotePanel').style.display = 'none';
+  // Show confirmation
+  const btn = document.getElementById('noteToggleBtn');
+  if (btn) { btn.textContent = '📝 Note saved ✓'; btn.style.color = '#15803d'; }
+}
+
+
+function createNewInvestor() {
+  const name = document.getElementById('newInvName').value.trim();
+  const phone = document.getElementById('newInvPhone').value.trim();
+  if (!name) { alert('Please enter a name.'); return; }
+  getOrCreateInvestor(name, phone);
+  document.getElementById('newInvName').value = '';
+  document.getElementById('newInvPhone').value = '';
+  document.getElementById('newInvestorForm').style.display = 'none';
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+}
+
+
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
@@ -2447,6 +2667,117 @@ function doLogout() {
   document.getElementById('loginError').textContent = '';
 }
 
+
+
+// ── RICS/KPMG Q4 2025 Official Data ─────────────────────────
+const RICS_DATA = {
+  source: 'RICS Cyprus Property Index with KPMG in Cyprus — Q4 2025',
+  period: 'Q4 2025',
+  // YoY price growth by asset type
+  yoyGrowth: {
+    Apartment:         5.03,
+    House:             4.63,
+    'Holiday Apartment': 4.31,
+    'Holiday House':   2.45,
+    Villa:             4.63,  // use Houses proxy
+    Penthouse:         5.03,  // use Apartments proxy
+  },
+  // QoQ growth by city (Apartments)
+  qoqByCity: {
+    Paphos:    1.94,
+    Limassol:  1.92,
+    Larnaca:   1.04,
+    Nicosia:   0.78,
+    Famagusta: 0.37,
+  },
+  // Official gross yields by asset type
+  officialYields: {
+    Apartment:         5.45,
+    'Holiday Apartment': 5.66,
+    House:             2.96,
+    'Holiday House':   2.79,
+    Villa:             2.96,
+    Penthouse:         5.45,
+    Office:            5.58,
+  },
+  // Rental growth YoY
+  rentalGrowth: {
+    Apartment: 5.79,
+    'Holiday Apartment': 3.39,
+    House: 2.34,
+    Villa: 2.34,
+    Penthouse: 5.79,
+  },
+  // Long-term trend (index 2009Q4=100, current ~107 for apartments)
+  longTermIndex: {
+    Apartment: 107,
+    House: 108,
+  }
+};
+
+// Generate sales-positive market context bullets for a property
+function getRICSContext(d) {
+  const type = d.type || 'Apartment';
+  const city = d.city || 'Cyprus';
+  const typeKey = type.includes('Villa') ? 'Villa'
+    : type.includes('Penthouse') ? 'Penthouse'
+    : type.includes('House') ? 'House'
+    : 'Apartment';
+
+  const yoy = RICS_DATA.yoyGrowth[typeKey] || 5.03;
+  const qoq = RICS_DATA.qoqByCity[city] || 1.0;
+  const yield_ = RICS_DATA.officialYields[typeKey] || 5.45;
+  const rentalGrowth = RICS_DATA.rentalGrowth[typeKey] || 5.79;
+
+  const bullets = [];
+
+  // Price appreciation
+  bullets.push({
+    icon: '📈',
+    text: `${typeKey}s in Cyprus up <strong>${yoy}%</strong> year-on-year`,
+    sub: 'RICS/KPMG Q4 2025'
+  });
+
+  // City momentum
+  if (qoq >= 1.5) {
+    bullets.push({
+      icon: '🏙',
+      text: `${city} recorded <strong>strongest quarterly growth</strong> in Cyprus — +${qoq}% Q4 2025`,
+      sub: 'RICS/KPMG Q4 2025'
+    });
+  } else {
+    bullets.push({
+      icon: '🏙',
+      text: `${city} property prices up <strong>${qoq}%</strong> in Q4 2025`,
+      sub: 'RICS/KPMG Q4 2025'
+    });
+  }
+
+  // Yield
+  bullets.push({
+    icon: '💰',
+    text: `Official gross yield: <strong>${yield_}%</strong> for ${typeKey.toLowerCase()}s in Cyprus`,
+    sub: 'RICS/KPMG Q4 2025'
+  });
+
+  // Rental growth
+  bullets.push({
+    icon: '🔑',
+    text: `Rental values growing at <strong>${rentalGrowth}%</strong> per year — highest of all asset classes`,
+    sub: 'RICS/KPMG Q4 2025'
+  });
+
+  // Holiday premium if coastal
+  if (d.seaDist != null && d.seaDist < 3) {
+    bullets.push({
+      icon: '🌊',
+      text: `Holiday apartments outperforming all residential — <strong>5.66% official yield</strong>`,
+      sub: 'RICS/KPMG Q4 2025'
+    });
+  }
+
+  return bullets;
+}
 
 // ── Market Score ─────────────────────────────────────────────
 function calcMarketScore(city) {
@@ -2542,6 +2873,84 @@ function renderMarketScoreCard(city, pool) {
         </div>
       </div>
     </div>`;
+}
+
+
+// ── Investor Profiles ────────────────────────────────────────
+let investorProfiles = JSON.parse(localStorage.getItem('ip_investors') || '[]');
+
+function saveInvestorProfiles() {
+  try { localStorage.setItem('ip_investors', JSON.stringify(investorProfiles)); } catch(e) {}
+}
+
+function getOrCreateInvestor(name, phone) {
+  let inv = investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+  if (!inv) {
+    inv = {
+      id: Date.now(),
+      name, phone: phone||'',
+      createdAt: new Date().toISOString(),
+      shortlist: [],
+      notes: {},
+      lastPortfolio: null,
+    };
+    investorProfiles.push(inv);
+    saveInvestorProfiles();
+  }
+  return inv;
+}
+
+function saveInvestorNote(investorName, propertyId, note) {
+  const inv = investorProfiles.find(i => i.name.toLowerCase() === investorName.toLowerCase());
+  if (!inv) return;
+  if (!inv.notes) inv.notes = {};
+  inv.notes[propertyId] = { note, savedAt: new Date().toISOString() };
+  saveInvestorProfiles();
+}
+
+function getInvestorNote(investorName, propertyId) {
+  const inv = investorProfiles.find(i => i.name.toLowerCase() === investorName.toLowerCase());
+  return inv?.notes?.[propertyId]?.note || '';
+}
+
+function renderInvestorProfilesPanel() {
+  if (!investorProfiles.length) {
+    return '<div class="empty" style="padding:1rem">No investor profiles yet. Fill in Client Call or Portfolio Builder to create one.</div>';
+  }
+  return investorProfiles.map(inv => `
+    <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div>
+        <div style="font-size:13px;font-weight:600">${inv.name}</div>
+        <div style="font-size:11px;color:var(--mu)">${inv.phone||'No phone'} · ${inv.shortlist?.length||0} properties saved · Created ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
+        ${Object.keys(inv.notes||{}).length?`<div style="font-size:10px;color:var(--gold);margin-top:2px">📝 ${Object.keys(inv.notes).length} notes</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadInvestorToClientCall('${inv.name}')" class="btn" style="font-size:11px">Load</button>
+        <button onclick="deleteInvestorProfile(${inv.id})" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function loadInvestorToClientCall(name) {
+  const inv = investorProfiles.find(i => i.name === name);
+  if (!inv) return;
+  document.getElementById('cName').value = inv.name;
+  document.getElementById('cPhone').value = inv.phone || '';
+  gotoTab('clients', document.querySelector('.tab:nth-child(4)'));
+}
+
+function deleteInvestorProfile(id) {
+  if (!confirm('Delete this investor profile?')) return;
+  investorProfiles = investorProfiles.filter(i => i.id !== id);
+  saveInvestorProfiles();
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+}
+
+// Auto-save investor when Client Call is used
+function autoSaveInvestor() {
+  const name = document.getElementById('cName')?.value?.trim();
+  const phone = document.getElementById('cPhone')?.value?.trim();
+  if (name) getOrCreateInvestor(name, phone);
 }
 
 // ── Analytics Engine (AirDNA methodology) ────────────────────
