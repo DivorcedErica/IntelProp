@@ -1879,6 +1879,8 @@ function buildPortfolio() {
   const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
   const selected = [];
   const usedCities = new Set();
+  
+  // Pass 1: fill up to maxAssets respecting city diversity for Diversified strategy
   for (const d of scored) {
     if (selected.length >= maxAssets) break;
     const total = selected.reduce((s,x) => s + (x.price||0), 0);
@@ -1887,12 +1889,28 @@ function buildPortfolio() {
     selected.push(d);
     usedCities.add(d.city);
   }
+  
+  // Pass 2: if under maxAssets, relax city constraint
   for (const d of scored) {
     if (selected.length >= maxAssets) break;
     if (selected.find(x => x.id === d.id)) continue;
     const total = selected.reduce((s,x) => s + (x.price||0), 0);
     if (total + (d.price||0) > pbCriteria.budget) continue;
     selected.push(d);
+  }
+  
+  // Pass 3: if still under budget by >10%, try to swap lower-scored assets for higher-priced ones
+  // to better utilise the budget
+  const remaining = () => pbCriteria.budget - selected.reduce((s,x) => s+(x.price||0), 0);
+  if (selected.length > 0 && remaining() > pbCriteria.budget * 0.1) {
+    // Try adding more assets if budget allows
+    for (const d of scored) {
+      if (selected.find(x => x.id === d.id)) continue;
+      if (remaining() >= (d.price||0)) {
+        selected.push(d);
+        if (selected.length >= maxAssets * 2) break; // allow up to 2x assets to use budget
+      }
+    }
   }
   if (!selected.length) {
     document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Could not allocate assets within budget. Try increasing budget or broadening criteria.</div>';
