@@ -1406,10 +1406,18 @@ function openModal(id, e) {
       </div>
       <div class="modal-section-title">Location</div>
       <div class="modal-map" id="modalMap"></div>
-      <div class="modal-section-title">Market Positioning</div>
-      <div id="modalPositioning" style="margin-bottom:4px"></div>
-      <div class="modal-section-title">Market Context — RICS/KPMG Q4 2025</div>
-      <div id="modalRICS" style="margin-bottom:14px"></div>
+      <!-- Market Intelligence accordion -->
+      <div style="margin-bottom:14px">
+        <button onclick="toggleModalSection('mktPos','mktPosBtn')" id="mktPosBtn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;color:var(--tx)">
+          <span>📊 Market Positioning &amp; Intelligence</span>
+          <span id="mktPosArrow" style="font-size:10px;color:var(--mu);transition:transform .2s">▼</span>
+        </button>
+        <div id="mktPos" style="display:none;border:1px solid var(--bd);border-top:none;border-radius:0 0 var(--r) var(--r);padding:14px;background:var(--bg)">
+          <div id="modalPositioning" style="margin-bottom:12px"></div>
+          <div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--bd)">Market Context — RICS/KPMG Q4 2025</div>
+          <div id="modalRICS"></div>
+        </div>
+      </div>
       <div class="modal-section-title">Rental Intelligence</div>
       <div id="modalRentalArea">
         <button class="rental-btn" id="rbtn-modal-${d.id}" onclick="triggerModalRental(${d.id})">◈ Market rental data</button>
@@ -3467,6 +3475,16 @@ function autoSaveInvestor(){
 }
 
 // ── Agent Notes ───────────────────────────────────────────────
+function toggleModalSection(panelId, btnId) {
+  var panel = document.getElementById(panelId);
+  var arrow = document.getElementById(panelId + 'Arrow');
+  if (!panel) return;
+  var open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  if (arrow) arrow.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+
 function toggleModalNote(id){
   var panel=document.getElementById('modalNotePanel');
   if(!panel)return;
