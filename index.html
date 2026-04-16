@@ -2591,29 +2591,6 @@ function exportPropertyPDF(id) {
     </div>`:''}
   </div>
 
-  <!-- Market Positioning -->
-  ${(()=>{
-    const pos = calcMarketPositioning(d);
-    if (!pos) return '';
-    const yoy = RICS_DATA.yoyGrowth[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
-    const proj = d.price ? Math.round(d.price*(1+yoy/100)) : null;
-    const projRow = proj ? '<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:6px;padding:8px 12px"><div style="font-size:11px;color:#888">Projected value in 12 months (RICS +' + yoy + '% YoY)</div><div style="font-size:14px;font-weight:700;color:#15803d">€' + proj.toLocaleString() + '</div></div>' : '';
-    const diffColor = pos.diffPct<=0?'#15803d':pos.diffPct<=15?'#b8860b':'#9d174d';
-    return '<div class="section-title">Market positioning</div>'
-      + '<div style="background:#f7f7f6;border-radius:8px;padding:14px 16px;margin-bottom:6px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-      + '<div style="font-size:13px;font-weight:600">' + pos.label + '</div>'
-      + '<div style="font-size:11px;color:#888">' + pos.percentile + 'th percentile · ' + pos.compCount + ' comparables</div>'
-      + '</div>'
-      + '<div style="font-size:12px;color:#444;margin-bottom:10px;line-height:1.6">' + pos.narrative + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:' + (proj?'10px':'0') + '">'
-      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">This property</div><div style="font-size:13px;font-weight:600">€' + pos.ppm.toLocaleString() + '/m²</div></div>'
-      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">Market median</div><div style="font-size:13px;font-weight:600">€' + pos.median.toLocaleString() + '/m²</div></div>'
-      + '<div style="background:#fff;border-radius:6px;padding:8px;text-align:center"><div style="font-size:9px;color:#888;text-transform:uppercase">vs median</div><div style="font-size:13px;font-weight:600;color:' + diffColor + '">' + (pos.diffPct>0?'+':'') + pos.diffPct + '%</div></div>'
-      + '</div>'
-      + projRow
-      + '</div>';
-  })()}
   <!-- RICS Market Context -->
   <div class="section-title">Market context — RICS/KPMG Q4 2025</div>
   ${bullets.map(b=>`<div class="rics-item"><div class="rics-icon">${b.icon}</div><div><div class="rics-text">${b.text}</div><div class="rics-source">${b.sub}</div></div></div>`).join('')}
