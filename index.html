@@ -295,8 +295,11 @@ tr:hover td{background:var(--bg2)}
     <input type="text" id="loginUser" class="login-input" placeholder="Username" autocomplete="username"
       onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
     <div class="login-label">Password</div>
-    <input type="password" id="loginPass" class="login-input" placeholder="Password" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="position:relative">
+      <input type="password" id="loginPass" class="login-input" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:40px">
+      <button type="button" onclick="togglePassVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--mu);font-size:16px;padding:0;line-height:1" id="passEyeBtn">👁</button>
+    </div>
     <button class="login-btn" onclick="doLogin()">Sign in →</button>
     <div class="login-error" id="loginError"></div>
     <div class="login-role" id="loginRole"></div>
@@ -1027,7 +1030,7 @@ async function init() {
           imageUrl: g(13) ? '' + g(13) : null,
           lat: g(14) !== '' ? +g(14) : null,
           lng: g(15) !== '' ? +g(15) : null,
-          projectUrl: g(16) ? '' + g(16) : null,
+          projectUrl: g(17) ? '' + g(17) : null,
         };
       });
     } catch(e1) {
@@ -1061,7 +1064,7 @@ async function init() {
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
           imageUrl: g(13) || null,
           lat: n(14), lng: n(15),
-          projectUrl: g(16) || null,
+          projectUrl: g(17) || null,
         };
       });
     }
@@ -1381,7 +1384,24 @@ function openModal(id, e) {
   const on=sl.has(d.id);
   const img=d.imageUrl;
   document.getElementById('modalContent').innerHTML=`
-    ${img?`<img class="modal-img" src="${img}" alt="${d.title}"><div class="modal-reflection"><img src="${img}" alt="" aria-hidden="true"></div>`:``}
+    ${d.projectUrl
+      ? `<a href="${d.projectUrl}" target="_blank" rel="noopener" style="display:block;text-decoration:none">
+          ${img
+            ? `<img class="modal-img" src="${img}" alt="${d.title}" onerror="this.parentElement.innerHTML='<div class=modal-img-placeholder style=cursor:pointer><div style=text-align:center><div style=font-size:13px;color:#1a1a1a;font-weight:600;margin-bottom:6px>${d.title}</div><div style=font-size:11px;color:#888;margin-bottom:12px>${d.city}</div><div style=font-size:12px;background:#1a1a1a;color:#fff;padding:8px 20px;border-radius:6px>🔗 View full listing on dom.com.cy →</div></div></div>'">
+               <div class="modal-reflection"><img src="${img}" alt="" aria-hidden="true"></div>`
+            : `<div class="modal-img-placeholder" style="cursor:pointer;height:200px">
+                <div style="text-align:center">
+                  <div style="font-size:13px;color:var(--tx);font-weight:600;margin-bottom:6px">${d.title}</div>
+                  <div style="font-size:11px;color:var(--mu);margin-bottom:12px">${d.developer} · ${d.city}</div>
+                  <div style="font-size:12px;background:var(--tx);color:var(--bg);padding:8px 20px;border-radius:6px">🔗 View full listing on dom.com.cy →</div>
+                </div>
+              </div>`
+          }
+        </a>`
+      : img
+        ? `<img class="modal-img" src="${img}" alt="${d.title}"><div class="modal-reflection"><img src="${img}" alt="" aria-hidden="true"></div>`
+        : ``
+    }
     <div class="modal-body">
       <div class="modal-header">
         <div style="flex:1;min-width:0">
@@ -1409,7 +1429,7 @@ function openModal(id, e) {
       <!-- Market Intelligence accordion -->
       <div style="margin-bottom:14px">
         <button onclick="toggleModalSection('mktPos','mktPosBtn')" id="mktPosBtn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:500;color:var(--tx)">
-          <span>📊 Market Positioning &amp; Intelligence</span>
+          <span>📊 View market intelligence</span>
           <span id="mktPosArrow" style="font-size:10px;color:var(--mu);transition:transform .2s">▼</span>
         </button>
         <div id="mktPos" style="display:none;border:1px solid var(--bd);border-top:none;border-radius:0 0 var(--r) var(--r);padding:14px;background:var(--bg)">
@@ -1433,7 +1453,7 @@ function openModal(id, e) {
       </div>
       <div class="modal-actions">
         <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
-        <a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>
+        ${d.projectUrl?`<a class="btn primary" href="${d.projectUrl}" target="_blank" rel="noopener" style="text-decoration:none">🔗 View on dom.com.cy</a>`:`<a class="btn" href="${googleSearchUrl(d)}" target="_blank" rel="noopener" style="text-decoration:none">↗ Search on Google</a>`}
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
@@ -2465,6 +2485,19 @@ const USERS = [
   { username: 'Emma',  password: '3mm4!2026',  role: 'User',  active: true },
 ];
 let currentUser = null;
+
+function togglePassVis() {
+  var input = document.getElementById('loginPass');
+  var btn = document.getElementById('passEyeBtn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
 
 function doLogin() {
   const u = document.getElementById('loginUser').value.trim();
