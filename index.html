@@ -1030,7 +1030,7 @@ async function init() {
           imageUrl: g(13) ? '' + g(13) : null,
           lat: g(14) !== '' ? +g(14) : null,
           lng: g(15) !== '' ? +g(15) : null,
-          projectUrl: (()=>{ const v=(''+(g(17)||g(16)||'')).replace(/__/g,'').trim(); return v&&v.startsWith('http')?v:null; })(),
+          projectUrl: (()=>{ for(let i=17;i>=13;i--){ const v=(''+(g(i)||'')).replace(/__/g,'').replace(/[^\x20-\x7E]/g,'').trim(); if(v&&v.startsWith('http'))return v; } return null; })(),
         };
       });
     } catch(e1) {
@@ -1064,7 +1064,7 @@ async function init() {
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
           imageUrl: g(13) || null,
           lat: n(14), lng: n(15),
-          projectUrl: (()=>{ const v=(g(17)||g(16)||'').replace(/__/g,'').trim(); return v&&v.startsWith('http')?v:null; })(),
+          projectUrl: (()=>{ for(let i=17;i>=13;i--){ const v=(g(i)||'').replace(/__/g,'').replace(/[^\x20-\x7E]/g,'').trim(); if(v&&v.startsWith('http'))return v; } return null; })(),
         };
       });
     }
@@ -1091,6 +1091,7 @@ async function init() {
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
+  if(all.length>0){console.log('Sample projectUrl:',all[0].projectUrl,'| raw g17 check done');}
   } catch (e) {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
   }
