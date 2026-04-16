@@ -474,7 +474,8 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Investment strategy</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbStrategyGroup">
-            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Income — max yield</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Short-term rental — Airbnb</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Long-term rental — steady income</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Growth — capital appreciation</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Balanced — yield + growth</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Diversified — spread risk</button>
@@ -1445,8 +1446,10 @@ function applyClientFilter(resetPg) {
       if (!showYield) return '<span style="color:var(--mu)">'+(d.ppm!=null?'€'+d.ppm.toLocaleString():'—')+'</span>';
       const r = estimateRentRange(d, cCriteria.purpose);
       if (!r) return '—';
-      return '<div style="font-weight:500">€'+r.low.toLocaleString()+'–€'+r.high.toLocaleString()+'/mo</div>'
-           + '<div style="color:var(--mu);font-size:10px">'+r.yPct.toFixed(1)+'% yield</div>';
+      const mgmtLabel = r.mgmtFee > 0 ? ' after '+(r.mgmtFee*100).toFixed(0)+'% mgmt' : '';
+      return '<div style="font-weight:500">€'+r.low.toLocaleString()+'–€'+r.high.toLocaleString()+'/mo gross</div>'
+           + '<div style="color:#15803d;font-size:10px">€'+r.netLow.toLocaleString()+'–€'+r.netHigh.toLocaleString()+'/mo net</div>'
+           + '<div style="color:var(--mu);font-size:10px">'+r.grossYield.toFixed(1)+'% gross · '+r.yPct.toFixed(1)+'% net'+mgmtLabel+'</div>';
     })()}</td>
     <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
   </tr>`).join('');
@@ -1687,13 +1690,18 @@ function renderIntelligence(d) {
 // ── Yield cache ──────────────────────────────────────────────
 function estimateRentRange(d, purpose) {
   if (!d.price) return null;
-  const yPct = estimateYield(d, purpose);
-  const annual = d.price * (yPct / 100);
-  const monthly = annual / 12;
-  // ±15% range
-  const low  = Math.round(monthly * 0.85 / 50) * 50;
-  const high = Math.round(monthly * 1.15 / 50) * 50;
-  return { low, high, yPct };
+  // Gross yield (before management)
+  const mgmtFee = purpose === 'Short-term rental' ? 0.18 : purpose === 'Long-term rental' ? 0.08 : 0;
+  const netYield = estimateYield(d, purpose);
+  const grossYield = mgmtFee > 0 ? netYield / (1 - mgmtFee) : netYield;
+  const grossMonthly = d.price * (grossYield / 100) / 12;
+  const netMonthly = d.price * (netYield / 100) / 12;
+  // ±15% range on gross
+  const low  = Math.round(grossMonthly * 0.85 / 50) * 50;
+  const high = Math.round(grossMonthly * 1.15 / 50) * 50;
+  const netLow  = Math.round(netMonthly * 0.85 / 50) * 50;
+  const netHigh = Math.round(netMonthly * 1.15 / 50) * 50;
+  return { low, high, netLow, netHigh, yPct: netYield, grossYield: Math.round(grossYield*10)/10, mgmtFee };
 }
 
 // ── Yield cache ──────────────────────────────────────────────
@@ -1703,11 +1711,11 @@ function estimateYield(d, purpose) {
   // Fast local estimate used for table display and sorting
   // Based on Cyprus estate agent benchmarks + AirDNA/Bazaraki averages
   const cityBase = {
-    Limassol: purpose === 'Short-term rental' ? 6.8 : 5.5,
-    Larnaca:  purpose === 'Short-term rental' ? 7.2 : 6.0,
-    Paphos:   purpose === 'Short-term rental' ? 7.5 : 6.3,
-    Nicosia:  purpose === 'Short-term rental' ? 5.2 : 4.8,
-    Famagusta:purpose === 'Short-term rental' ? 7.8 : 6.8,
+    Limassol:  purpose === 'Short-term rental' ? 6.8 : 5.2,
+    Larnaca:   purpose === 'Short-term rental' ? 7.2 : 6.0,
+    Paphos:    purpose === 'Short-term rental' ? 7.5 : 6.3,
+    Nicosia:   purpose === 'Short-term rental' ? 5.4 : 5.2,
+    Famagusta: purpose === 'Short-term rental' ? 6.2 : 6.5,
   };
   let y = cityBase[d.city] ?? 5.8;
   const t = (d.type||'').toLowerCase();
@@ -1735,7 +1743,16 @@ function estimateYield(d, purpose) {
     else if (d.ppm > 6000) y -= 0.4;
     else if (d.ppm > 8000) y -= 0.7;
   }
-  return Math.max(3.5, Math.min(10.5, y));
+  // Management fee deduction
+  // Short-term: 18% (Airbnb platform ~12% + local manager ~6%)
+  // Long-term: 8% (letting agent one month/year + minor maintenance)
+  // Own use: no fee
+  const mgmtFee = purpose === 'Short-term rental' ? 0.20
+                : purpose === 'Long-term rental'  ? 0.08
+                : 0;
+  const grossYield = Math.max(3.5, Math.min(10.5, y));
+  const netYield = grossYield * (1 - mgmtFee);
+  return Math.round(netYield * 10) / 10;
 }
 
 async function fetchLiveYield(d, purpose) {
@@ -1833,101 +1850,151 @@ function resetPortfolioBuilder() {
   document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div>';
 }
 
+function scoreAsset(d, strategy, risk, portfolio, budget) {
+  const isST = strategy.includes('Short-term');
+  const isLT = strategy.includes('Long-term');
+  const isGrowth = strategy.includes('Growth');
+  const isBalanced = strategy.includes('Balanced');
+  const isDiversified = strategy.includes('Diversified');
+  const w = isST        ? {yield:0.45,appreciation:0.15,sea:0.25,efficiency:0.10,diversity:0.05}
+          : isLT        ? {yield:0.55,appreciation:0.10,sea:0.10,efficiency:0.20,diversity:0.05}
+          : isGrowth    ? {yield:0.10,appreciation:0.50,sea:0.22,efficiency:0.10,diversity:0.08}
+          : isBalanced  ? {yield:0.35,appreciation:0.28,sea:0.18,efficiency:0.10,diversity:0.09}
+          :               {yield:0.22,appreciation:0.18,sea:0.15,efficiency:0.10,diversity:0.35};
+  const purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : isGrowth ? 'Own use' : 'Long-term rental';
+  const yPct = estimateYield(d, purpose);
+  const yieldScore = Math.min(100, (yPct/10)*100);
+  // ST: tourist cities score higher; LT: business cities score higher
+  const cityAp = isST
+    ? {Paphos:90,Larnaca:85,Limassol:80,Famagusta:78,Nicosia:28}
+    : isGrowth
+    ? {Limassol:95,Paphos:88,Larnaca:70,Famagusta:72,Nicosia:50}
+    : {Limassol:90,Nicosia:78,Larnaca:65,Paphos:62,Famagusta:55};
+  const typeAp = {villa:85,penthouse:80,apartment:60,house:55,flat:50};
+  const cityAScore = cityAp[d.city]||55;
+  const tk = (d.type||'').toLowerCase();
+  const typeAScore = Object.entries(typeAp).find(([k])=>tk.includes(k))?.[1]||55;
+  let ppmScore = 60;
+  if (d.ppm!=null){if(d.ppm<2000)ppmScore=95;else if(d.ppm<3000)ppmScore=80;else if(d.ppm<4500)ppmScore=65;else if(d.ppm<6000)ppmScore=50;else ppmScore=35;}
+  const appreciationScore = cityAScore*0.4+typeAScore*0.3+ppmScore*0.3;
+  // ST rental: sea proximity is critical (tourist demand); LT: less important
+  let seaScore=40;
+  if(d.seaDist!=null){
+    if(isST){if(d.seaDist<0.3)seaScore=100;else if(d.seaDist<0.5)seaScore=97;else if(d.seaDist<1)seaScore=90;else if(d.seaDist<2)seaScore=80;else if(d.seaDist<5)seaScore=60;else if(d.seaDist<10)seaScore=35;else seaScore=15;}
+    else{if(d.seaDist<0.3)seaScore=85;else if(d.seaDist<1)seaScore=75;else if(d.seaDist<3)seaScore=65;else if(d.seaDist<8)seaScore=55;else if(d.seaDist<20)seaScore=40;else seaScore=25;}
+  }
+  // City-relative efficiency — compares €/m² to city average (2025-2026 data)
+  const cityAvgPpm={Limassol:6200,Paphos:4000,Larnaca:3400,Famagusta:2900,Nicosia:3600};
+  const avg=cityAvgPpm[d.city]||4200;
+  let effScore=50;
+  if(d.ppm!=null){
+    const r=d.ppm/avg;
+    // Reward being below city average, penalise being above
+    if(r<0.65)effScore=95;      // exceptional value vs city
+    else if(r<0.80)effScore=82;
+    else if(r<0.92)effScore=70;
+    else if(r<1.05)effScore=58;
+    else if(r<1.20)effScore=42;
+    else if(r<1.40)effScore=28;
+    else effScore=15;           // significantly overpriced vs city avg
+  }
+  const usedCities=new Set(portfolio.map(x=>x.city));
+  const usedTypes=new Set(portfolio.map(x=>(x.type||'').toLowerCase()));
+  let divScore=50;
+  if(!usedCities.has(d.city))divScore+=30;
+  if(!usedTypes.has(tk))divScore+=20;
+  divScore=Math.min(100,divScore);
+  let riskMult=1.0;
+  if(risk==='Conservative'){if(d.price>600000)riskMult*=0.85;if(tk.match(/villa|penthouse/))riskMult*=0.9;if(d.city==='Famagusta')riskMult*=0.9;}
+  else if(risk==='Aggressive'){if(d.city==='Limassol'||d.city==='Paphos')riskMult*=1.1;if(tk.match(/villa|penthouse/))riskMult*=1.05;}
+  // Delivery penalty only for income strategies (off-plan = no rent now)
+  // Growth strategy BENEFITS from off-plan (best appreciation play)
+  let deliveryMult=1.0;
+  if((isST||isLT)&&d.addedOn){
+    const yr=parseInt((d.addedOn||'').slice(-4));
+    if(yr>=2028)deliveryMult=isST?0.72:0.80;
+    else if(yr>=2027)deliveryMult=isST?0.82:0.88;
+    else if(yr>=2026)deliveryMult=isST?0.90:0.93;
+  }
+  // Growth strategy: slight bonus for off-plan (appreciation upside)
+  if(isGrowth&&d.addedOn){
+    const yr=parseInt((d.addedOn||'').slice(-4));
+    if(yr>=2027)deliveryMult=1.08;
+    else if(yr>=2026)deliveryMult=1.04;
+  }
+  let concPenalty=1.0;
+  const cityCount=portfolio.filter(x=>x.city===d.city).length;
+  const cityVal=portfolio.filter(x=>x.city===d.city).reduce((s,x)=>s+(x.price||0),0);
+  if(cityCount>=3)concPenalty*=0.7;else if(cityCount>=2)concPenalty*=0.85;
+  if(budget>0&&(cityVal+(d.price||0))/budget>0.5)concPenalty*=0.8;
+  // Liquidity multiplier — how quickly can the asset be resold
+  const liquidityMult={Limassol:1.10,Paphos:1.00,Larnaca:1.00,Nicosia:0.95,Famagusta:0.85}[d.city]||1.0;
+  // PR bonus — ≥€300k triggers Cyprus permanent residency for non-EU buyers
+  const prBonus = (d.price||0) >= 300000 ? 1.06 : 1.0;
+  const total=(w.yield*yieldScore+w.appreciation*appreciationScore+w.sea*seaScore+w.efficiency*effScore+w.diversity*divScore)*riskMult*deliveryMult*concPenalty*liquidityMult*prBonus;
+  return {total,yPct};
+}
+
 function buildPortfolio() {
   const status = document.getElementById('pbStatus');
   if (!pbCriteria.budget) { status.textContent = '⚠ Please select a budget.'; return; }
   if (!pbCriteria.strategy) { status.textContent = '⚠ Please select a strategy.'; return; }
   status.textContent = '';
+  const strategy = pbCriteria.strategy;
+  const risk = pbCriteria.risk || 'Moderate';
+  const budget = pbCriteria.budget;
+  const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
+
   let pool = all.filter(d => {
-    if (!d.price || d.price > pbCriteria.budget) return false;
+    if (!d.price || d.price > budget) return false;
     if (pbCriteria.cities.length > 0 && !pbCriteria.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
     if (pbCriteria.types.length > 0 && !pbCriteria.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
     if (pbCriteria.sea && pbCriteria.sea < 999 && (d.seaDist == null || d.seaDist > pbCriteria.sea)) return false;
     return true;
   });
+
   if (pool.length < 3) {
     document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Not enough listings match. Try broadening the filters.</div>';
     return;
   }
-  const strategy = pbCriteria.strategy;
-  const risk = pbCriteria.risk || 'Moderate';
-  const scored = pool.map(d => {
-    const yieldPct = estimateYield(d, strategy.includes('Income') ? 'Long-term rental' : 'Long-term rental');
-    let score = yieldPct * 10;
-    if (strategy.includes('Income')) {
-      if ((d.type||'').match(/Apartment|Flat/i)) score += 12;
-      if ((d.bedrooms||0) <= 2) score += 8;
-      if (d.ppm != null && d.ppm < 4000) score += 6;
-    } else if (strategy.includes('Growth')) {
-      if (d.city === 'Limassol') score += 15;
-      if (d.city === 'Paphos') score += 10;
-      if ((d.type||'').match(/Villa|Penthouse/i)) score += 10;
-      if (d.seaDist != null && d.seaDist < 2) score += 8;
-    } else if (strategy.includes('Balanced')) {
-      if (d.seaDist != null && d.seaDist < 3) score += 8;
-      if ((d.type||'').match(/Apartment|Flat/i)) score += 6;
-      if (d.ppm != null && d.ppm < 5000) score += 5;
-    } else {
-      if (d.seaDist != null && d.seaDist < 5) score += 6;
-      score += Math.random() * 5;
-    }
-    if (risk === 'Conservative' && d.price < 400000) score += 8;
-    if (risk === 'Aggressive' && (d.city === 'Limassol' || d.city === 'Paphos')) score += 8;
-    return { ...d, score, estimatedYield: yieldPct, estimatedAnnualIncome: (d.price||0) * (yieldPct/100) };
-  }).sort((a,b) => b.score - a.score);
 
-  const maxAssets = pbCriteria.assets <= 1 ? 1 : pbCriteria.assets <= 3 ? pbCriteria.assets : pbCriteria.assets <= 5 ? 4 : 6;
   const selected = [];
-  const usedCities = new Set();
-  
-  // Pass 1: fill up to maxAssets respecting city diversity for Diversified strategy
-  for (const d of scored) {
-    if (selected.length >= maxAssets) break;
-    const total = selected.reduce((s,x) => s + (x.price||0), 0);
-    if (total + (d.price||0) > pbCriteria.budget) continue;
-    if (strategy.includes('Diversified') && usedCities.has(d.city) && selected.length < maxAssets - 1) continue;
-    selected.push(d);
-    usedCities.add(d.city);
+  const getRemaining = () => budget - selected.reduce((s,x) => s+(x.price||0), 0);
+  const getAvailable = () => pool.filter(d => !selected.find(x => x.id === d.id) && (d.price||0) <= getRemaining());
+
+  while (getAvailable().length > 0) {
+    const remaining = getRemaining();
+    if (remaining < budget * 0.06) break;
+    const used = 1 - remaining / budget;
+    if (selected.length >= maxAssets && used >= 0.75) break;
+    if (selected.length >= maxAssets * 3) break;
+    const candidates = getAvailable().map(d => {
+      const {total, yPct} = scoreAsset(d, strategy, risk, selected, budget);
+      const purpose = strategy.includes('Income') ? 'Long-term rental' : strategy.includes('Growth') ? 'Own use' : 'Long-term rental';
+      return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100)};
+    }).sort((a,b) => b.score - a.score);
+    if (!candidates.length) break;
+    selected.push(candidates[0]);
   }
-  
-  // Pass 2: if under maxAssets, relax city constraint
-  for (const d of scored) {
-    if (selected.length >= maxAssets) break;
-    if (selected.find(x => x.id === d.id)) continue;
-    const total = selected.reduce((s,x) => s + (x.price||0), 0);
-    if (total + (d.price||0) > pbCriteria.budget) continue;
-    selected.push(d);
-  }
-  
-  // Pass 3: keep adding assets until budget is >90% used or no more fit
-  const getRemaining = () => pbCriteria.budget - selected.reduce((s,x) => s+(x.price||0), 0);
-  let improved = true;
-  while (improved && getRemaining() > pbCriteria.budget * 0.08) {
-    improved = false;
-    for (const d of scored) {
-      if (selected.find(x => x.id === d.id)) continue;
-      if ((d.price||0) <= getRemaining()) {
-        selected.push(d);
-        improved = true;
-        break; // restart loop with updated remaining
-      }
-    }
-  }
+
   if (!selected.length) {
-    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Could not allocate assets within budget. Try increasing budget or broadening criteria.</div>';
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Could not allocate assets within budget. Try broadening criteria.</div>';
     return;
   }
+
   const name = document.getElementById('pbName').value.trim() || 'Investor';
   const notes = document.getElementById('pbNotes').value.trim();
   const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
   const totalIncome = selected.reduce((s,d) => s+(d.estimatedAnnualIncome||0), 0);
   const blendedYield = totalPrice ? (totalIncome/totalPrice)*100 : 0;
-  const leftover = pbCriteria.budget - totalPrice;
+  const leftover = budget - totalPrice;
+
   const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
     const ca = selected.filter(d=>d.city===city);
     const cp = ca.reduce((s,d)=>s+(d.price||0),0);
     return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${ca.length} asset${ca.length!==1?'s':''} · €${cp.toLocaleString()}</div></div></div>`;
   }).join('');
+
   const cards = selected.map((d,i) => `
     <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
       <div class="portfolio-card-role">Asset ${i+1}</div>
@@ -1935,24 +2002,28 @@ function buildPortfolio() {
       <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
       <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
       <div class="portfolio-card-price">€${(d.price||0).toLocaleString()}</div>
-      <div style="margin:4px 0">${d.seaDist!=null?seaBadge(d.seaDist):''}</div>
+      <div style="margin:4px 0;display:flex;gap:4px;flex-wrap:wrap">
+        ${d.seaDist!=null?seaBadge(d.seaDist):''}
+        ${(d.price||0)>=300000?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#15803d">PR eligible</span>':''}
+      </div>
       <div class="portfolio-mini-grid">
-        <div class="portfolio-mini"><div class="portfolio-mini-label">Est. yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
-        <div class="portfolio-mini"><div class="portfolio-mini-label">Annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
         ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
         <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
       </div>
     </div>`).join('');
+
   document.getElementById('pbOutput').innerHTML = `
     <div class="portfolio-shell">
       <div class="portfolio-head">
-        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length}-asset structure</div></div>
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy.split('—')[0].trim()} strategy · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
       </div>
       <div class="portfolio-grid">
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Assets</div><div class="portfolio-kpi-value">${selected.length}</div><div class="portfolio-kpi-sub">from ${pool.length.toLocaleString()} matching</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${pbCriteria.budget.toLocaleString()}</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Gross annual est.</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${budget.toLocaleString()}</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Net after mgmt fees</div></div>
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Gross rental est.</div></div>
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees</div></div>
       </div>
@@ -1966,7 +2037,6 @@ function buildPortfolio() {
       </div>
     </div>`;
 }
-
 
 init();
 </script>
