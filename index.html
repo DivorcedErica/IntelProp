@@ -2755,8 +2755,13 @@ function renderAnalyticsMap(pool) {
       const rev = d.annualRevenue || 0;
       const revColor = rev > 24000 ? '#7c3aed' : rev > 13000 ? '#db2777' : rev > 5000 ? '#db2777' : '#f9a8d4';
       const revScale = rev > 24000 ? 9 : rev > 13000 ? 7 : rev > 5000 ? 6 : 5;
-      const marker=new google.maps.Marker({position:pos,map:anMap2,title:d.title,
-        icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:revColor,fillOpacity:0.85,strokeColor:'#fff',strokeWeight:1.5,scale:revScale}});
+      const marker=new google.maps.Marker({
+        position:pos,
+        map:anMap2,
+        title:d.title,
+        optimized:true,
+        icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:revColor,fillOpacity:0.85,strokeColor:'#fff',strokeWeight:1.5,scale:revScale}
+      });
       marker.addListener('click',()=>{
         anInfoWindow2.setContent(`<div style="min-width:200px;padding:4px;font-size:13px">
           <div style="font-weight:600;margin-bottom:2px">${d.title}</div>
@@ -2778,7 +2783,16 @@ function renderAnalyticsMap(pool) {
     });
   }
   const city=document.getElementById('anCity')?.value;
-  if(city&&CITY_FALLBACK[city]){anMap2.setCenter({lat:CITY_FALLBACK[city][0],lng:CITY_FALLBACK[city][1]});anMap2.setZoom(12);}
+  // Fit map to show all markers or zoom to selected city
+  const city = document.getElementById('anCity')?.value || '';
+  if (city && CITY_FALLBACK[city]) {
+    anMap2.setCenter({ lat: CITY_FALLBACK[city][0], lng: CITY_FALLBACK[city][1] });
+    anMap2.setZoom(12);
+  } else {
+    // Reset to full Cyprus view
+    anMap2.setCenter({ lat: 34.9, lng: 33.1 });
+    anMap2.setZoom(9);
+  }
 }
 
 function anCardClick(id){
