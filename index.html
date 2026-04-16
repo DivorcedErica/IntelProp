@@ -2786,8 +2786,23 @@ function calcPositioningFromComps(d, comps, scope) {
 }
 
 function renderMarketPositioning(d) {
+  // Calculate ppm if missing
+  if (!d.ppm && d.price && d.area) d = {...d, ppm: Math.round(d.price/d.area)};
   const pos = calcMarketPositioning(d);
-  if (!pos) return '';
+  if (!pos) {
+    // Fallback: show RICS appreciation even without comps
+    const yoy = RICS_DATA?.yoyGrowth?.[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
+    const proj = d.price ? Math.round(d.price*(1+yoy/100)) : null;
+    if (!proj) return '';
+    return \`<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Market Positioning</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:6px;padding:10px 14px;border:1px solid var(--bd)">
+        <div style="font-size:12px;color:var(--tx)">📈 Projected value in 12 months <span style="font-size:10px;color:var(--mu)">(RICS +\${yoy}% YoY)</span></div>
+        <div style="font-size:16px;font-weight:700;color:#15803d">€\${proj.toLocaleString()}</div>
+      </div>
+      <div style="font-size:9px;color:var(--mu);margin-top:6px">Based on RICS/KPMG Q4 2025 Cyprus index · Not a formal valuation</div>
+    </div>\`;
+  }
 
   const barPct = Math.min(98, Math.max(2, pos.percentile));
   const yoyGrowth = RICS_DATA.yoyGrowth[d.type?.includes('Villa')?'Villa':d.type?.includes('House')?'House':'Apartment'] || 5.03;
