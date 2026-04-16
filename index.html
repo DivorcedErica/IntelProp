@@ -176,6 +176,30 @@ tr:hover td{background:var(--bg2)}
 .slt{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .sli{font-size:12px;color:var(--mu)}
 @media(max-width:680px){.frow{grid-template-columns:1fr 1fr}.shell{padding:16px 14px}}
+
+/* ── Portfolio Builder ── */
+.portfolio-shell{border:1px solid var(--bd);border-radius:12px;background:var(--bg);padding:20px;margin:10px 0 14px}
+.portfolio-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.portfolio-title{font-size:15px;font-weight:600}
+.portfolio-sub{font-size:11px;color:var(--mu);margin-top:3px}
+.portfolio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}
+.portfolio-kpi{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+.portfolio-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px;font-weight:500}
+.portfolio-kpi-value{font-size:18px;font-weight:700;color:var(--tx)}
+.portfolio-kpi-sub{font-size:10px;color:var(--mu);margin-top:3px}
+.portfolio-section{margin-top:16px}
+.portfolio-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:10px;font-weight:600;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.portfolio-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.portfolio-card{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;transition:border-color .15s}
+.portfolio-card:hover{border-color:rgba(0,0,0,.22)}
+.portfolio-card-role{display:inline-flex;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--bd);color:var(--mu);margin-bottom:8px}
+.portfolio-card-title{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:4px;color:var(--tx)}
+.portfolio-card-meta{font-size:11px;color:var(--mu);line-height:1.6;margin-bottom:2px}
+.portfolio-card-price{font-size:20px;font-weight:700;margin:8px 0 4px;color:var(--tx)}
+.portfolio-mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.portfolio-mini{background:var(--bg);border-radius:8px;padding:8px 10px;border:1px solid var(--bd)}
+.portfolio-mini-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;font-weight:500}
+.portfolio-mini-value{font-size:13px;font-weight:600;color:var(--tx)}
 </style>
 </head>
 <body>
@@ -1537,7 +1561,7 @@ Find and report:
 
 Context from our listings database: ${cityContext}
 
-Respond ONLY with valid JSON, no markdown:
+You MUST respond with ONLY a valid JSON object. No text before or after. No markdown. No explanation. Start your response with { and end with }.
 {
   "summary": "2-3 sentence executive summary of Cyprus market right now",
   "airbnb": [{"rank":1,"area":"name","nightly_rate":int,"occupancy_pct":int,"annual_revenue":int,"gross_yield_pct":float,"note":"short insight"}],
@@ -1564,7 +1588,10 @@ Respond ONLY with valid JSON, no markdown:
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||'API '+res.status); }
     const data = await res.json();
     const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const intel = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    // Extract JSON from response - handle cases where model adds text before/after
+    const jsonMatch = txt.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    const intel = JSON.parse(jsonMatch[0]);
     intelLoaded = true;
     renderIntelligence(intel);
   } catch(e) {
