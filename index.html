@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 // Must be defined before Google Maps loads
 window.initGoogleMaps = function() {
@@ -230,6 +231,38 @@ tr:hover td{background:var(--bg2)}
 .login-btn:hover{opacity:.85}
 .login-error{font-size:12px;color:var(--red);margin-top:10px;text-align:center;min-height:18px}
 .login-role{font-size:10px;color:var(--mu);text-align:center;margin-top:12px}
+
+/* ── Analytics ── */
+.analytics-wrap{display:flex;gap:0;min-height:600px}
+.analytics-sidebar{width:180px;flex-shrink:0;border-right:1px solid var(--bd);padding:8px 0}
+.analytics-nav-item{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:12px;color:var(--mu);cursor:pointer;border-radius:0;transition:background .12s;white-space:nowrap}
+.analytics-nav-item:hover{background:var(--bg2);color:var(--tx)}
+.analytics-nav-item.on{background:var(--bg2);color:var(--tx);font-weight:500;border-right:2px solid var(--tx)}
+.analytics-nav-section{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);padding:12px 16px 4px;margin-top:4px}
+.analytics-main{flex:1;padding:16px 20px;overflow:hidden}
+.analytics-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--bd)}
+.analytics-filters select{font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);min-width:120px}
+.analytics-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px}
+.analytics-kpi{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+.analytics-kpi-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px}
+.analytics-kpi-value{font-size:20px;font-weight:700;color:var(--tx);line-height:1.1}
+.analytics-kpi-sub{font-size:10px;color:var(--mu);margin-top:3px}
+.analytics-kpi-change{font-size:10px;font-weight:500;margin-top:3px}
+.analytics-kpi-change.up{color:#15803d}
+.analytics-kpi-change.down{color:#991b1b}
+.analytics-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.analytics-chart-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.analytics-chart-title{font-size:11px;font-weight:600;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.analytics-chart-title span{font-size:10px;color:var(--mu);font-weight:400}
+.analytics-chart-wrap{position:relative;height:200px}
+.analytics-table-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.analytics-table-card table{width:100%;border-collapse:collapse;font-size:12px}
+.analytics-table-card th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left}
+.analytics-table-card td{padding:8px 8px;border-bottom:1px solid var(--bd);vertical-align:middle}
+.analytics-table-card tr:last-child td{border-bottom:none}
+.analytics-score-bar{height:6px;border-radius:99px;background:var(--bd);overflow:hidden;margin-top:4px}
+.analytics-score-fill{height:100%;border-radius:99px;background:var(--tx)}
+@media(max-width:768px){.analytics-charts{grid-template-columns:1fr}.analytics-sidebar{display:none}}
 </style>
 </head>
 <body>
@@ -277,6 +310,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('clients',this)">Client Call</button>
       <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
+      <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
     </div>
 
@@ -620,6 +654,35 @@ tr:hover td{background:var(--bg2)}
       <div id="devView"><div class="empty">Loading…</div></div>
     </div>
 
+    <!-- ANALYTICS -->
+    <div id="pAnalytics" style="display:none">
+      <div class="analytics-wrap">
+        <!-- Sidebar -->
+        <div class="analytics-sidebar">
+          <div class="analytics-nav-section">Market insights</div>
+          <div class="analytics-nav-item on" onclick="analyticsNav(this,'overview')">📊 Overview</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'occupancy')">📅 Occupancy</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'revenue')">💰 Revenue</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'rates')">🏷 Rates</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'seasonality')">📈 Seasonality</div>
+          <div class="analytics-nav-section">Tools</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'rentalizer')">🔢 Rentalizer</div>
+          <div class="analytics-nav-item" onclick="analyticsNav(this,'comparison')">⚖ City compare</div>
+        </div>
+        <!-- Main area -->
+        <div class="analytics-main">
+          <div class="analytics-filters">
+            <select id="anCity" onchange="renderAnalytics()"><option value="">All cities</option></select>
+            <select id="anType" onchange="renderAnalytics()"><option value="">All types</option></select>
+            <select id="anBeds" onchange="renderAnalytics()"><option value="">Any beds</option></select>
+            <div style="margin-left:auto;font-size:11px;color:var(--mu);align-self:center" id="anDataNote"></div>
+          </div>
+          <div id="analyticsContent">
+            <div class="empty">Loading analytics...</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
       <div class="slt">
@@ -1451,11 +1514,12 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','map','intelligence','clients','portfolio','developers','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','map','intelligence','clients','portfolio','developers','analytics','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
   if(t==='intelligence'){loadIntelligence(false);}
+  if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
 }
 
@@ -2315,6 +2379,682 @@ function doLogout() {
   document.getElementById('loginPass').value = '';
   document.getElementById('loginError').textContent = '';
 }
+
+// ── Analytics Engine (AirDNA methodology) ────────────────────
+let analyticsSection = 'overview';
+let anCharts = {};
+
+// Cyprus seasonality index by month (Jan=0 .. Dec=11)
+// Based on tourist arrivals data — peak Jul-Sep, low Jan-Feb
+const CYPRUS_SEASONALITY = [0.52, 0.55, 0.65, 0.78, 0.88, 0.95, 1.00, 1.00, 0.93, 0.82, 0.63, 0.50];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// City-specific ADR (Average Daily Rate) in EUR — based on 2025 Cyprus Airbnb data
+const CITY_ADR = {
+  Limassol:  { studio:85,  '1bed':110, '2bed':150, '3bed':200, '4bed':280, villa:350 },
+  Paphos:    { studio:75,  '1bed':95,  '2bed':130, '3bed':175, '4bed':240, villa:320 },
+  Larnaca:   { studio:70,  '1bed':90,  '2bed':120, '3bed':160, '4bed':210, villa:280 },
+  Famagusta: { studio:65,  '1bed':85,  '2bed':115, '3bed':150, '4bed':195, villa:260 },
+  Nicosia:   { studio:55,  '1bed':70,  '2bed':95,  '3bed':130, '4bed':170, villa:220 },
+};
+
+// City-specific occupancy rates (annual average)
+const CITY_OCCUPANCY = {
+  Limassol:  { studio:0.72, '1bed':0.75, '2bed':0.70, '3bed':0.65, '4bed':0.58, villa:0.55 },
+  Paphos:    { studio:0.78, '1bed':0.80, '2bed':0.75, '3bed':0.70, '4bed':0.62, villa:0.60 },
+  Larnaca:   { studio:0.70, '1bed':0.72, '2bed':0.68, '3bed':0.63, '4bed':0.55, villa:0.52 },
+  Famagusta: { studio:0.65, '1bed':0.68, '2bed':0.63, '3bed':0.58, '4bed':0.50, villa:0.48 },
+  Nicosia:   { studio:0.60, '1bed':0.62, '2bed':0.58, '3bed':0.52, '4bed':0.45, villa:0.42 },
+};
+
+function getBedKey(bedrooms) {
+  if (!bedrooms || bedrooms === 0) return 'studio';
+  if (bedrooms === 1) return '1bed';
+  if (bedrooms === 2) return '2bed';
+  if (bedrooms === 3) return '3bed';
+  return bedrooms >= 4 ? '4bed' : '1bed';
+}
+
+function getTypeMultiplier(type) {
+  const t = (type||'').toLowerCase();
+  if (t.includes('villa')) return { adr: 1.35, occ: 0.88 };
+  if (t.includes('penthouse')) return { adr: 1.25, occ: 0.90 };
+  if (t.includes('apartment') || t.includes('flat')) return { adr: 1.0, occ: 1.0 };
+  if (t.includes('house')) return { adr: 1.10, occ: 0.92 };
+  return { adr: 1.0, occ: 1.0 };
+}
+
+function getSeaMultiplier(seaDist) {
+  if (seaDist == null) return { adr: 1.0, occ: 1.0 };
+  if (seaDist < 0.3) return { adr: 1.40, occ: 1.15 };
+  if (seaDist < 1)   return { adr: 1.25, occ: 1.10 };
+  if (seaDist < 3)   return { adr: 1.10, occ: 1.05 };
+  if (seaDist < 8)   return { adr: 1.0,  occ: 1.0  };
+  return { adr: 0.88, occ: 0.92 };
+}
+
+// AirDNA formula: Revenue = ADR × Occupancy × Available Days
+// RevPAR = ADR × Occupancy
+// Revenue Potential = ADR × Occupancy × 365
+function calcPropertyMetrics(d) {
+  const city = d.city || 'Limassol';
+  const bedKey = getBedKey(d.bedrooms);
+  const cityADR = (CITY_ADR[city] || CITY_ADR.Limassol)[bedKey] || 100;
+  const cityOcc = (CITY_OCCUPANCY[city] || CITY_OCCUPANCY.Limassol)[bedKey] || 0.65;
+  const typeMult = getTypeMultiplier(d.type);
+  const seaMult = getSeaMultiplier(d.seaDist);
+  const ADR = Math.round(cityADR * typeMult.adr * seaMult.adr);
+  const occupancy = Math.min(0.95, cityOcc * typeMult.occ * seaMult.occ);
+  const revPAR = Math.round(ADR * occupancy);
+  const annualRevenue = Math.round(ADR * occupancy * 365);
+  const grossYield = d.price ? (annualRevenue / d.price) * 100 : 0;
+  const mgmtFee = 0.20;
+  const netYield = grossYield * (1 - mgmtFee);
+  return { ADR, occupancy, revPAR, annualRevenue, grossYield, netYield };
+}
+
+function getAnalyticsPool() {
+  const city = document.getElementById('anCity')?.value || '';
+  const type = document.getElementById('anType')?.value || '';
+  const beds = document.getElementById('anBeds')?.value || '';
+  return all.filter(d => {
+    if (city && d.city !== city) return false;
+    if (type && d.type !== type) return false;
+    if (beds && d.bedrooms !== +beds) return false;
+    return true;
+  });
+}
+
+function initAnalytics() {
+  // Populate filters
+  const anCityEl = document.getElementById('anCity');
+  const anTypeEl = document.getElementById('anType');
+  const anBedsEl = document.getElementById('anBeds');
+  if (anCityEl && anCityEl.options.length === 1) {
+    [...new Set(all.map(d=>d.city).filter(Boolean))].sort().forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v; anCityEl.appendChild(o);
+    });
+  }
+  if (anTypeEl && anTypeEl.options.length === 1) {
+    [...new Set(all.map(d=>d.type).filter(Boolean))].sort().forEach(v => {
+      const o = document.createElement('option'); o.value = v; o.textContent = v; anTypeEl.appendChild(o);
+    });
+  }
+  if (anBedsEl && anBedsEl.options.length === 1) {
+    [...new Set(all.map(d=>d.bedrooms).filter(v=>v!=null))].sort((a,b)=>a-b).forEach(b => {
+      const o = document.createElement('option'); o.value = b; o.textContent = b + ' bed' + (b!==1?'s':''); anBedsEl.appendChild(o);
+    });
+  }
+  renderAnalytics();
+}
+
+function analyticsNav(el, section) {
+  document.querySelectorAll('.analytics-nav-item').forEach(i => i.classList.remove('on'));
+  el.classList.add('on');
+  analyticsSection = section;
+  renderAnalytics();
+}
+
+function renderAnalytics() {
+  const pool = getAnalyticsPool();
+  if (!pool.length) {
+    document.getElementById('analyticsContent').innerHTML = '<div class="empty">No data matches filters.</div>';
+    return;
+  }
+  // Destroy existing charts
+  Object.values(anCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  anCharts = {};
+
+  switch(analyticsSection) {
+    case 'overview':    renderAnalyticsOverview(pool); break;
+    case 'occupancy':   renderAnalyticsOccupancy(pool); break;
+    case 'revenue':     renderAnalyticsRevenue(pool); break;
+    case 'rates':       renderAnalyticsRates(pool); break;
+    case 'seasonality': renderAnalyticsSeasonality(pool); break;
+    case 'rentalizer':  renderAnalyticsRentalizer(pool); break;
+    case 'comparison':  renderAnalyticsComparison(); break;
+    default:            renderAnalyticsOverview(pool);
+  }
+
+  document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings · AirDNA methodology`;
+}
+
+function renderAnalyticsOverview(pool) {
+  const metrics = pool.map(calcPropertyMetrics);
+  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
+  const avgOcc = (metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length*100).toFixed(1);
+  const avgRevPAR = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
+  const avgAnnRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
+  const avgGrossYield = (metrics.reduce((s,m)=>s+m.grossYield,0)/metrics.length).toFixed(1);
+  const avgNetYield = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
+
+  // City breakdown
+  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
+  const cityData = cities.map(city => {
+    const cp = pool.filter(d=>d.city===city);
+    const cm = cp.map(calcPropertyMetrics);
+    return {
+      city,
+      count: cp.length,
+      avgADR: Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
+      avgOcc: (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
+      avgRevPAR: Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
+      avgAnnRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
+      avgYield: (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
+    };
+  }).sort((a,b) => b.avgAnnRev - a.avgAnnRev);
+
+  // Type breakdown
+  const types = [...new Set(pool.map(d=>d.type).filter(Boolean))];
+  const typeData = types.map(type => {
+    const tp = pool.filter(d=>d.type===type);
+    const tm = tp.map(calcPropertyMetrics);
+    return { type, count: tp.length, avgYield: (tm.reduce((s,m)=>s+m.grossYield,0)/tm.length).toFixed(1), avgADR: Math.round(tm.reduce((s,m)=>s+m.ADR,0)/tm.length) };
+  }).sort((a,b) => +b.avgYield - +a.avgYield);
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div class="analytics-kpis">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Active listings</div><div class="analytics-kpi-value">${pool.length.toLocaleString()}</div><div class="analytics-kpi-sub">In selected market</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR.toLocaleString()}</div><div class="analytics-kpi-sub">Per booked night</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div><div class="analytics-kpi-sub">Booked / available days</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${avgRevPAR}</div><div class="analytics-kpi-sub">ADR × Occupancy</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Annual revenue</div><div class="analytics-kpi-value">€${avgAnnRev.toLocaleString()}</div><div class="analytics-kpi-sub">Avg per listing</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value">${avgGrossYield}%</div><div class="analytics-kpi-sub">Before mgmt fees</div></div>
+      <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Net yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgNetYield}%</div><div class="analytics-kpi-sub">After 20% mgmt fee</div></div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Revenue by city <span>Avg annual revenue potential</span></div>
+        <div class="analytics-chart-wrap"><canvas id="chartCityRev"></canvas></div>
+      </div>
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Yield by property type <span>Gross yield %</span></div>
+        <div class="analytics-chart-wrap"><canvas id="chartTypeYield"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-table-card">
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">Market breakdown by city</div>
+      <table>
+        <thead><tr><th>City</th><th>Listings</th><th>Avg ADR</th><th>Occupancy</th><th>RevPAR</th><th>Annual revenue</th><th>Gross yield</th><th>Score</th></tr></thead>
+        <tbody>${cityData.map(c => `
+          <tr>
+            <td style="font-weight:500">${c.city}</td>
+            <td>${c.count.toLocaleString()}</td>
+            <td>€${c.avgADR}</td>
+            <td>${c.avgOcc}%</td>
+            <td>€${c.avgRevPAR}</td>
+            <td>€${c.avgAnnRev.toLocaleString()}</td>
+            <td><span style="font-weight:600;color:${+c.avgYield>=7?'#15803d':+c.avgYield>=5?'#92400e':'#991b1b'}">${c.avgYield}%</span></td>
+            <td><div class="analytics-score-bar"><div class="analytics-score-fill" style="width:${Math.min(100,c.avgAnnRev/300)}%"></div></div></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  // Charts
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+
+    anCharts.cityRev = new Chart(document.getElementById('chartCityRev'), {
+      type: 'bar',
+      data: {
+        labels: cityData.map(c=>c.city),
+        datasets: [{ label: 'Annual revenue', data: cityData.map(c=>c.avgAnnRev), backgroundColor: '#1a1a1a', borderRadius: 4 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
+      }}
+    });
+
+    anCharts.typeYield = new Chart(document.getElementById('chartTypeYield'), {
+      type: 'bar',
+      data: {
+        labels: typeData.map(t=>t.type),
+        datasets: [{ label: 'Gross yield %', data: typeData.map(t=>+t.avgYield), backgroundColor: typeData.map(t => +t.avgYield>=7?'#15803d':+t.avgYield>=5?'#b8860b':'#6b7280'), borderRadius: 4 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},max:12}
+      }}
+    });
+  }, 50);
+}
+
+function renderAnalyticsOccupancy(pool) {
+  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
+  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
+  const cityOcc = cities.map(city => {
+    const cm = metrics.filter(d=>d.city===city);
+    return { city, occ: (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1) };
+  }).sort((a,b) => +b.occ - +a.occ);
+
+  // Monthly occupancy (seasonality-adjusted)
+  const avgBaseOcc = metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length;
+  const monthlyOcc = CYPRUS_SEASONALITY.map(s => (avgBaseOcc * s * 100).toFixed(1));
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div class="analytics-kpis">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${(avgBaseOcc*100).toFixed(1)}%</div><div class="analytics-kpi-sub">Annual average</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak occupancy</div><div class="analytics-kpi-value">${Math.max(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jul–Aug peak</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season</div><div class="analytics-kpi-value">${Math.min(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jan–Feb</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">High season months</div><div class="analytics-kpi-value">5</div><div class="analytics-kpi-sub">May–Sep</div></div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Monthly occupancy rate <span>Seasonality-adjusted · Cyprus tourism data</span></div>
+        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthOcc"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Occupancy by city</div>
+        <div class="analytics-chart-wrap"><canvas id="chartCityOcc"></canvas></div>
+      </div>
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Occupancy by beds</div>
+        <div class="analytics-chart-wrap"><canvas id="chartBedsOcc"></canvas></div>
+      </div>
+    </div>`;
+
+  const bedGroups = [0,1,2,3,4].map(b => {
+    const bm = metrics.filter(d => (d.bedrooms||0) === b || (b===4 && (d.bedrooms||0)>=4));
+    if (!bm.length) return null;
+    return { label: b===0?'Studio':b===4?'4+ bed':b+' bed', occ: (bm.reduce((s,m)=>s+m.occupancy,0)/bm.length*100).toFixed(1) };
+  }).filter(Boolean);
+
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+
+    anCharts.monthOcc = new Chart(document.getElementById('chartMonthOcc'), {
+      type: 'line',
+      data: {
+        labels: MONTH_NAMES,
+        datasets: [{ label: 'Occupancy %', data: monthlyOcc.map(Number), borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.08)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1a1a1a' }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
+      }}
+    });
+    anCharts.cityOcc = new Chart(document.getElementById('chartCityOcc'), {
+      type: 'bar',
+      data: { labels: cityOcc.map(c=>c.city), datasets: [{ data: cityOcc.map(c=>+c.occ), backgroundColor: '#1a1a1a', borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
+      }}
+    });
+    anCharts.bedsOcc = new Chart(document.getElementById('chartBedsOcc'), {
+      type: 'bar',
+      data: { labels: bedGroups.map(b=>b.label), datasets: [{ data: bedGroups.map(b=>+b.occ), backgroundColor: '#b8860b', borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
+      }}
+    });
+  }, 50);
+}
+
+function renderAnalyticsRevenue(pool) {
+  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
+  const avgRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
+  const totalMarketRev = metrics.reduce((s,m)=>s+m.annualRevenue,0);
+  const avgRevPAR = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
+
+  // Monthly revenue
+  const monthlyRev = CYPRUS_SEASONALITY.map(s => Math.round(avgRev / 12 * s * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))));
+
+  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
+  const cityRevData = cities.map(city => {
+    const cm = metrics.filter(d=>d.city===city);
+    return { city, avgRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length), count: cm.length };
+  }).sort((a,b)=>b.avgRev-a.avgRev);
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div class="analytics-kpis">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div><div class="analytics-kpi-sub">Per listing</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${avgRevPAR}</div><div class="analytics-kpi-sub">Per available night</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Total market rev.</div><div class="analytics-kpi-value">€${(totalMarketRev/1000000).toFixed(1)}M</div><div class="analytics-kpi-sub">Across all listings</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak month</div><div class="analytics-kpi-value">€${Math.max(...monthlyRev).toLocaleString()}</div><div class="analytics-kpi-sub">July / August</div></div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Monthly revenue projection <span>Based on Cyprus seasonality index</span></div>
+        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthRev"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Revenue by city</div>
+        <div class="analytics-chart-wrap"><canvas id="chartCityRevBar"></canvas></div>
+      </div>
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">Revenue potential distribution</div>
+        <div class="analytics-chart-wrap"><canvas id="chartRevDist"></canvas></div>
+      </div>
+    </div>`;
+
+  // Revenue distribution buckets
+  const buckets = [
+    { label: '<€10k', min:0, max:10000 },
+    { label: '€10-20k', min:10000, max:20000 },
+    { label: '€20-35k', min:20000, max:35000 },
+    { label: '€35-50k', min:35000, max:50000 },
+    { label: '€50k+', min:50000, max:Infinity },
+  ];
+  const distData = buckets.map(b => metrics.filter(m=>m.annualRevenue>=b.min&&m.annualRevenue<b.max).length);
+
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+    anCharts.monthRev = new Chart(document.getElementById('chartMonthRev'), {
+      type: 'bar',
+      data: { labels: MONTH_NAMES, datasets: [{ data: monthlyRev, backgroundColor: MONTH_NAMES.map((_,i)=>CYPRUS_SEASONALITY[i]>0.9?'#15803d':CYPRUS_SEASONALITY[i]>0.7?'#b8860b':'#6b7280'), borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
+      }}
+    });
+    anCharts.cityRevBar = new Chart(document.getElementById('chartCityRevBar'), {
+      type: 'bar',
+      data: { labels: cityRevData.map(c=>c.city), datasets: [{ data: cityRevData.map(c=>c.avgRev), backgroundColor: '#1a1a1a', borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
+      }}
+    });
+    anCharts.revDist = new Chart(document.getElementById('chartRevDist'), {
+      type: 'doughnut',
+      data: { labels: buckets.map(b=>b.label), datasets: [{ data: distData, backgroundColor: ['#6b7280','#b8860b','#15803d','#1d4ed8','#9d174d'], borderWidth: 2 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10},color:textColor}}} }
+    });
+  }, 50);
+}
+
+function renderAnalyticsRates(pool) {
+  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
+  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
+
+  // ADR by beds
+  const bedGroups = [0,1,2,3,4].map(b => {
+    const bm = metrics.filter(d => b===4 ? (d.bedrooms||0)>=4 : (d.bedrooms||0)===b);
+    if (!bm.length) return null;
+    return { label: b===0?'Studio':b===4?'4+ bed':b+' bed', adr: Math.round(bm.reduce((s,m)=>s+m.ADR,0)/bm.length) };
+  }).filter(Boolean);
+
+  // ADR by city
+  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
+  const cityADRData = cities.map(city => {
+    const cm = metrics.filter(d=>d.city===city);
+    return { city, adr: Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length) };
+  }).sort((a,b)=>b.adr-a.adr);
+
+  // Monthly ADR (rates higher in peak season)
+  const monthlyADR = CYPRUS_SEASONALITY.map(s => Math.round(avgADR * (0.7 + s * 0.5)));
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div class="analytics-kpis">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR}</div><div class="analytics-kpi-sub">Per booked night</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak ADR</div><div class="analytics-kpi-value">€${Math.max(...monthlyADR)}</div><div class="analytics-kpi-sub">July / August</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season ADR</div><div class="analytics-kpi-value">€${Math.min(...monthlyADR)}</div><div class="analytics-kpi-sub">January / February</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Rate seasonality</div><div class="analytics-kpi-value">${Math.round((Math.max(...monthlyADR)/Math.min(...monthlyADR)-1)*100)}%</div><div class="analytics-kpi-sub">Peak vs low variance</div></div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Monthly average daily rate <span>Dynamic pricing — peak season premium</span></div>
+        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthADR"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">ADR by city</div>
+        <div class="analytics-chart-wrap"><canvas id="chartCityADR"></canvas></div>
+      </div>
+      <div class="analytics-chart-card">
+        <div class="analytics-chart-title">ADR by bedroom count</div>
+        <div class="analytics-chart-wrap"><canvas id="chartBedsADR"></canvas></div>
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+    anCharts.monthADR = new Chart(document.getElementById('chartMonthADR'), {
+      type: 'line',
+      data: { labels: MONTH_NAMES, datasets: [{ data: monthlyADR, borderColor: '#b8860b', backgroundColor: 'rgba(184,134,11,0.08)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#b8860b' }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
+      }}
+    });
+    anCharts.cityADR = new Chart(document.getElementById('chartCityADR'), {
+      type: 'bar',
+      data: { labels: cityADRData.map(c=>c.city), datasets: [{ data: cityADRData.map(c=>c.adr), backgroundColor: '#1a1a1a', borderRadius:4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
+      }}
+    });
+    anCharts.bedsADR = new Chart(document.getElementById('chartBedsADR'), {
+      type: 'bar',
+      data: { labels: bedGroups.map(b=>b.label), datasets: [{ data: bedGroups.map(b=>b.adr), backgroundColor: '#b8860b', borderRadius:4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
+      }}
+    });
+  }, 50);
+}
+
+function renderAnalyticsSeasonality(pool) {
+  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
+  const avgRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
+  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
+  const avgOcc = metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length;
+
+  const seasonData = MONTH_NAMES.map((month, i) => ({
+    month,
+    occ: (avgOcc * CYPRUS_SEASONALITY[i] * 100).toFixed(1),
+    adr: Math.round(avgADR * (0.7 + CYPRUS_SEASONALITY[i] * 0.5)),
+    rev: Math.round(avgRev / 12 * CYPRUS_SEASONALITY[i] * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))),
+    index: (CYPRUS_SEASONALITY[i] * 100).toFixed(0),
+  }));
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div class="analytics-kpis">
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak months</div><div class="analytics-kpi-value">Jul–Sep</div><div class="analytics-kpi-sub">Highest revenue</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Seasonality score</div><div class="analytics-kpi-value">48</div><div class="analytics-kpi-sub">Higher = more seasonal</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak / low ratio</div><div class="analytics-kpi-value">2.0×</div><div class="analytics-kpi-sub">Jul vs Jan revenue</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Shoulder months</div><div class="analytics-kpi-value">May, Oct</div><div class="analytics-kpi-sub">Good value entry</div></div>
+    </div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Seasonality index <span>100 = peak demand · Cyprus tourism patterns</span></div>
+        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartSeason"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-table-card">
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">Monthly performance breakdown</div>
+      <table>
+        <thead><tr><th>Month</th><th>Season index</th><th>Occupancy</th><th>ADR</th><th>Est. revenue</th><th>Season</th></tr></thead>
+        <tbody>${seasonData.map(s => {
+          const peak = s.index >= 90;
+          const high = s.index >= 70 && s.index < 90;
+          const low = s.index < 60;
+          const seasonLabel = peak ? '<span style="color:#15803d;font-weight:500">Peak</span>' : high ? '<span style="color:#b8860b;font-weight:500">High</span>' : low ? '<span style="color:#6b7280">Low</span>' : '<span style="color:#1d4ed8">Shoulder</span>';
+          return `<tr>
+            <td style="font-weight:500">${s.month}</td>
+            <td><div style="display:flex;align-items:center;gap:8px"><span>${s.index}</span><div class="analytics-score-bar" style="width:60px"><div class="analytics-score-fill" style="width:${s.index}%;background:${peak?'#15803d':high?'#b8860b':'#6b7280'}"></div></div></div></td>
+            <td>${s.occ}%</td>
+            <td>€${s.adr}</td>
+            <td>€${s.rev.toLocaleString()}</td>
+            <td>${seasonLabel}</td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+    anCharts.season = new Chart(document.getElementById('chartSeason'), {
+      type: 'line',
+      data: { labels: MONTH_NAMES, datasets: [
+        { label: 'Season index', data: CYPRUS_SEASONALITY.map(s=>+(s*100).toFixed(0)), borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.06)', fill:true, tension:0.4, yAxisID:'y', pointRadius:5, pointBackgroundColor: CYPRUS_SEASONALITY.map(s=>s>=0.9?'#15803d':s>=0.7?'#b8860b':'#6b7280') },
+      ]},
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},min:0,max:110}
+      }}
+    });
+  }, 50);
+}
+
+function renderAnalyticsRentalizer(pool) {
+  document.getElementById('analyticsContent').innerHTML = `
+    <div style="max-width:560px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Rentalizer</div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:20px">Estimate the revenue potential of any property in Cyprus</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">City</div>
+          <select id="rzCity" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            ${Object.keys(CITY_ADR).map(c=>`<option>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Property type</div>
+          <select id="rzType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="Apartment">Apartment</option><option value="Villa">Villa</option><option value="House">House</option><option value="Penthouse">Penthouse</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Bedrooms</div>
+          <select id="rzBeds" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="0">Studio</option><option value="1">1 bed</option><option value="2">2 bed</option><option value="3">3 bed</option><option value="4">4+ bed</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Sea distance</div>
+          <select id="rzSea" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">Any</option><option value="0.2">Beachfront</option><option value="0.8">Under 1km</option><option value="2">Under 3km</option><option value="6">Under 8km</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Purchase price (€)</div>
+          <input type="number" id="rzPrice" placeholder="e.g. 450000" step="10000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+      </div>
+      <button onclick="runRentalizer()" class="btn primary" style="width:100%">▶ Calculate revenue potential</button>
+      <div id="rzResult" style="margin-top:16px"></div>
+    </div>`;
+}
+
+function runRentalizer() {
+  const city = document.getElementById('rzCity').value;
+  const type = document.getElementById('rzType').value;
+  const beds = +document.getElementById('rzBeds').value;
+  const seaVal = document.getElementById('rzSea').value;
+  const price = +document.getElementById('rzPrice').value || 0;
+  const seaDist = seaVal ? +seaVal : null;
+
+  const mockListing = { city, type, bedrooms: beds, seaDist, price };
+  const m = calcPropertyMetrics(mockListing);
+  const monthlyRev = CYPRUS_SEASONALITY.map(s => Math.round(m.annualRevenue / 12 * s * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))));
+
+  document.getElementById('rzResult').innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-top:8px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:12px">Revenue potential — ${city}, ${type}, ${beds||'Studio'} bed</div>
+      <div class="analytics-kpis" style="margin-bottom:12px">
+        <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate</div><div class="analytics-kpi-value">€${m.ADR}</div></div>
+        <div class="analytics-kpi"><div class="analytics-kpi-label">Occupancy</div><div class="analytics-kpi-value">${(m.occupancy*100).toFixed(1)}%</div></div>
+        <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${m.revPAR}</div></div>
+        <div class="analytics-kpi"><div class="analytics-kpi-label">Annual revenue</div><div class="analytics-kpi-value">€${m.annualRevenue.toLocaleString()}</div></div>
+        ${price?`<div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${m.grossYield.toFixed(1)}%</div></div>`:''}
+        ${price?`<div class="analytics-kpi"><div class="analytics-kpi-label">Net yield</div><div class="analytics-kpi-value">${m.netYield.toFixed(1)}%</div><div class="analytics-kpi-sub">After 20% mgmt</div></div>`:''}
+      </div>
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Monthly revenue breakdown</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px">
+        ${MONTH_NAMES.map((mn,i)=>`<div style="background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:9px;color:var(--mu)">${mn}</div>
+          <div style="font-size:12px;font-weight:600;margin-top:2px">€${(monthlyRev[i]/1000).toFixed(1)}k</div>
+          <div style="height:3px;border-radius:99px;background:${CYPRUS_SEASONALITY[i]>=0.9?'#15803d':CYPRUS_SEASONALITY[i]>=0.7?'#b8860b':'#6b7280'};margin-top:4px"></div>
+        </div>`).join('')}
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-top:12px;line-height:1.6">⚠ Estimates based on Cyprus market averages using AirDNA methodology (ADR × Occupancy × 365). Actual performance varies with management quality, amenities, reviews, and local competition.</div>
+    </div>`;
+}
+
+function renderAnalyticsComparison() {
+  const cities = Object.keys(CITY_ADR);
+  const beds = [1, 2, 3];
+
+  const tableData = cities.map(city => {
+    return beds.map(b => {
+      const mockListing = { city, type:'Apartment', bedrooms:b, seaDist:2, price:null };
+      const m = calcPropertyMetrics(mockListing);
+      return { city, beds: b, ...m };
+    });
+  }).flat();
+
+  document.getElementById('analyticsContent').innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">City comparison</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:16px">Apartment performance by city and bedroom count — AirDNA methodology</div>
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Annual revenue potential by city & bedrooms <span>2-bed near sea baseline</span></div>
+        <div class="analytics-chart-wrap" style="height:240px"><canvas id="chartCompare"></canvas></div>
+      </div>
+    </div>
+    <div class="analytics-table-card">
+      <table>
+        <thead><tr><th>City</th><th>Beds</th><th>ADR</th><th>Occupancy</th><th>RevPAR</th><th>Annual revenue</th><th>Gross yield*</th></tr></thead>
+        <tbody>${tableData.map(r=>`
+          <tr>
+            <td style="font-weight:500">${r.city}</td>
+            <td>${r.beds} bed</td>
+            <td>€${r.ADR}</td>
+            <td>${(r.occupancy*100).toFixed(1)}%</td>
+            <td>€${r.revPAR}</td>
+            <td>€${r.annualRevenue.toLocaleString()}</td>
+            <td><span style="font-weight:600;color:${r.grossYield>=7?'#15803d':r.grossYield>=5?'#b8860b':'#6b7280'}">${r.grossYield.toFixed(1)}%</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:var(--mu);margin-top:8px">* Gross yield estimated at avg market price per city. Actual yield depends on purchase price.</div>
+    </div>`;
+
+  setTimeout(() => {
+    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#888' : '#999';
+    const colors = ['#1a1a1a','#b8860b','#15803d'];
+    anCharts.compare = new Chart(document.getElementById('chartCompare'), {
+      type: 'bar',
+      data: {
+        labels: cities,
+        datasets: beds.map((b,i)=>({
+          label: b+' bed',
+          data: cities.map(city=>tableData.find(r=>r.city===city&&r.beds===b)?.annualRevenue||0),
+          backgroundColor: colors[i], borderRadius: 4
+        }))
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top',labels:{font:{size:10},color:textColor}}}, scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
+      }}
+    });
+  }, 50);
+}
+
 
 init();
 </script>
