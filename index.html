@@ -463,12 +463,22 @@ tr:hover td{background:var(--bg2)}
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Total investment budget</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbBudgetGroup">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="pbBudgetGroup">
             <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="500000">Under €500k</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="1000000">€500k–€1M</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="2000000">€1M–€2M</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="5000000">€2M–€5M</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbBudget')" data-val="99000000">€5M+</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--mu);white-space:nowrap">Custom budget:</span>
+            <div style="display:flex;align-items:center;gap:3px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);padding:0 8px;height:32px">
+              <span style="font-size:12px;color:var(--mu)">€</span>
+              <input type="number" id="pbCustomBudget" placeholder="e.g. 700000" min="50000" step="25000"
+                oninput="pbSetCustomBudget(this.value)"
+                style="width:110px;border:none;background:transparent;font-size:12px;color:var(--tx);outline:none;padding:0">
+            </div>
+            <span id="pbBudgetDisplay" style="font-size:12px;font-weight:500;color:var(--tx)"></span>
           </div>
         </div>
         <div>
@@ -476,6 +486,7 @@ tr:hover td{background:var(--bg2)}
           <div style="display:flex;gap:6px;flex-wrap:wrap" id="pbStrategyGroup">
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Short-term rental — Airbnb</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Long-term rental — steady income</button>
+            <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Mixed — ST + LT blend</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Growth — capital appreciation</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Balanced — yield + growth</button>
             <button class="crit-btn" onclick="pbToggle(this,'pbStrategy')">Diversified — spread risk</button>
@@ -534,7 +545,23 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <button onclick="buildPortfolio()" class="btn primary">✦ Build Portfolio</button>
+        <button onclick="toggleAdvancedTuning()" class="btn" id="pbAdvancedBtn">⚙ Advanced tuning</button>
         <div style="font-size:11px;color:var(--mu)" id="pbStatus"></div>
+      </div>
+      <!-- Advanced tuning panel -->
+      <div id="pbAdvancedPanel" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--tx)">⚙ Advanced scoring weights</div>
+            <div style="font-size:11px;color:var(--mu);margin-top:2px">Drag sliders to adjust how each factor is weighted. Weights are auto-normalised.</div>
+          </div>
+          <button onclick="resetAdvancedWeights()" style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer">↺ Reset to defaults</button>
+        </div>
+        <div id="pbWeightSliders"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">
+          <div style="font-size:12px;color:var(--mu)">Total weight: <b id="pbWeightTotal" style="color:var(--tx)">100%</b></div>
+          <button onclick="buildPortfolio()" class="btn primary" style="font-size:11px">✦ Rebuild with these weights</button>
+        </div>
       </div>
       <div id="pbOutput"><div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div></div>
     </div>
@@ -1826,11 +1853,31 @@ function pbToggle(btn, key) {
   btn.parentElement.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   const val = btn.dataset.val || btn.textContent.trim();
-  if (key === 'pbBudget') pbCriteria.budget = +val;
+  if (key === 'pbBudget') {
+    pbCriteria.budget = +val;
+    // Clear custom input when a preset is selected
+    const ci = document.getElementById('pbCustomBudget');
+    if (ci) ci.value = '';
+    const bd = document.getElementById('pbBudgetDisplay');
+    if (bd) bd.textContent = '';
+  }
   else if (key === 'pbAssets') pbCriteria.assets = +val;
   else if (key === 'pbStrategy') pbCriteria.strategy = val;
   else if (key === 'pbRisk') pbCriteria.risk = val;
   else if (key === 'pbSea') pbCriteria.sea = +val;
+}
+
+function pbSetCustomBudget(val) {
+  const n = parseInt(val.replace(/[^0-9]/g, ''));
+  if (!n || n < 50000) {
+    pbCriteria.budget = null;
+    document.getElementById('pbBudgetDisplay').textContent = '';
+    return;
+  }
+  pbCriteria.budget = n;
+  // Deselect preset buttons
+  document.querySelectorAll('#pbBudgetGroup .crit-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('pbBudgetDisplay').textContent = '→ €' + n.toLocaleString();
 }
 
 function pbMulti(btn, key) {
@@ -1845,23 +1892,139 @@ function resetPortfolioBuilder() {
   document.getElementById('pbName').value = '';
   document.getElementById('pbNotes').value = '';
   document.getElementById('pbStatus').textContent = '';
+  const ci = document.getElementById('pbCustomBudget');
+  if (ci) ci.value = '';
+  const bd = document.getElementById('pbBudgetDisplay');
+  if (bd) bd.textContent = '';
   document.querySelectorAll('#pPortfolio .crit-btn.on').forEach(b => b.classList.remove('on'));
   Object.assign(pbCriteria, { budget: null, strategy: null, assets: 2, cities: [], types: [], risk: null, sea: null });
   document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">Fill in the investor profile above and click Build Portfolio.</div>';
 }
 
+// ── Advanced tuning ───────────────────────────────────────────
+let pbCustomWeights = null; // null = use strategy defaults
+
+const PB_WEIGHT_LABELS = {
+  yield:        { label: 'Rental yield',          icon: '💰', desc: 'How much the property earns as a % of price' },
+  appreciation: { label: 'Capital appreciation',  icon: '📈', desc: 'Expected price growth over time' },
+  sea:          { label: 'Sea proximity',          icon: '🌊', desc: 'Distance to the nearest beach' },
+  efficiency:   { label: 'Price efficiency',       icon: '💡', desc: '€/m² vs city average — value for money' },
+  diversity:    { label: 'Portfolio diversity',    icon: '🗺',  desc: 'Spread across cities and property types' },
+};
+
+function toggleAdvancedTuning() {
+  const panel = document.getElementById('pbAdvancedPanel');
+  const btn = document.getElementById('pbAdvancedBtn');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  btn.textContent = isOpen ? '⚙ Advanced tuning' : '▲ Hide tuning';
+  if (!isOpen) renderWeightSliders();
+}
+
+function getDefaultWeights() {
+  const strategy = pbCriteria.strategy || '';
+  const isST = strategy.includes('Short-term');
+  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+  const isMixed = strategy.includes('Mixed');
+  const isGrowth = strategy.includes('Growth');
+  const isBalanced = strategy.includes('Balanced');
+  return isST      ? {yield:45,appreciation:15,sea:25,efficiency:10,diversity:5}
+       : isLT      ? {yield:55,appreciation:10,sea:10,efficiency:20,diversity:5}
+       : isMixed   ? {yield:48,appreciation:12,sea:18,efficiency:15,diversity:7}
+       : isGrowth  ? {yield:10,appreciation:50,sea:22,efficiency:10,diversity:8}
+       : isBalanced? {yield:35,appreciation:28,sea:18,efficiency:10,diversity:9}
+       :             {yield:22,appreciation:18,sea:15,efficiency:10,diversity:35};
+}
+
+function renderWeightSliders() {
+  const weights = pbCustomWeights || getDefaultWeights();
+  const container = document.getElementById('pbWeightSliders');
+  container.innerHTML = Object.entries(PB_WEIGHT_LABELS).map(([key, meta]) => `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:14px">${meta.icon}</span>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--tx)">${meta.label}</div>
+            <div style="font-size:10px;color:var(--mu)">${meta.desc}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span id="wval-${key}" style="font-size:13px;font-weight:700;color:var(--tx);min-width:36px;text-align:right">${weights[key]}%</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:6px;background:var(--bd);border-radius:99px;position:relative;cursor:pointer" onclick="pbSliderClick(event,'${key}')">
+          <div id="wbar-${key}" style="height:100%;background:var(--tx);border-radius:99px;transition:width .15s;width:${Math.min(100,weights[key]*2)}%"></div>
+        </div>
+        <input type="range" id="wslider-${key}" min="0" max="50" step="1" value="${weights[key]}"
+          oninput="pbWeightChange('${key}', this.value)"
+          style="width:120px;accent-color:var(--tx)">
+      </div>
+    </div>
+  `).join('');
+  updateWeightTotal();
+}
+
+function pbWeightChange(key, val) {
+  if (!pbCustomWeights) pbCustomWeights = {...getDefaultWeights()};
+  pbCustomWeights[key] = +val;
+  const bar = document.getElementById('wbar-'+key);
+  const label = document.getElementById('wval-'+key);
+  if (bar) bar.style.width = Math.min(100, +val*2) + '%';
+  if (label) label.textContent = val + '%';
+  updateWeightTotal();
+}
+
+function updateWeightTotal() {
+  const weights = pbCustomWeights || getDefaultWeights();
+  const total = Object.values(weights).reduce((s,v) => s+v, 0);
+  const el = document.getElementById('pbWeightTotal');
+  if (el) {
+    el.textContent = total + '%';
+    el.style.color = total === 100 ? 'var(--tx)' : total > 100 ? 'var(--red)' : 'var(--gold)';
+  }
+}
+
+function resetAdvancedWeights() {
+  pbCustomWeights = null;
+  renderWeightSliders();
+}
+
+
+// ── Global portfolio state (allows mutation after build) ──
+const pbPortfolio = { selected: [], pool: [], strategy: null, risk: null, budget: null };
+
 function scoreAsset(d, strategy, risk, portfolio, budget) {
   const isST = strategy.includes('Short-term');
-  const isLT = strategy.includes('Long-term');
+  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
+  const isMixed = strategy.includes('Mixed');
   const isGrowth = strategy.includes('Growth');
   const isBalanced = strategy.includes('Balanced');
   const isDiversified = strategy.includes('Diversified');
-  const w = isST        ? {yield:0.45,appreciation:0.15,sea:0.25,efficiency:0.10,diversity:0.05}
-          : isLT        ? {yield:0.55,appreciation:0.10,sea:0.10,efficiency:0.20,diversity:0.05}
-          : isGrowth    ? {yield:0.10,appreciation:0.50,sea:0.22,efficiency:0.10,diversity:0.08}
-          : isBalanced  ? {yield:0.35,appreciation:0.28,sea:0.18,efficiency:0.10,diversity:0.09}
-          :               {yield:0.22,appreciation:0.18,sea:0.15,efficiency:0.10,diversity:0.35};
-  const purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : isGrowth ? 'Own use' : 'Long-term rental';
+  // Use custom weights if set, otherwise strategy defaults
+  const _wDefault = isST     ? {yield:0.45,appreciation:0.15,sea:0.25,efficiency:0.10,diversity:0.05}
+          : isLT             ? {yield:0.55,appreciation:0.10,sea:0.10,efficiency:0.20,diversity:0.05}
+          : isMixed          ? {yield:0.48,appreciation:0.12,sea:0.18,efficiency:0.15,diversity:0.07}
+          : isGrowth         ? {yield:0.10,appreciation:0.50,sea:0.22,efficiency:0.10,diversity:0.08}
+          : isBalanced       ? {yield:0.35,appreciation:0.28,sea:0.18,efficiency:0.10,diversity:0.09}
+          :                    {yield:0.22,appreciation:0.18,sea:0.15,efficiency:0.10,diversity:0.35};
+  // Normalize custom weights to fractions summing to 1
+  let w;
+  if (pbCustomWeights) {
+    const total = Object.values(pbCustomWeights).reduce((s,v)=>s+v,0)||100;
+    w = Object.fromEntries(Object.entries(pbCustomWeights).map(([k,v])=>[k,v/total]));
+  } else {
+    w = _wDefault;
+  }
+  // For mixed strategy, alternate purpose to create natural ST/LT spread
+  const portfolioST = portfolio.filter(x => x._purpose === 'Short-term rental').length;
+  const portfolioLT = portfolio.filter(x => x._purpose === 'Long-term rental').length;
+  const purpose = isST ? 'Short-term rental'
+                : isLT ? 'Long-term rental'
+                : isMixed ? (portfolioST <= portfolioLT ? 'Short-term rental' : 'Long-term rental')
+                : isGrowth ? 'Own use'
+                : 'Long-term rental';
   const yPct = estimateYield(d, purpose);
   const yieldScore = Math.min(100, (yPct/10)*100);
   // ST: tourist cities score higher; LT: business cities score higher
@@ -1958,23 +2121,29 @@ function buildPortfolio() {
     return;
   }
 
-  const selected = [];
+  pbPortfolio.selected = [];
+  pbPortfolio.pool = pool;
+  pbPortfolio.strategy = strategy;
+  pbPortfolio.risk = risk;
+  pbPortfolio.budget = budget;
+  const selected = pbPortfolio.selected;
   const getRemaining = () => budget - selected.reduce((s,x) => s+(x.price||0), 0);
   const getAvailable = () => pool.filter(d => !selected.find(x => x.id === d.id) && (d.price||0) <= getRemaining());
 
   while (getAvailable().length > 0) {
     const remaining = getRemaining();
-    if (remaining < budget * 0.06) break;
+    if (remaining < budget * 0.04) break;
     const used = 1 - remaining / budget;
-    if (selected.length >= maxAssets && used >= 0.75) break;
-    if (selected.length >= maxAssets * 3) break;
+    if (selected.length >= maxAssets && used >= 0.88) break;
+    if (selected.length >= maxAssets * 4) break;
     const candidates = getAvailable().map(d => {
       const {total, yPct} = scoreAsset(d, strategy, risk, selected, budget);
       const purpose = strategy.includes('Income') ? 'Long-term rental' : strategy.includes('Growth') ? 'Own use' : 'Long-term rental';
       return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100)};
     }).sort((a,b) => b.score - a.score);
     if (!candidates.length) break;
-    selected.push(candidates[0]);
+    const chosen = {...candidates[0], _purpose: purpose};
+    selected.push(chosen);
   }
 
   if (!selected.length) {
@@ -1982,6 +2151,10 @@ function buildPortfolio() {
     return;
   }
 
+  pbRebuildOutput();
+}
+
+function _buildPortfolioOutputUnused(selected, strategy, risk, budget, pool) {
   const name = document.getElementById('pbName').value.trim() || 'Investor';
   const notes = document.getElementById('pbNotes').value.trim();
   const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
@@ -1992,12 +2165,15 @@ function buildPortfolio() {
   const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
     const ca = selected.filter(d=>d.city===city);
     const cp = ca.reduce((s,d)=>s+(d.price||0),0);
-    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${ca.length} asset${ca.length!==1?'s':''} · €${cp.toLocaleString()}</div></div></div>`;
+    const stCount = ca.filter(x=>x._purpose==='Short-term rental').length;
+    const ltCount = ca.filter(x=>x._purpose==='Long-term rental').length;
+    const purposeNote = stCount&&ltCount ? `${stCount} ST · ${ltCount} LT` : stCount ? `${stCount} ST` : ltCount ? `${ltCount} LT` : `${ca.length} asset${ca.length!==1?'s':''}`;
+    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${purposeNote} · €${cp.toLocaleString()}</div></div></div>`;
   }).join('');
 
   const cards = selected.map((d,i) => `
     <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
-      <div class="portfolio-card-role">Asset ${i+1}</div>
+      <div style="display:flex;gap:4px;margin-bottom:8px"><div class="portfolio-card-role">Asset ${i+1}</div>${d._purpose?'<div class="portfolio-card-role" style="background:var(--bg2);border-color:var(--gold);color:var(--gold)">'+d._purpose+'</div>':''}</div>
       <div class="portfolio-card-title">${d.title||'—'}</div>
       <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
       <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
@@ -2005,6 +2181,7 @@ function buildPortfolio() {
       <div style="margin:4px 0;display:flex;gap:4px;flex-wrap:wrap">
         ${d.seaDist!=null?seaBadge(d.seaDist):''}
         ${(d.price||0)>=300000?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#15803d">PR eligible</span>':''}
+        <span style="font-size:9px;color:var(--mu);font-style:italic">+19% VAT if new build</span>
       </div>
       <div class="portfolio-mini-grid">
         <div class="portfolio-mini"><div class="portfolio-mini-label">Net yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
@@ -2012,12 +2189,16 @@ function buildPortfolio() {
         ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
         <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
       </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button onclick="event.stopPropagation();pbRemoveAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>
+        <button onclick="event.stopPropagation();pbSwapAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">↻ Suggest alternatives</button>
+      </div>
     </div>`).join('');
 
   document.getElementById('pbOutput').innerHTML = `
     <div class="portfolio-shell">
       <div class="portfolio-head">
-        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy.split('—')[0].trim()} strategy · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
       </div>
       <div class="portfolio-grid">
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
@@ -2025,7 +2206,10 @@ function buildPortfolio() {
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${budget.toLocaleString()}</div></div>
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Net after mgmt fees</div></div>
         <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Gross rental est.</div></div>
-        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees / reserves</div></div>
+        ${(()=>{const st=selected.filter(x=>x._purpose==='Short-term rental').length;const lt=selected.filter(x=>x._purpose==='Long-term rental').length;return st||lt?`<div class="portfolio-kpi"><div class="portfolio-kpi-label">Rental split</div><div class="portfolio-kpi-value">${st} ST · ${lt} LT</div><div class="portfolio-kpi-sub">Short vs long-term</div></div>`:'';})()}
+        <div class="portfolio-kpi" style="border:1px solid rgba(231,76,60,.25);background:rgba(231,76,60,.04)"><div class="portfolio-kpi-label" style="color:var(--red)">VAT exposure</div><div class="portfolio-kpi-value" style="color:var(--red)">€${Math.round(totalPrice*0.19).toLocaleString()}</div><div class="portfolio-kpi-sub">If all new builds @ 19%</div></div>
+        <div class="portfolio-kpi" style="border:1px solid rgba(184,134,11,.25);background:rgba(184,134,11,.04)"><div class="portfolio-kpi-label" style="color:var(--gold)">Total outlay</div><div class="portfolio-kpi-value" style="color:var(--gold)">€${Math.round(totalPrice*1.19).toLocaleString()}</div><div class="portfolio-kpi-sub">Purchase + VAT (worst case)</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0">
         <div class="intel-card"><div class="intel-card-title"><span>🏙</span> City allocation</div>${cityBreakdown}</div>
@@ -2037,6 +2221,165 @@ function buildPortfolio() {
       </div>
     </div>`;
 }
+
+// ── Portfolio asset management ────────────────────────────────
+function pbRemoveAsset(id) {
+  pbPortfolio.selected = pbPortfolio.selected.filter(x => x.id !== id);
+  pbRebuildOutput();
+}
+
+function pbSwapAsset(id) {
+  const { selected, pool, strategy, risk, budget } = pbPortfolio;
+  const asset = selected.find(x => x.id === id);
+  if (!asset) return;
+  const remaining = selected.filter(x => x.id !== id);
+  const usedBudget = remaining.reduce((s,x) => s+(x.price||0), 0);
+  const sliceBudget = usedBudget + (asset.price||0); // budget available for this slot
+  const maxPrice = sliceBudget - usedBudget;
+
+  // Score all alternatives (not already in portfolio, fits in budget)
+  const alternatives = pool
+    .filter(d => !selected.find(x => x.id === d.id) && (d.price||0) <= maxPrice)
+    .map(d => {
+      const {total, yPct} = scoreAsset(d, strategy, risk, remaining, budget);
+      const purpose = strategy.includes('Short-term') ? 'Short-term rental'
+                    : strategy.includes('Long-term') && !strategy.includes('Mixed') ? 'Long-term rental'
+                    : 'Long-term rental';
+      return {...d, score: total, estimatedYield: yPct, estimatedAnnualIncome: (d.price||0)*(yPct/100), _purpose: purpose};
+    })
+    .sort((a,b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (!alternatives.length) {
+    alert('No suitable alternatives found within this budget slot.');
+    return;
+  }
+
+  // Show alternatives panel inline
+  const cardEl = document.querySelector(`[onclick*="openModal(${id})"]`);
+  if (!cardEl) return;
+
+  const altHtml = `<div style="border:1px solid var(--gold);border-radius:10px;padding:14px;background:rgba(184,134,11,.04);margin-top:8px">
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:10px">↻ 3 Suggested alternatives</div>
+    ${alternatives.map((a,i) => `
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer" onclick="pbReplaceAsset(${id}, ${a.id})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:2px">${a.title||'—'}</div>
+            <div style="font-size:11px;color:var(--mu)">${a.developer||'—'} · ${a.city||'—'}${a.district?', '+a.district:''}</div>
+            <div style="font-size:11px;color:var(--mu)">${a.type||'—'}${a.bedrooms!=null?' · '+a.bedrooms+' bed':''}${a.area!=null?' · '+a.area+' m²':''}</div>
+            ${a.seaDist!=null?'<div style="margin-top:4px">'+seaBadge(a.seaDist)+'</div>':''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:16px;font-weight:700">€${(a.price||0).toLocaleString()}</div>
+            <div style="font-size:11px;color:#15803d;font-weight:500">${a.estimatedYield.toFixed(1)}% net yield</div>
+            <div style="font-size:10px;color:var(--mu)">€${Math.round(a.estimatedAnnualIncome).toLocaleString()}/yr</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--gold);font-weight:500">↻ Use this instead</div>
+      </div>`).join('')}
+    <button onclick="event.stopPropagation();this.parentElement.remove()" style="width:100%;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer;margin-top:4px">Cancel</button>
+  </div>`;
+
+  // Insert after the card
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = altHtml;
+  cardEl.parentElement.insertBefore(wrapper, cardEl.nextSibling);
+}
+
+function pbReplaceAsset(oldId, newId) {
+  const { selected, pool, strategy, risk, budget } = pbPortfolio;
+  const newAsset = pool.find(x => x.id === newId);
+  if (!newAsset) return;
+  const idx = selected.findIndex(x => x.id === oldId);
+  if (idx === -1) return;
+  const purpose = strategy.includes('Short-term') ? 'Short-term rental'
+                : strategy.includes('Long-term') && !strategy.includes('Mixed') ? 'Long-term rental'
+                : 'Long-term rental';
+  const remaining = selected.filter(x => x.id !== oldId);
+  const {total, yPct} = scoreAsset(newAsset, strategy, risk, remaining, budget);
+  const enriched = {...newAsset, score: total, estimatedYield: yPct, estimatedAnnualIncome: (newAsset.price||0)*(yPct/100), _purpose: purpose};
+  pbPortfolio.selected = [...remaining.slice(0, idx), enriched, ...remaining.slice(idx)];
+  pbRebuildOutput();
+}
+
+function pbRebuildOutput() {
+  const { selected, strategy, risk, budget } = pbPortfolio;
+  if (!selected.length) {
+    document.getElementById('pbOutput').innerHTML = '<div class="empty" style="padding:2rem">All assets removed. Click Build Portfolio to start again.</div>';
+    return;
+  }
+  const name = document.getElementById('pbName').value.trim() || 'Investor';
+  const notes = document.getElementById('pbNotes').value.trim();
+  const totalPrice = selected.reduce((s,d) => s+(d.price||0), 0);
+  const totalIncome = selected.reduce((s,d) => s+(d.estimatedAnnualIncome||0), 0);
+  const blendedYield = totalPrice ? (totalIncome/totalPrice)*100 : 0;
+  const leftover = budget - totalPrice;
+  const cityBreakdown = [...new Set(selected.map(d=>d.city).filter(Boolean))].map(city => {
+    const ca = selected.filter(d=>d.city===city);
+    const cp = ca.reduce((s,d)=>s+(d.price||0),0);
+    const stCount = ca.filter(x=>x._purpose==='Short-term rental').length;
+    const ltCount = ca.filter(x=>x._purpose==='Long-term rental').length;
+    const purposeNote = stCount&&ltCount?`${stCount} ST · ${ltCount} LT`:stCount?`${stCount} ST`:ltCount?`${ltCount} LT`:`${ca.length} asset${ca.length!==1?'s':''}`;
+    return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${purposeNote} · €${cp.toLocaleString()}</div></div></div>`;
+  }).join('');
+  const cards = selected.map((d,i) => `
+    <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <div class="portfolio-card-role">Asset ${i+1}</div>
+        ${d._purpose?`<div class="portfolio-card-role" style="background:var(--bg2);border-color:var(--gold);color:var(--gold)">${d._purpose}</div>`:''}
+      </div>
+      <div class="portfolio-card-title">${d.title||'—'}</div>
+      <div class="portfolio-card-meta">${d.developer||'—'} · ${d.city||'—'}${d.district?', '+d.district:''}</div>
+      <div class="portfolio-card-meta">${d.type||'—'}${d.bedrooms!=null?' · '+d.bedrooms+' bed':''}${d.area!=null?' · '+d.area+' m²':''}</div>
+      <div class="portfolio-card-price">€${(d.price||0).toLocaleString()}</div>
+      <div style="margin:4px 0;display:flex;gap:4px;flex-wrap:wrap">
+        ${d.seaDist!=null?seaBadge(d.seaDist):''}
+        ${(d.price||0)>=300000?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#dcfce7;color:#15803d">PR eligible</span>':''}
+        <span style="font-size:9px;color:var(--mu);font-style:italic">+19% VAT if new build</span>
+      </div>
+      <div class="portfolio-mini-grid">
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net yield</div><div class="portfolio-mini-value">${d.estimatedYield.toFixed(1)}%</div></div>
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Net annual income</div><div class="portfolio-mini-value">€${Math.round(d.estimatedAnnualIncome).toLocaleString()}</div></div>
+        ${d.ppm!=null?`<div class="portfolio-mini"><div class="portfolio-mini-label">€/m²</div><div class="portfolio-mini-value">€${d.ppm.toLocaleString()}</div></div>`:''}
+        <div class="portfolio-mini"><div class="portfolio-mini-label">Score</div><div class="portfolio-mini-value">${d.score.toFixed(0)}</div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button onclick="event.stopPropagation();pbRemoveAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>
+        <button onclick="event.stopPropagation();pbSwapAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">↻ Suggest alternatives</button>
+      </div>
+    </div>`).join('');
+
+  const stCount = selected.filter(x=>x._purpose==='Short-term rental').length;
+  const ltCount = selected.filter(x=>x._purpose==='Long-term rental').length;
+
+  document.getElementById('pbOutput').innerHTML = `
+    <div class="portfolio-shell">
+      <div class="portfolio-head">
+        <div><div class="portfolio-title">Portfolio for ${name}</div><div class="portfolio-sub">${strategy} · ${selected.length} assets · ${risk.toLowerCase()} risk</div></div>
+      </div>
+      <div class="portfolio-grid">
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Strategy</div><div class="portfolio-kpi-value">${strategy.split('—')[0].trim()}</div><div class="portfolio-kpi-sub">${risk} risk</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Assets</div><div class="portfolio-kpi-value">${selected.length}</div><div class="portfolio-kpi-sub">from ${pbPortfolio.pool.length.toLocaleString()} matching</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Deployed</div><div class="portfolio-kpi-value">€${totalPrice.toLocaleString()}</div><div class="portfolio-kpi-sub">Budget €${budget.toLocaleString()}</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Blended yield</div><div class="portfolio-kpi-value">${blendedYield.toFixed(1)}%</div><div class="portfolio-kpi-sub">Net after mgmt fees</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Annual income</div><div class="portfolio-kpi-value">€${Math.round(totalIncome).toLocaleString()}</div><div class="portfolio-kpi-sub">Gross rental est.</div></div>
+        <div class="portfolio-kpi"><div class="portfolio-kpi-label">Unallocated</div><div class="portfolio-kpi-value">€${Math.round(leftover).toLocaleString()}</div><div class="portfolio-kpi-sub">Buffer / fees / reserves</div></div>
+        ${stCount||ltCount?`<div class="portfolio-kpi"><div class="portfolio-kpi-label">Rental split</div><div class="portfolio-kpi-value">${stCount} ST · ${ltCount} LT</div><div class="portfolio-kpi-sub">Short vs long-term</div></div>`:''}
+        <div class="portfolio-kpi" style="border:1px solid rgba(231,76,60,.25);background:rgba(231,76,60,.04)"><div class="portfolio-kpi-label" style="color:var(--red)">VAT exposure</div><div class="portfolio-kpi-value" style="color:var(--red)">€${Math.round(totalPrice*0.19).toLocaleString()}</div><div class="portfolio-kpi-sub">If all new builds @ 19%</div></div>
+        <div class="portfolio-kpi" style="border:1px solid rgba(184,134,11,.25);background:rgba(184,134,11,.04)"><div class="portfolio-kpi-label" style="color:var(--gold)">Total outlay</div><div class="portfolio-kpi-value" style="color:var(--gold)">€${Math.round(totalPrice*1.19).toLocaleString()}</div><div class="portfolio-kpi-sub">Purchase + VAT worst case</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0">
+        <div class="intel-card"><div class="intel-card-title"><span>🏙</span> City allocation</div>${cityBreakdown}</div>
+        <div class="intel-card"><div class="intel-card-title"><span>📋</span> Notes</div><div style="font-size:12px;color:var(--tx);line-height:1.7;padding:4px 0">${notes||'No additional notes.'}</div></div>
+      </div>
+      <div class="portfolio-section">
+        <div class="portfolio-section-title">Selected assets — click card to view details · use buttons to remove or swap</div>
+        <div class="portfolio-cards">${cards}</div>
+      </div>
+    </div>`;
+}
+
 
 init();
 </script>
