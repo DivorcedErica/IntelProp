@@ -3346,6 +3346,25 @@ async function getWaybackUrl(url) {
   } catch(e) { return null; }
 }
 
+async function getMementoUrl(url) {
+  try {
+    const r = await fetch(`https://timetravel.mementoweb.org/api/json/${encodeURIComponent(url)}`);
+    const j = await r.json();
+    const uri = j.mementos?.closest?.uri;
+    return uri ? (Array.isArray(uri) ? uri[0] : uri) : null;
+  } catch(e) { return null; }
+}
+
+async function getArchivedUrl(url) {
+  const wb = await getWaybackUrl(url);
+  if (wb) return { url: wb, source: 'Wayback' };
+
+  const mt = await getMementoUrl(url);
+  if (mt) return { url: mt, source: 'Memento' };
+
+  return { url: `https://cc.bingj.com/cache.aspx?url=${encodeURIComponent(url)}&q=${encodeURIComponent(url)}`, source: 'Bing' };
+}
+
 async function fetchAndExtract(url, hint) {
   const res = await fetch('/api/proxy', {
     method: 'POST',
@@ -3379,11 +3398,13 @@ async function enrichListing(d, waybackOnly = false) {
   const hint = [d.title, d.city, d.type, d.bedrooms ? d.bedrooms+' bed' : ''].filter(Boolean).join(' ');
   let enriched = null;
 
-  const waybackUrl = await getWaybackUrl(d.listingUrl);
-  if (waybackUrl) {
-    try { enriched = await fetchAndExtract(waybackUrl, hint); } catch(e) {}
+  // Try archived sources: Wayback → Memento → Bing Cache
+  const archive = await getArchivedUrl(d.listingUrl);
+  if (archive) {
+    try { enriched = await fetchAndExtract(archive.url, hint); } catch(e) {}
   }
 
+  // Live dom.com.cy — on-demand only, not during bulk run
   if (!enriched && !waybackOnly) {
     try { enriched = await fetchAndExtract(d.listingUrl, hint); } catch(e) {}
   }
@@ -3428,7 +3449,8 @@ async function runBulkEnrichment() {
     await new Promise(r => setTimeout(r, 400));
   }
 
-  if (sub) sub.textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
+  const enriched = all.filter(d => d.img1 || d.developer).length;
+  if (sub) sub.textContent = `${all.length.toLocaleString()} listings · ${enriched.toLocaleString()} enriched · ${new Date().toLocaleDateString('en-GB')}`;
 }
 
 function applyEnrichment(d, e) {
