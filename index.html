@@ -2570,11 +2570,15 @@ function syncPropertyToSheets(prop) {
 }
 
 async function readInvestorsFromSheets() {
-  // Column order: InvestorID | Name | Phone | Email | Status | Created | Last Contact | Notes Count | General Notes | Client Type | Budget | Locations | Properties
   try {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Clients`);
-    const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
-    const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    const t = await r.text();
+    console.log('[investors] raw response length:', t.length, 'ok:', r.ok, 'status:', r.status);
+    const m = t.match(/setResponse\(([\s\S]*)\)/);
+    if (!m) { console.warn('[investors] no setResponse match in gviz response'); return; }
+    const json = JSON.parse(m[1]);
+    if (!json.table || !json.table.rows) { console.warn('[investors] no table/rows in gviz JSON', json); return; }
+    console.log('[investors] rows from sheet:', json.table.rows.length);
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
       const invId = +g(0); const name = g(1);
@@ -2599,10 +2603,11 @@ async function readInvestorsFromSheets() {
         if(g(11)){inv.generalNotes=g(11);if(!inv.criteria)inv.criteria={};inv.criteria.notes=g(11);}
       }
     });
+    console.log('[investors] total after merge:', investorProfiles.length);
     saveInvestorProfiles();
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
-  } catch(e) { console.error('readInvestorsFromSheets error:', e); }
+  } catch(e) { console.error('[investors] readInvestorsFromSheets error:', e); }
 }
 
 async function readCommsFromSheets() {
