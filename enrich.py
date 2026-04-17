@@ -26,12 +26,12 @@ import gspread
 SHEET_ID      = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc'
 WORKSHEET_GID = 248082817
 
-COL_LISTING_URL = 18   # column S  — dom.com.cy listing URL
-COL_IMG1        = 13   # column N
-COL_IMG2        = 14   # column O
-COL_IMG3        = 15   # column P
-COL_IMG4        = 16   # column Q
-COL_DELIVERY    = 17   # column R
+COL_LISTING_URL = 17   # column R  — dom.com.cy listing URL (0-indexed)
+COL_IMG1        = 18   # column S  (new)
+COL_IMG2        = 19   # column T  (new)
+COL_IMG3        = 20   # column U  (new)
+COL_IMG4        = 21   # column V  (new)
+COL_DELIVERY    = 22   # column W  (new)
 
 CONCURRENCY   = 6      # parallel Wayback requests
 BATCH_SIZE    = 20     # rows per batch before writing progress
@@ -222,13 +222,13 @@ def main():
         r = u['row']
         i = u['imgs']
         batch_updates += [
-            {'range': f'N{r}', 'values': [[i[0]]]},
-            {'range': f'O{r}', 'values': [[i[1]]]},
-            {'range': f'P{r}', 'values': [[i[2]]]},
-            {'range': f'Q{r}', 'values': [[i[3]]]},
+            {'range': f'S{r}', 'values': [[i[0]]]},
+            {'range': f'T{r}', 'values': [[i[1]]]},
+            {'range': f'U{r}', 'values': [[i[2]]]},
+            {'range': f'V{r}', 'values': [[i[3]]]},
         ]
         if u['delivery']:
-            batch_updates.append({'range': f'R{r}', 'values': [[u['delivery']]]})
+            batch_updates.append({'range': f'W{r}', 'values': [[u['delivery']]]})
 
     for chunk_start in range(0, len(batch_updates), 200):
         ws.batch_update(batch_updates[chunk_start:chunk_start + 200])
