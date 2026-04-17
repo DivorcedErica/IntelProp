@@ -2242,7 +2242,8 @@ function editInvContact(id) {
 
 async function syncInvestorToSheets(inv) {
   if (!APPS_SCRIPT_URL) return;
-  // Column order: InvestorID | Name | Phone | Email | Status | Created | Last Contact | Notes Count | General Notes | Client Type | Budget | Locations | Properties
+  // Column order: InvestorID | Name | Phone | Email | Status | Created On | Last Contact | Client Type | Budget | Locations | Type of Properties | Notes
+  const cr = inv.criteria || {};
   const row = [
     inv.investorId || inv.id,
     inv.name,
@@ -2251,12 +2252,11 @@ async function syncInvestorToSheets(inv) {
     inv.status || 'Active',
     inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',
     inv.lastContact ? new Date(inv.lastContact).toLocaleDateString('en-GB') : '',
-    Object.keys(inv.notes || {}).length,
-    inv.generalNotes || '',
     inv.clientType || '',
-    inv.budget || '',
-    (inv.locations || []).join(', '),
-    Object.values(inv.notes || {}).slice(0,5).map(n => n.note ? n.note.slice(0,30) : '').filter(Boolean).join(' | '),
+    inv.budget || cr.budget || '',
+    (inv.locations && inv.locations.length ? inv.locations : (cr.cities || [])).join(', '),
+    (cr.types || []).join(', '),
+    cr.notes || inv.generalNotes || '',
   ];
   try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row }) }); } catch(e) {}
 }
@@ -2293,19 +2293,23 @@ async function readInvestorsFromSheets() {
       const invId = +g(0); const name = g(1);
       if (!name || name.toLowerCase() === 'name' || isNaN(invId)) return;
       let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+      // Columns: InvestorID(0) Name(1) Phone(2) Email(3) Status(4) Created(5) Last Contact(6) Client Type(7) Budget(8) Locations(9) Type of Properties(10) Notes(11)
       if (!inv) {
         const newId = invId || nextInvestorId();
-        inv = { investorId:newId, id:newId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(8)||'', clientType:g(9)||'', budget:g(10)||null, locations:g(11)?g(11).split(',').map(s=>s.trim()).filter(Boolean):[] };
+        const locs = g(9) ? g(9).split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const types = g(10) ? g(10).split(',').map(s=>s.trim()).filter(Boolean) : [];
+        inv = { investorId:newId, id:newId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
         investorProfiles.push(inv);
       } else {
         if(invId && !inv.investorId){inv.investorId=invId;inv.id=invId;}
         if(g(2)&&!inv.phone)inv.phone=g(2);
         if(g(3)&&!inv.email)inv.email=g(3);
         if(g(4))inv.status=g(4);
-        if(g(8))inv.generalNotes=g(8);
-        if(g(9))inv.clientType=g(9);
-        if(g(10))inv.budget=g(10);
-        if(g(11))inv.locations=g(11).split(',').map(s=>s.trim()).filter(Boolean);
+        if(g(7))inv.clientType=g(7);
+        if(g(8))inv.budget=g(8);
+        if(g(9))inv.locations=g(9).split(',').map(s=>s.trim()).filter(Boolean);
+        if(g(10)){if(!inv.criteria)inv.criteria={};inv.criteria.types=g(10).split(',').map(s=>s.trim()).filter(Boolean);}
+        if(g(11)){inv.generalNotes=g(11);if(!inv.criteria)inv.criteria={};inv.criteria.notes=g(11);}
       }
     });
     saveInvestorProfiles();
