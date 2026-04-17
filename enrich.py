@@ -77,6 +77,29 @@ def get_wayback_url(url: str) -> str | None:
     except Exception:
         return None
 
+def verify_wayback_image(src: str) -> str | None:
+    """Check CDX to confirm an image is actually archived; return im_ URL or None."""
+    # Extract raw dom.com.cy URL from a Wayback path
+    m = re.search(r'/web/\d+[a-z_]*/(.+)', src)
+    raw = m.group(1) if m else (src if src.startswith('http') else None)
+    if not raw or 'dom.com.cy' not in raw:
+        return None
+    params = urllib.parse.urlencode({
+        'url': raw, 'output': 'json', 'limit': 1,
+        'filter': 'statuscode:200', 'fl': 'timestamp,original',
+    })
+    text = http_get(f'https://web.archive.org/cdx/search/cdx?{params}', timeout=10)
+    if not text or text.strip() in ('', '[]'):
+        return None
+    try:
+        rows = json.loads(text)
+        if len(rows) < 2:
+            return None
+        ts, orig = rows[1]
+        return f'https://web.archive.org/web/{ts}im_/{orig}'
+    except Exception:
+        return None
+
 # ── Parse Bitrix listing page ────────────────────────────────────
 WAYBACK_BASE = 'https://web.archive.org'
 
@@ -101,7 +124,7 @@ def parse_page(html: str) -> dict:
     def add_img(src: str):
         if not src or len(images) >= 4:
             return
-        url = to_wayback_img(src)
+        url = verify_wayback_image(src)
         if url and url not in seen:
             seen.add(url)
             images.append(url)
