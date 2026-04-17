@@ -2379,21 +2379,18 @@ function renderInvestorCard(inv) {
   const tdStyle = 'padding:6px 8px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--bd)';
   let assignedPropsHtml = assignedProps.length
     ? '<div style="overflow-x:auto;margin-bottom:4px"><table style="width:100%;border-collapse:collapse">'
-      + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Title</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Beds</th><th style="'+thStyle+'">Area m²</th><th style="'+thStyle+'">Plot m²</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'">€/m²</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'"></th></tr>'
+      + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'">Date</th><th style="'+thStyle+'"></th></tr>'
       + assignedProps.map(function(p){
-          var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥ shortlist</span>' : '';
+          var dateStr = p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—';
+          var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥</span>' : '';
           return '<tr>'
-            +'<td style="'+tdStyle+'">'+(p.developer||'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.title||'—')+fromListing+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.type||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.city||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.district||'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.bedrooms||'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.totalArea||'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.plotSize||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.price?'€'+Number(p.price).toLocaleString():'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.pricePerM2?'€'+Number(p.pricePerM2).toLocaleString():'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+dateStr+'</td>'
             +'<td style="'+tdStyle+'"><button onclick="deleteClientProperty('+p.propertyId+')" style="font-size:11px;background:none;border:1px solid var(--red);border-radius:var(--r);color:var(--red);cursor:pointer;padding:2px 8px">✕</button></td>'
             +'</tr>';
         }).join('')
