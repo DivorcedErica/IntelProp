@@ -2028,7 +2028,7 @@ function gotoTab(t,el){
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
   if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();initAgentField();}
-  if(t==='agents'){renderAgentsTab();readAgentsFromSheets();}
+  if(t==='agents'){renderAgentsTab();readAgentsFromSheets().then(()=>renderAgentsTab());}
   if(t==='clients'||t==='portfolio'){populateClientSelectors();populateAgentSelector();}
 }
 
@@ -2785,6 +2785,7 @@ async function readAgentsFromSheets() {
     });
     saveAgents();
     populateAgentSelector();
+    if (document.getElementById('agentTableWrap')) renderAgentsTab();
   } catch(e) { /* agents sheet not set up yet */ }
 }
 
