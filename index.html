@@ -243,6 +243,16 @@ tr:hover td{background:var(--bg2)}
 .sli{font-size:12px;color:var(--mu)}
 @media(max-width:680px){.frow{grid-template-columns:1fr 1fr}.shell{padding:16px 14px}}
 
+/* ── Client Card ── */
+.inv-card-name{font-size:18px;font-weight:700;color:var(--tx);margin-bottom:4px}
+.inv-card-contact{font-size:12px;color:var(--mu);display:flex;gap:14px;flex-wrap:wrap;margin-top:3px}
+.inv-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin:20px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.inv-prop-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:border-color .15s}
+.inv-prop-row:hover{border-color:#93c5fd}
+.inv-tl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.inv-tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;background:var(--bd)}
+.inv-tl-dot.session{background:#3b82f6}.inv-tl-dot.note{background:#f59e0b}.inv-tl-dot.shortlist{background:#10b981}.inv-tl-dot.general{background:#8b5cf6}
+.inv-general-notes{width:100%;min-height:80px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical;box-sizing:border-box}
 /* ── Portfolio Builder ── */
 .portfolio-shell{border:1px solid var(--bd);border-radius:12px;background:var(--bg);padding:20px;margin:10px 0 14px}
 .portfolio-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
@@ -446,16 +456,19 @@ tr:hover td{background:var(--bg2)}
     <div id="pClients" style="display:none">
 
       <!-- Client info row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
-          <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
-          <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <input type="text" id="cPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
         </div>
-
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div>
+          <input type="email" id="cEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
@@ -825,13 +838,19 @@ tr:hover td{background:var(--bg2)}
         <button onclick="document.getElementById('newInvForm').style.display=document.getElementById('newInvForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New</button>
       </div>
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div><input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
         </div>
         <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
       </div>
-      <div id="investorProfilesList"><div class="empty">No profiles yet.</div></div>
+      <!-- List view -->
+      <div id="invListView">
+        <div id="investorProfilesList"><div class="empty">No profiles yet.</div></div>
+      </div>
+      <!-- Card view (hidden until profile clicked) -->
+      <div id="invCardView" style="display:none"></div>
     </div>
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
@@ -850,6 +869,7 @@ const ANTHROPIC_KEY = ''; // Key handled by proxy
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
+const APPS_SCRIPT_URL = ''; // Paste your deployed Google Apps Script URL here
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
 const rentalCache = {};
@@ -1700,6 +1720,15 @@ function heart(id) {
     if (oc.includes('heart(' + id + ')')) { btn.classList.toggle('on', on); btn.textContent = on ? '♥' : '♡'; }
   });
   if(tab==='shortlist') renderSL();
+  // Log shortlist to active client
+  const cname = document.getElementById('cName') && document.getElementById('cName').value.trim();
+  if(on && cname) {
+    const inv = investorProfiles.find(i => i.name.toLowerCase() === cname.toLowerCase());
+    if(inv) {
+      const prop = all.find(d => d.id === id);
+      logCommunication(inv.id, inv.name, 'shortlist', 'Shortlisted: '+(prop?prop.title||prop.developer:'property'), id, prop?prop.title||prop.developer:null, '');
+    }
+  }
 }
 
 function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
@@ -1736,7 +1765,7 @@ function gotoTab(t,el){
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
-  if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();}
+  if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();}
 }
 
 function renderDev(filterDev) {
@@ -2050,6 +2079,191 @@ function pbPg(d) { pbPage += d; pbRebuildOutput(); }
 
 function refreshInvestorList() {
   document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+}
+
+function openInvestorCard(id) {
+  const inv = investorProfiles.find(i => i.id === id);
+  if (!inv) return;
+  currentInvestorCard = id;
+  document.getElementById('invListView').style.display = 'none';
+  document.getElementById('invCardView').style.display = '';
+  renderInvestorCard(inv);
+}
+
+function closeInvestorCard() {
+  currentInvestorCard = null;
+  document.getElementById('invListView').style.display = '';
+  document.getElementById('invCardView').style.display = 'none';
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+}
+
+function renderInvestorCard(inv) {
+  const statusColors = {
+    'Active': 'background:#dcfce7;color:#15803d',
+    'Cold Lead': 'background:#fef3c7;color:#b45309',
+    'Closed': 'background:#dbeafe;color:#1d4ed8',
+    'Not Interested': 'background:#fee2e2;color:#991b1b',
+  };
+  const st = inv.status || 'Active';
+  const stStyle = statusColors[st] || 'background:var(--bg2);color:var(--tx)';
+  const lastC = inv.lastContact ? 'Last contact: ' + timeAgo(inv.lastContact) : 'Never contacted';
+
+  // Properties with notes
+  const noteProps = Object.entries(inv.notes || {}).map(([pid, n]) => {
+    const p = all.find(d => d.id === +pid);
+    return p ? { ...p, clientNote: n.note, savedAt: n.savedAt } : null;
+  }).filter(Boolean).sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+  // Communication log for this investor
+  const myComms = communicationLog.filter(c => c.investorId === inv.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  const propsHtml = noteProps.length ? noteProps.map(p => `
+    <div class="inv-prop-row" onclick="openModal(${p.id})">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.title||p.developer||'—'}</div>
+        <div style="font-size:11px;color:var(--mu)">${[p.city,p.district].filter(Boolean).join(', ')} · ${p.price?'€'+p.price.toLocaleString():'—'} · ${p.type||'—'}</div>
+        ${p.clientNote?`<div style="font-size:11px;color:var(--gold);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${p.clientNote.slice(0,100)}${p.clientNote.length>100?'…':''}"</div>`:''}
+      </div>
+      ${p.seaDist!=null?`<div style="flex-shrink:0">${seaBadge(p.seaDist)}</div>`:''}
+    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties noted yet — open a listing modal and save a note to track it here.</div>';
+
+  const dotClass = { session:'session', note:'note', shortlist:'shortlist', general:'general' };
+  const timelineHtml = myComms.length ? myComms.slice(0,40).map(c => `
+    <div class="inv-tl-item">
+      <div class="inv-tl-dot ${dotClass[c.type]||''}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--tx)">${c.action}</div>
+        ${c.note?`<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.note.slice(0,120)}</div>`:''}
+      </div>
+      <div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px">${new Date(c.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'})}</div>
+    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No activity yet.</div>';
+
+  document.getElementById('invCardView').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button onclick="closeInvestorCard()" class="btn" style="font-size:11px">← All clients</button>
+      <select onchange="updateInvStatus(${inv.id},this.value)" style="font-size:11px;padding:3px 12px;border-radius:99px;border:1px solid var(--bd);${stStyle};cursor:pointer">
+        ${['Active','Cold Lead','Closed','Not Interested'].map(s=>`<option value="${s}"${st===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+      <div style="margin-left:auto;font-size:11px;color:var(--mu)">${lastC}</div>
+    </div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+      <div>
+        <div class="inv-card-name">${inv.name}</div>
+        <div class="inv-card-contact">
+          ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:'<span style="color:var(--mu)">No phone</span>'}
+          ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:'<span style="color:var(--mu)">No email</span>'}
+        </div>
+        <div style="font-size:11px;color:var(--mu);margin-top:4px">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${myComms.length}</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+      <button onclick="loadInvestorToClientCall('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" class="btn primary" style="font-size:12px;padding:0 18px">▶ Load in Client Call</button>
+      <button onclick="editInvContact(${inv.id})" class="btn" style="font-size:11px">✏ Edit contact</button>
+      <button onclick="deleteInvestorProfile(${inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">🗑 Delete</button>
+    </div>
+
+    <div class="inv-section-title">Properties found (${noteProps.length})</div>
+    ${propsHtml}
+
+    <div class="inv-section-title">Activity log (${myComms.length})</div>
+    ${timelineHtml}
+
+    <div class="inv-section-title">General notes</div>
+    <textarea class="inv-general-notes" id="invGenNotes" placeholder="Notes about this client — preferences, feedback, budget details…">${inv.generalNotes||''}</textarea>
+    <button onclick="saveInvGeneralNotes(${inv.id})" class="btn primary" style="font-size:11px;margin-top:6px">Save notes</button>
+    ${inv.generalNotes?`<button onclick="logInvMeeting(${inv.id})" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px">+ Log activity</button>`:''}
+  `;
+}
+
+function updateInvStatus(id, status) {
+  const inv = investorProfiles.find(i => i.id === id);
+  if (!inv) return;
+  const old = inv.status || 'Active';
+  inv.status = status;
+  saveInvestorProfiles();
+  logCommunication(inv.id, inv.name, 'general', `Status changed: ${old} → ${status}`, null, null, '');
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+}
+
+function saveInvGeneralNotes(id) {
+  const inv = investorProfiles.find(i => i.id === id);
+  if (!inv) return;
+  const notes = document.getElementById('invGenNotes').value.trim();
+  inv.generalNotes = notes;
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  logCommunication(inv.id, inv.name, 'general', 'General notes updated', null, null, notes.slice(0,120));
+}
+
+function logInvMeeting(id) {
+  const inv = investorProfiles.find(i => i.id === id);
+  if (!inv) return;
+  const note = prompt('Log activity / note for ' + inv.name + ':');
+  if (!note || !note.trim()) return;
+  logCommunication(inv.id, inv.name, 'general', 'Activity logged', null, null, note.trim());
+}
+
+function editInvContact(id) {
+  const inv = investorProfiles.find(i => i.id === id);
+  if (!inv) return;
+  const name = prompt('Name:', inv.name); if (!name) return;
+  const phone = prompt('Phone:', inv.phone || '');
+  const email = prompt('Email:', inv.email || '');
+  inv.name = name.trim(); inv.phone = (phone||'').trim(); inv.email = (email||'').trim();
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  renderInvestorCard(inv);
+}
+
+async function syncInvestorToSheets(inv) {
+  if (!APPS_SCRIPT_URL) return;
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', data: inv }) }); } catch(e) {}
+}
+
+async function syncCommToSheets(entry) {
+  if (!APPS_SCRIPT_URL) return;
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'communication', data: entry }) }); } catch(e) {}
+}
+
+async function readInvestorsFromSheets() {
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investors`);
+    const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
+    const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    json.table.rows.forEach(row => {
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v) : '';
+      const name = g(0); if (!name || name.toLowerCase() === 'name') return;
+      let inv = investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (!inv) { inv = {id:Date.now()+Math.random(),name,phone:g(1),email:g(2),status:g(3)||'Active',createdAt:new Date().toISOString(),notes:{},generalNotes:''}; investorProfiles.push(inv); }
+      else { if(g(1)&&!inv.phone)inv.phone=g(1); if(g(2)&&!inv.email)inv.email=g(2); if(g(3))inv.status=g(3); if(g(7))inv.generalNotes=g(7); }
+    });
+    saveInvestorProfiles();
+    if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  } catch(e) { /* sheet not set up yet */ }
+}
+
+async function readCommsFromSheets() {
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investor+communication`);
+    const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
+    const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    const existing = new Set(communicationLog.map(c => c.investorId + '|' + c.date));
+    json.table.rows.forEach(row => {
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v) : '';
+      const date = g(0); const invName = g(1); if (!date || !invName || date.toLowerCase() === 'date') return;
+      const key = invName + '|' + date;
+      if (existing.has(key)) return;
+      const inv = investorProfiles.find(i => i.name.toLowerCase() === invName.toLowerCase());
+      communicationLog.push({ id: Date.now()+Math.random(), investorId: inv?inv.id:0, investorName: invName, date, type: g(2)||'general', action: g(3)||'Activity', propertyId: g(4)?+g(4):null, propertyTitle: g(5)||null, note: g(6)||'' });
+    });
+    saveCommLog();
+  } catch(e) { /* sheet not set up yet */ }
 }
 
 function resetClient() {
@@ -3819,12 +4033,41 @@ function renderMarketPositioning(d) {
 // ── Investor Profiles ─────────────────────────────────────────
 var investorProfiles = [];
 try{investorProfiles=JSON.parse(localStorage.getItem('ip_investors')||'[]');}catch(e){}
+var communicationLog = [];
+try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
+var currentInvestorCard = null;
 
 function saveInvestorProfiles(){try{localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}catch(e){}}
+function saveCommLog(){try{localStorage.setItem('ip_comms',JSON.stringify(communicationLog));}catch(e){}}
 
-function getOrCreateInvestor(name,phone){
+function logCommunication(investorId,investorName,type,action,propertyId,propertyTitle,note){
+  var entry={id:Date.now(),investorId:investorId,investorName:investorName,date:new Date().toISOString(),type:type,action:action,propertyId:propertyId||null,propertyTitle:propertyTitle||null,note:note||''};
+  communicationLog.push(entry);
+  saveCommLog();
+  if(APPS_SCRIPT_URL)syncCommToSheets(entry);
+  if(currentInvestorCard===investorId){var inv=investorProfiles.find(function(i){return i.id===investorId;});if(inv)renderInvestorCard(inv);}
+}
+
+function timeAgo(iso){
+  var d=Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+  if(d===0)return'today';if(d===1)return'yesterday';
+  if(d<7)return d+' days ago';if(d<30)return Math.floor(d/7)+' weeks ago';
+  return Math.floor(d/30)+' months ago';
+}
+
+function getOrCreateInvestor(name,phone,email){
   var inv=investorProfiles.find(function(i){return i.name.toLowerCase()===name.toLowerCase();});
-  if(!inv){inv={id:Date.now(),name:name,phone:phone||'',createdAt:new Date().toISOString(),notes:{}};investorProfiles.push(inv);saveInvestorProfiles();}
+  if(!inv){
+    inv={id:Date.now(),name:name,phone:phone||'',email:email||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:''};
+    investorProfiles.push(inv);
+    saveInvestorProfiles();
+    logCommunication(inv.id,inv.name,'session','Profile created',null,null,'');
+    if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
+  } else {
+    if(phone&&!inv.phone)inv.phone=phone;
+    if(email&&!inv.email)inv.email=email;
+    saveInvestorProfiles();
+  }
   return inv;
 }
 
@@ -3848,14 +4091,28 @@ function renderInvestorProfilesPanel(){
   var pageItems=investorProfiles.slice((invPage-1)*invPS,invPage*invPS);
   var rows=pageItems.map(function(inv){
     var nc=Object.keys(inv.notes||{}).length;
-    return '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
-      +'<div><div style="font-size:13px;font-weight:600">'+inv.name+'</div>'
-      +'<div style="font-size:11px;color:var(--mu)">'+(inv.phone||'No phone')+' \u00b7 '+new Date(inv.createdAt).toLocaleDateString('en-GB')+'</div>'
-      +(nc?'<div style="font-size:10px;color:var(--gold);margin-top:2px">\ud83d\udcdd '+nc+' notes</div>':'')
-      +'</div><div style="display:flex;gap:6px">'
-      +'<button onclick="loadInvestorToClientCall(\''+inv.name+'\')" class="btn" style="font-size:11px">Load</button>'
+    var myCommsCount=(communicationLog||[]).filter(function(c){return c.investorId===inv.id;}).length;
+    var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b'};
+    var st=inv.status||'Active';
+    var stStyle=statusColors[st]||'#f3f4f6;color:#374151';
+    var lastC=inv.lastContact?'Last contact: '+timeAgo(inv.lastContact):(inv.createdAt?'Added '+new Date(inv.createdAt).toLocaleDateString('en-GB'):'');
+    return '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openInvestorCard('+inv.id+')" onmouseenter="this.style.borderColor=\'#93c5fd\'" onmouseleave="this.style.borderColor=\'var(--bd)\'">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">'
+      +'<div style="font-size:13px;font-weight:600">'+inv.name+'</div>'
+      +'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+stStyle+'">'+st+'</span>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--mu)">'+(inv.phone||'No phone')+(inv.email?' \u00b7 '+inv.email:'')+'</div>'
+      +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
+      +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
+      +(myCommsCount?' \u00b7 '+myCommsCount+' activities':'')
+      +'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
+      +'<button onclick="loadInvestorToClientCall(\''+inv.name.replace(/'/g,"\\'")+'\')" class="btn primary" style="font-size:11px">▶ Load</button>'
       +'<button onclick="deleteInvestorProfile('+inv.id+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
-      +'</div></div>';
+      +'</div></div></div>';
   }).join('');
   var pager='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">'
     +'<div style="display:flex;align-items:center;gap:5px">'
@@ -3877,6 +4134,11 @@ function loadInvestorToClientCall(name){
   if(!inv)return;
   var el=document.getElementById('cName');if(el)el.value=inv.name;
   var ep=document.getElementById('cPhone');if(ep)ep.value=inv.phone||'';
+  var ee=document.getElementById('cEmail');if(ee)ee.value=inv.email||'';
+  inv.lastContact=new Date().toISOString();
+  saveInvestorProfiles();
+  logCommunication(inv.id,inv.name,'session','Client Call session started',null,null,'');
+  if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   gotoTab('clients',document.querySelectorAll('.tab')[3]);
 }
 
@@ -3884,24 +4146,29 @@ function deleteInvestorProfile(id){
   if(!confirm('Delete this investor profile?'))return;
   investorProfiles=investorProfiles.filter(function(i){return i.id!==id;});
   saveInvestorProfiles();
+  closeInvestorCard();
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
 }
 
 function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
   var phone=document.getElementById('newInvPhone').value.trim();
+  var email=document.getElementById('newInvEmail').value.trim();
   if(!name){alert('Please enter a name.');return;}
-  getOrCreateInvestor(name,phone);
+  var inv=getOrCreateInvestor(name,phone,email);
   document.getElementById('newInvName').value='';
   document.getElementById('newInvPhone').value='';
+  document.getElementById('newInvEmail').value='';
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
+  openInvestorCard(inv.id);
 }
 
 function autoSaveInvestor(){
   var name=document.getElementById('cName')&&document.getElementById('cName').value.trim();
   var phone=document.getElementById('cPhone')&&document.getElementById('cPhone').value.trim();
-  if(name)getOrCreateInvestor(name,phone);
+  var email=document.getElementById('cEmail')&&document.getElementById('cEmail').value.trim();
+  if(name)getOrCreateInvestor(name,phone,email);
 }
 
 // ── Agent Notes ───────────────────────────────────────────────
@@ -3932,6 +4199,14 @@ function saveModalNote(id){
   if(!note)return;
   if(name!=='General')getOrCreateInvestor(name);
   saveInvestorNote(name,id,note);
+  // Log to communication history
+  if(name!=='General'){
+    var inv=investorProfiles.find(function(i){return i.name.toLowerCase()===name.toLowerCase();});
+    if(inv){
+      var prop=all.find(function(d){return d.id===id;});
+      logCommunication(inv.id,inv.name,'note','Note saved for '+(prop?prop.title||prop.developer:'property'),id,prop?prop.title||prop.developer:null,note.slice(0,200));
+    }
+  }
   var panel=document.getElementById('modalNotePanel');
   if(panel)panel.style.display='none';
   var btn=document.getElementById('noteToggleBtn');
