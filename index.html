@@ -2091,9 +2091,9 @@ function refreshInvestorList() {
 }
 
 function openInvestorCard(id) {
-  const inv = investorProfiles.find(i => i.id === id);
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === id);
   if (!inv) return;
-  currentInvestorCard = id;
+  currentInvestorCard = inv.investorId||inv.id;
   document.getElementById('invListView').style.display = 'none';
   document.getElementById('invCardView').style.display = '';
   renderInvestorCard(inv);
@@ -2239,25 +2239,67 @@ function editInvContact(id) {
 
 async function syncInvestorToSheets(inv) {
   if (!APPS_SCRIPT_URL) return;
-  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', data: inv }) }); } catch(e) {}
+  // Column order: InvestorID | Name | Phone | Email | Status | Created | Last Contact | Notes Count | General Notes | Client Type | Budget | Locations | Properties
+  const row = [
+    inv.investorId || inv.id,
+    inv.name,
+    inv.phone || '',
+    inv.email || '',
+    inv.status || 'Active',
+    inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',
+    inv.lastContact ? new Date(inv.lastContact).toLocaleDateString('en-GB') : '',
+    Object.keys(inv.notes || {}).length,
+    inv.generalNotes || '',
+    inv.clientType || '',
+    inv.budget || '',
+    (inv.locations || []).join(', '),
+    Object.values(inv.notes || {}).slice(0,5).map(n => n.note ? n.note.slice(0,30) : '').filter(Boolean).join(' | '),
+  ];
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', investorId: inv.investorId||inv.id, row }) }); } catch(e) {}
 }
 
 async function syncCommToSheets(entry) {
   if (!APPS_SCRIPT_URL) return;
-  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'communication', data: entry }) }); } catch(e) {}
+  // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
+  const row = [
+    entry.commId,
+    entry.investorId,
+    new Date(entry.date).toLocaleString('en-GB'),
+    entry.investorName,
+    entry.type,
+    entry.action,
+    entry.propertyId || '',
+    entry.propertyTitle || '',
+    entry.note || '',
+  ];
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'communication', commId: entry.commId, investorId: entry.investorId, row }) }); } catch(e) {}
 }
 
 async function readInvestorsFromSheets() {
+  // Column order: InvestorID | Name | Phone | Email | Status | Created | Last Contact | Notes Count | General Notes | Client Type | Budget | Locations | Properties
   try {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investors`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
     json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v) : '';
-      const name = g(0); if (!name || name.toLowerCase() === 'name') return;
-      let inv = investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
-      if (!inv) { inv = {id:Date.now()+Math.random(),name,phone:g(1),email:g(2),status:g(3)||'Active',createdAt:new Date().toISOString(),notes:{},generalNotes:''}; investorProfiles.push(inv); }
-      else { if(g(1)&&!inv.phone)inv.phone=g(1); if(g(2)&&!inv.email)inv.email=g(2); if(g(3))inv.status=g(3); if(g(7))inv.generalNotes=g(7); }
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+      const invId = +g(0); const name = g(1);
+      if (!name || name.toLowerCase() === 'name') return;
+      let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+      if (!inv) {
+        const newId = invId || nextInvestorId();
+        inv = { investorId:newId, id:newId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(8)||'', clientType:g(9)||'', budget:g(10)||null, locations:g(11)?g(11).split(',').map(s=>s.trim()).filter(Boolean):[] };
+        investorProfiles.push(inv);
+      } else {
+        if(invId && !inv.investorId){inv.investorId=invId;inv.id=invId;}
+        if(g(2)&&!inv.phone)inv.phone=g(2);
+        if(g(3)&&!inv.email)inv.email=g(3);
+        if(g(4))inv.status=g(4);
+        if(g(8))inv.generalNotes=g(8);
+        if(g(9))inv.clientType=g(9);
+        if(g(10))inv.budget=g(10);
+        if(g(11))inv.locations=g(11).split(',').map(s=>s.trim()).filter(Boolean);
+      }
     });
     saveInvestorProfiles();
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
@@ -2265,18 +2307,18 @@ async function readInvestorsFromSheets() {
 }
 
 async function readCommsFromSheets() {
+  // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
   try {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investor+communication`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
-    const existing = new Set(communicationLog.map(c => c.investorId + '|' + c.date));
+    const existingIds = new Set(communicationLog.map(c => c.commId));
     json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v) : '';
-      const date = g(0); const invName = g(1); if (!date || !invName || date.toLowerCase() === 'date') return;
-      const key = invName + '|' + date;
-      if (existing.has(key)) return;
-      const inv = investorProfiles.find(i => i.name.toLowerCase() === invName.toLowerCase());
-      communicationLog.push({ id: Date.now()+Math.random(), investorId: inv?inv.id:0, investorName: invName, date, type: g(2)||'general', action: g(3)||'Activity', propertyId: g(4)?+g(4):null, propertyTitle: g(5)||null, note: g(6)||'' });
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+      const commId = +g(0); const investorId = +g(1); const date = g(2);
+      if (!commId || !date || date.toLowerCase() === 'date') return;
+      if (existingIds.has(commId)) return;
+      communicationLog.push({ commId, investorId, date, investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
     });
     saveCommLog();
   } catch(e) { /* sheet not set up yet */ }
@@ -4053,15 +4095,26 @@ var communicationLog = [];
 try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
 var currentInvestorCard = null;
 
+// Sequential auto-number counters (PK generators)
+function nextInvestorId(){
+  var max=investorProfiles.reduce(function(m,i){return Math.max(m,i.investorId||i.id||0);},0);
+  return max+1;
+}
+function nextCommId(){
+  var max=communicationLog.reduce(function(m,c){return Math.max(m,c.commId||0);},0);
+  return max+1;
+}
+
 function saveInvestorProfiles(){try{localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}catch(e){}}
 function saveCommLog(){try{localStorage.setItem('ip_comms',JSON.stringify(communicationLog));}catch(e){}}
 
 function logCommunication(investorId,investorName,type,action,propertyId,propertyTitle,note){
-  var entry={id:Date.now(),investorId:investorId,investorName:investorName,date:new Date().toISOString(),type:type,action:action,propertyId:propertyId||null,propertyTitle:propertyTitle||null,note:note||''};
+  var commId=nextCommId();
+  var entry={commId:commId,investorId:investorId,investorName:investorName,date:new Date().toISOString(),type:type,action:action,propertyId:propertyId||null,propertyTitle:propertyTitle||null,note:note||''};
   communicationLog.push(entry);
   saveCommLog();
   if(APPS_SCRIPT_URL)syncCommToSheets(entry);
-  if(currentInvestorCard===investorId){var inv=investorProfiles.find(function(i){return i.id===investorId;});if(inv)renderInvestorCard(inv);}
+  if(currentInvestorCard===investorId){var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===investorId;});if(inv)renderInvestorCard(inv);}
 }
 
 function timeAgo(iso){
@@ -4074,12 +4127,14 @@ function timeAgo(iso){
 function getOrCreateInvestor(name,phone,email,clientType,budget,locations){
   var inv=investorProfiles.find(function(i){return i.name.toLowerCase()===name.toLowerCase();});
   if(!inv){
-    inv={id:Date.now(),name:name,phone:phone||'',email:email||'',clientType:clientType||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budget||null,locations:locations||[]};
+    var newId=nextInvestorId();
+    inv={investorId:newId,id:newId,name:name,phone:phone||'',email:email||'',clientType:clientType||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budget||null,locations:locations||[]};
     investorProfiles.push(inv);
     saveInvestorProfiles();
-    logCommunication(inv.id,inv.name,'session','Profile created',null,null,'');
+    logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
     if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   } else {
+    if(!inv.investorId){inv.investorId=inv.id||nextInvestorId();inv.id=inv.investorId;}
     var changed=false;
     if(phone&&!inv.phone){inv.phone=phone;changed=true;}
     if(email&&!inv.email){inv.email=email;changed=true;}
@@ -4206,7 +4261,7 @@ function createNewInvestor(){
   document.getElementById('newInvType').value='';
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
-  openInvestorCard(inv.id);
+  openInvestorCard(inv.investorId||inv.id);
 }
 
 function autoSaveInvestor(){
