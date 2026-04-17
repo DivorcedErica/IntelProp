@@ -4297,7 +4297,17 @@ function renderInvestorProfilesPanel(){
       +(inv.clientType?'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+ctStyle+'">'+inv.clientType+'</span>':'')
       +'</div>'
       +'<div style="font-size:11px;color:var(--mu)">'+(inv.phone||'No phone')+(inv.email?' \u00b7 '+inv.email:'')+'</div>'
-      +(inv.budget||inv.locations&&inv.locations.length?'<div style="font-size:10px;color:var(--tx);margin-top:2px;opacity:.8">'+(inv.budget?'\ud83d\udcb0 '+inv.budget:'')+(inv.budget&&inv.locations&&inv.locations.length?' \u00b7 ':'')+(inv.locations&&inv.locations.length?'\ud83d\udccd '+inv.locations.join(', '):'')+'</div>':'')
+      +(function(){
+          var cr=inv.criteria||{};
+          var budget=inv.budget||cr.budget||'';
+          var locs=(inv.locations&&inv.locations.length)?inv.locations:(cr.cities&&cr.cities.length?cr.cities:[]);
+          var types=cr.types&&cr.types.length?cr.types:[];
+          var parts=[];
+          if(budget)parts.push('\ud83d\udcb0 '+budget);
+          if(locs.length)parts.push('\ud83d\udccd '+locs.join(', '));
+          if(types.length)parts.push('\ud83c\udfe0 '+types.join(', '));
+          return parts.length?'<div style="font-size:10px;color:var(--tx);margin-top:2px;opacity:.8">'+parts.join(' \u00b7 ')+'</div>':'';
+        }())
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
       +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
       +(myCommsCount?' \u00b7 '+myCommsCount+' activities':'')
