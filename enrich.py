@@ -82,21 +82,41 @@ async def fetch_html(session: aiohttp.ClientSession, url: str) -> str | None:
     return None
 
 # ── Parse Bitrix listing page ────────────────────────────────────
+WAYBACK_BASE = 'https://web.archive.org'
+
+def to_wayback_img(src: str) -> str:
+    """Ensure image URL is served from archive.org, never from dom.com.cy directly."""
+    if not src:
+        return ''
+    # Already a full Wayback URL
+    if 'web.archive.org' in src:
+        # Normalise: ensure im_ modifier is present for direct image serving
+        src = re.sub(r'(web\.archive\.org/web/)(\d+)([a-z_]*)(/)','\\1\\2im_\\4', src)
+        if not src.startswith('http'):
+            src = WAYBACK_BASE + src
+        return src
+    # Relative Wayback path like /web/20240115im_/https://dom.com.cy/...
+    if src.startswith('/web/'):
+        src = re.sub(r'^(/web/)(\d+)([a-z_]*)(/)','\\1\\2im_\\4', src)
+        return WAYBACK_BASE + src
+    # Raw dom.com.cy URL — should not happen if we always fetch from Wayback
+    # but handle it: prefix is not stored, return empty to avoid direct hit
+    return ''
+
 def parse_page(html: str) -> dict:
     soup = BeautifulSoup(html, 'html.parser')
     images = []
     seen   = set()
 
     def add_img(src: str):
-        if not src or src in seen or len(images) >= 4:
+        if not src or len(images) >= 4:
             return
-        # Keep Wayback URLs as-is — images are archived too
-        # Strip Wayback toolbar modifier (im_/ etc) if present
-        src = re.sub(r'(web\.archive\.org/web/\d+)[a-z_]*(/)','\\1\\2', src)
-        seen.add(src)
-        images.append(src)
+        url = to_wayback_img(src)
+        if url and url not in seen:
+            seen.add(url)
+            images.append(url)
 
-    # Strategy 1: <a href> links to full-size Bitrix upload images (gallery links)
+    # Strategy 1: <a href> links to full-size Bitrix upload images
     for a in soup.find_all('a', href=True):
         href = a['href']
         if '/upload/' in href and re.search(r'\.(jpe?g|png|webp)', href, re.I):
@@ -111,7 +131,7 @@ def parse_page(html: str) -> dict:
                     add_img(src)
                     break
 
-    # Strategy 3: JSON-encoded photo arrays in <script> tags
+    # Strategy 3: JSON in <script> tags
     if len(images) < 4:
         for script in soup.find_all('script'):
             text = script.string or ''

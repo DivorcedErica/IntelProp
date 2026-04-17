@@ -51,7 +51,8 @@ async def test(url: str):
         a_imgs = [a['href'] for a in soup.find_all('a', href=True)
                   if '/upload/' in a['href'] and re.search(r'\.(jpe?g|png|webp)', a['href'], re.I)]
         for u in a_imgs[:8]:
-            print(f'      {u}')
+            wb = 'https://web.archive.org' + u if u.startswith('/web/') else u
+            print(f'      {wb}')
         if not a_imgs:
             print('      (none)')
 
