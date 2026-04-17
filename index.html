@@ -2255,7 +2255,7 @@ async function syncInvestorToSheets(inv) {
     (inv.locations || []).join(', '),
     Object.values(inv.notes || {}).slice(0,5).map(n => n.note ? n.note.slice(0,30) : '').filter(Boolean).join(' | '),
   ];
-  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', investorId: inv.investorId||inv.id, row }) }); } catch(e) {}
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row }) }); } catch(e) {}
 }
 
 async function syncCommToSheets(entry) {
@@ -2272,13 +2272,13 @@ async function syncCommToSheets(entry) {
     entry.propertyTitle || '',
     entry.note || '',
   ];
-  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'communication', commId: entry.commId, investorId: entry.investorId, row }) }); } catch(e) {}
+  try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'communication', sheet:'Client Communications', commId: entry.commId, investorId: entry.investorId, row }) }); } catch(e) {}
 }
 
 async function readInvestorsFromSheets() {
   // Column order: InvestorID | Name | Phone | Email | Status | Created | Last Contact | Notes Count | General Notes | Client Type | Budget | Locations | Properties
   try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investors`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Clients`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
     // Validate this is actually the Investors sheet by checking the header row
@@ -2313,7 +2313,7 @@ async function readInvestorsFromSheets() {
 async function readCommsFromSheets() {
   // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
   try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investor+communication`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Client+Communications`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
     const existingIds = new Set(communicationLog.map(c => c.commId));
