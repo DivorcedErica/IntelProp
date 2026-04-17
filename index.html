@@ -2233,19 +2233,21 @@ function renderInvestorCard(inv) {
   const pPurpose  = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff">${v}</span>`;
   const pSea      = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">${v}</span>`;
   const pDelivery = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3">${v}</span>`;
-  const criteriaHtml = `
-    <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Search Criteria</span>
-      <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:3px 10px;cursor:pointer;color:var(--mu)">✏ Amend</button>
-    </div>
-    ${hasCriteria ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-      ${crBudget ? pBudget('💰 '+crBudget) : ''}
-      ${crLocs.map(l=>pLoc('📍 '+l)).join('')}
-      ${crTypes.map(t=>pType('🏠 '+pluralType(t),t)).join('')}
-      ${crPurpose ? pPurpose('🎯 '+crPurpose) : ''}
-      ${crSea ? pSea('🌊 '+crSea) : ''}
-      ${crDelivery ? pDelivery('📅 '+crDelivery) : ''}
-    </div>` : '<div style="font-size:12px;color:var(--mu);margin-bottom:16px">No criteria saved yet. Use <b>Client Call</b> to filter and they will appear here.</div>'}`;
+  const nameSafe = inv.name.replace(/'/g, "\\'");
+  let inlineCriteriaHtml;
+  if (hasCriteria) {
+    inlineCriteriaHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+      + (crBudget ? pBudget('💰 '+crBudget) : '')
+      + crLocs.map(l=>pLoc('📍 '+l)).join('')
+      + crTypes.map(t=>pType('🏠 '+pluralType(t),t)).join('')
+      + (crPurpose ? pPurpose('🎯 '+crPurpose) : '')
+      + (crSea ? pSea('🌊 '+crSea) : '')
+      + (crDelivery ? pDelivery('📅 '+crDelivery) : '')
+      + '<button onclick="amendCriteria(\''+nameSafe+'\');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:99px;padding:3px 10px;cursor:pointer;color:var(--mu)">✏ Amend</button>'
+      + '</div>';
+  } else {
+    inlineCriteriaHtml = '<div style="font-size:12px;color:var(--mu);margin-bottom:8px">No criteria saved yet. <button onclick="amendCriteria(\''+nameSafe+'\');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:2px 8px;cursor:pointer;color:var(--mu)">+ Set criteria</button></div>';
+  }
 
   document.getElementById('invCardView').innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
@@ -2270,15 +2272,7 @@ function renderInvestorCard(inv) {
           ${inv.nationality?`<span style="color:var(--mu)">🌍 ${inv.nationality}</span>`:''}
         </div>
         <!-- Criteria pills inline -->
-        ${hasCriteria?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-          ${crBudget?pBudget('💰 '+crBudget):''}
-          ${crLocs.map(l=>pLoc('📍 '+l)).join('')}
-          ${crTypes.map(t=>pType('🏠 '+pluralType(t),t)).join('')}
-          ${crPurpose?pPurpose('🎯 '+crPurpose):''}
-          ${crSea?pSea('🌊 '+crSea):''}
-          ${crDelivery?pDelivery('📅 '+crDelivery):''}
-          <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:99px;padding:3px 10px;cursor:pointer;color:var(--mu)">✏ Amend</button>
-        </div>`:'<div style="font-size:12px;color:var(--mu);margin-bottom:8px">No criteria saved yet. <button onclick="amendCriteria(\'${inv.name.replace(/'/g,"\\'")}\');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:2px 8px;cursor:pointer;color:var(--mu)">+ Set criteria</button></div>'}
+        ${inlineCriteriaHtml}
         <div style="font-size:11px;color:var(--mu)">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
       </div>
       <!-- Stats on the right -->
