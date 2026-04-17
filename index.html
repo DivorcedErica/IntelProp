@@ -1777,6 +1777,42 @@ function heartFromModal(id) {
     if (oc.includes('heart(' + id + ')')) { b.classList.toggle('on', on); b.textContent = on ? '♥' : '♡'; }
   });
   if(tab==='shortlist') renderSL();
+  linkPropToClient(id, on);
+}
+
+function linkPropToClient(listingId, adding) {
+  if (!currentClientCallId) return;
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; });
+  if (!inv) return;
+  if (adding) {
+    if (clientProperties.find(function(p){ return p.investorId===currentClientCallId && p.listingId===listingId; })) return;
+    var listing = all.find(function(d){ return d.id===listingId; });
+    if (!listing) return;
+    var prop = {
+      propertyId: nextPropertyId(),
+      investorId: currentClientCallId,
+      listingId: listingId,
+      developer: listing.developer||'',
+      title: listing.title||'',
+      type: listing.type||'',
+      city: listing.city||'',
+      district: listing.district||'',
+      complex: listing.complex||'',
+      bedrooms: listing.bedrooms||'',
+      totalArea: listing.area||'',
+      plotSize: listing.plot||'',
+      price: listing.price||'',
+      pricePerM2: listing.ppm||'',
+      addedAt: new Date().toISOString()
+    };
+    clientProperties.push(prop);
+    saveClientProperties();
+    syncPropertyToSheets(prop);
+    logCommunication(inv.investorId||inv.id, inv.name, 'shortlist', 'Property selected: '+(listing.title||listing.developer||'#'+listingId), listingId, listing.title||listing.developer||null, '');
+  } else {
+    clientProperties = clientProperties.filter(function(p){ return !(p.investorId===currentClientCallId && p.listingId===listingId); });
+    saveClientProperties();
+  }
 }
 
 function closeModal(e) { if(e.target===document.getElementById('modalBackdrop'))closeModalDirect(); }
@@ -1854,15 +1890,7 @@ function heart(id) {
     if (oc.includes('heart(' + id + ')')) { btn.classList.toggle('on', on); btn.textContent = on ? '♥' : '♡'; }
   });
   if(tab==='shortlist') renderSL();
-  // Log shortlist to active client
-  const cname = document.getElementById('cName') && document.getElementById('cName').value.trim();
-  if(on && cname) {
-    const inv = investorProfiles.find(i => i.name.toLowerCase() === cname.toLowerCase());
-    if(inv) {
-      const prop = all.find(d => d.id === id);
-      logCommunication(inv.id, inv.name, 'shortlist', 'Shortlisted: '+(prop?prop.title||prop.developer:'property'), id, prop?prop.title||prop.developer:null, '');
-    }
-  }
+  linkPropToClient(id, on);
 }
 
 function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
@@ -2314,9 +2342,10 @@ function renderInvestorCard(inv) {
     ? '<div style="overflow-x:auto;margin-bottom:4px"><table style="width:100%;border-collapse:collapse">'
       + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Title</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Beds</th><th style="'+thStyle+'">Area m²</th><th style="'+thStyle+'">Plot m²</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'">€/m²</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'"></th></tr>'
       + assignedProps.map(function(p){
+          var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥ shortlist</span>' : '';
           return '<tr>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+(p.title||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.title||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.type||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.city||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.district||'—')+'</td>'
