@@ -1166,6 +1166,7 @@ async function init() {
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
     runBulkEnrichment();
+    runBulkGeocode();
 
   } catch (e) {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
@@ -3544,6 +3545,39 @@ async function enrichListing(d) {
   if (enriched) {
     await enrichSetCache(d.id, enriched);
     applyEnrichment(d, enriched);
+  }
+}
+
+async function runBulkGeocode() {
+  // Wait up to 12s for Google Maps to become ready
+  let waited = 0;
+  while ((!googleMapsReady || !window.google) && waited < 12000) {
+    await new Promise(r => setTimeout(r, 500));
+    waited += 500;
+  }
+  if (!googleMapsReady || !window.google) return;
+
+  // Get one representative listing per unique city+district (cache handles deduplication)
+  const seen = new Set();
+  const combos = [];
+  for (const d of all) {
+    const key = (d.city || '') + '|' + (d.district || '');
+    if (!seen.has(key)) { seen.add(key); combos.push(d); }
+  }
+
+  for (const d of combos) {
+    const coords = await geocode(d.city, d.district);
+    if (!coords) continue;
+    const { beach, dist } = nearestSea(coords[0], coords[1]);
+    // Update every listing in this city+district with the geocoded distance
+    all.filter(x => (x.city || '') === (d.city || '') && (x.district || '') === (d.district || ''))
+       .forEach(x => {
+         x.seaDist = dist;
+         x.nearestBeach = beach.name;
+         const badge = document.getElementById('sea-' + x.id);
+         if (badge) badge.innerHTML = seaBadge(dist);
+       });
+    await new Promise(r => setTimeout(r, 120));
   }
 }
 
