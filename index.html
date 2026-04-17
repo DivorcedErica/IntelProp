@@ -354,6 +354,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
       <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
+      <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
     </div>
 
@@ -464,10 +465,10 @@ tr:hover td{background:var(--bg2)}
         <button onclick="clearClientSelection()" class="btn" style="font-size:11px;padding:0 10px">✕ Clear</button>
       </div>
 
-      <!-- Client info row (read-only when client selected) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px" id="cContactRow">
+      <!-- Row 1: Identity -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px" id="cContactRow">
         <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Full Name</div>
           <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
         <div>
@@ -486,6 +487,48 @@ tr:hover td{background:var(--bg2)}
             <option value="One-off Buyer">One-off Buyer</option>
             <option value="Agent">Agent</option>
           </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Source -->
+      <div style="margin-bottom:8px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Source</div>
+        <div id="cSourceGroup" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="crit-btn" onclick="cToggleSource(this)" data-val="Direct">Direct</button>
+          <button class="crit-btn" onclick="cToggleSource(this)" data-val="Agent Referral">Agent Referral</button>
+          <button class="crit-btn" onclick="cToggleSource(this)" data-val="Website">Website</button>
+          <button class="crit-btn" onclick="cToggleSource(this)" data-val="Cold Call">Cold Call</button>
+        </div>
+      </div>
+
+      <!-- Row 2b: Agent selector (shown when Agent Referral selected) -->
+      <div id="cAgentRow" style="display:none;margin-bottom:10px;padding:10px 12px;background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.25);border-radius:8px;transition:opacity .2s">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--gold);margin-bottom:6px">Referring Agent</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <input list="cAgentList" id="cAgentSelect" placeholder="Search agent name or firm…" oninput="cSelectAgent()" style="flex:1;min-width:200px;height:34px;padding:0 10px;border:1px solid rgba(184,134,11,.4);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <datalist id="cAgentList"></datalist>
+          <div id="cAgentBadge" style="display:none;font-size:11px;color:var(--gold);font-weight:500"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Assignment & Status -->
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;margin-bottom:14px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Assigned To</div>
+          <div id="cAssignGroup" style="display:flex;gap:6px">
+            <button class="crit-btn" onclick="cToggleAssign(this)" data-val="Yaniv">Yaniv</button>
+            <button class="crit-btn" onclick="cToggleAssign(this)" data-val="Emma">Emma</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Status</div>
+          <div id="cStatusGroup" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="crit-btn on" onclick="cToggleStatus(this)" data-val="Active">Active</button>
+            <button class="crit-btn" onclick="cToggleStatus(this)" data-val="Viewing">Viewing</button>
+            <button class="crit-btn" onclick="cToggleStatus(this)" data-val="Offer">Offer</button>
+            <button class="crit-btn" onclick="cToggleStatus(this)" data-val="Closed">Closed</button>
+            <button class="crit-btn" onclick="cToggleStatus(this)" data-val="Dead">Dead</button>
+          </div>
         </div>
       </div>
 
@@ -584,7 +627,10 @@ tr:hover td{background:var(--bg2)}
       <!-- Results -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
-        <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="saveClient()" class="btn primary" style="font-size:11px">💾 Save Client</button>
+          <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+        </div>
       </div>
       <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
 
@@ -956,6 +1002,40 @@ tr:hover td{background:var(--bg2)}
       <!-- Card view (hidden until profile clicked) -->
       <div id="invCardView" style="display:none"></div>
     </div>
+    <!-- AGENTS -->
+    <div id="pAgents" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div><div style="font-size:13px;font-weight:500">Agent Register</div><div style="font-size:11px;color:var(--mu);margin-top:2px">Referral network</div></div>
+        <button onclick="toggleAddAgentForm()" class="btn primary" style="font-size:11px">+ Add Agent</button>
+      </div>
+      <!-- Add Agent Form -->
+      <div id="addAgentForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Full Name *</div><input id="agFName" placeholder="e.g. Maria Stavrou" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Firm / Agency</div><input id="agFirm" placeholder="e.g. Prime Properties Ltd" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Commission %</div><input id="agComm" type="number" placeholder="e.g. 1.5" step="0.1" min="0" max="20" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input id="agPhone" placeholder="+357 99 000000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input id="agEmail" type="email" placeholder="agent@firm.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Notes</div><input id="agNotes" placeholder="Optional notes" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="saveNewAgent()" class="btn primary" style="font-size:11px">Save Agent</button>
+          <button onclick="toggleAddAgentForm()" class="btn" style="font-size:11px">Cancel</button>
+        </div>
+      </div>
+      <!-- Agent copy-paste panel -->
+      <div id="agentCopyPanel" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:8px">Copy and paste this row into your Agents Google Sheet</div>
+        <textarea id="agentCopyText" style="width:100%;height:60px;font-size:11px;font-family:monospace;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);padding:8px;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="navigator.clipboard.writeText(document.getElementById('agentCopyText').value)" class="btn" style="font-size:11px">📋 Copy to clipboard</button>
+          <button onclick="document.getElementById('agentCopyPanel').style.display='none'" class="btn" style="font-size:11px">✕ Dismiss</button>
+        </div>
+      </div>
+      <!-- Agent table -->
+      <div id="agentTableWrap"></div>
+    </div>
+
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
       <div class="slt">
@@ -963,6 +1043,23 @@ tr:hover td{background:var(--bg2)}
         <button class="btn primary" onclick="exportXLSX()">♥ Export to Excel</button>
       </div>
       <div class="twrap" id="slView"><div class="empty">Click ♡ on any listing to add it here.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Save Client Modal -->
+<div id="saveClientModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:24px;width:min(640px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600">Save Client Record</div>
+      <button onclick="document.getElementById('saveClientModal').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--mu)">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:8px">Copy and paste this row into your Clients Google Sheet</div>
+    <textarea id="saveClientText" style="width:100%;height:72px;font-size:11px;font-family:monospace;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);padding:8px;resize:vertical"></textarea>
+    <div id="saveClientAgentNote" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.25);border-radius:8px;font-size:12px;color:var(--gold)"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="navigator.clipboard.writeText(document.getElementById('saveClientText').value)" class="btn primary" style="font-size:11px">📋 Copy to clipboard</button>
+      <button onclick="document.getElementById('saveClientModal').style.display='none'" class="btn" style="font-size:11px">Done</button>
     </div>
   </div>
 </div>
@@ -1004,6 +1101,8 @@ const ANTHROPIC_KEY = ''; // Key handled by proxy
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
+const AGENTS_GID = '';
+const CLIENTS_GID = '';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
@@ -1921,7 +2020,7 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
@@ -1929,7 +2028,8 @@ function gotoTab(t,el){
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
   if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();initAgentField();}
-  if(t==='clients'||t==='portfolio')populateClientSelectors();
+  if(t==='agents'){renderAgentsTab();readAgentsFromSheets();}
+  if(t==='clients'||t==='portfolio'){populateClientSelectors();populateAgentSelector();}
 }
 
 function renderDev(filterDev) {
@@ -2666,6 +2766,49 @@ async function readPropertiesFromSheets() {
   } catch(e) { console.error('[properties] readPropertiesFromSheets error:', e); }
 }
 
+async function readAgentsFromSheets() {
+  // Columns: AgentID(0) FullName(1) Firm(2) Phone(3) Email(4) CommissionPct(5) Active(6) Notes(7) AddedOn(8)
+  const sheetParam = AGENTS_GID ? `gid=${AGENTS_GID}` : 'sheet=Agents';
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&${sheetParam}`);
+    const t = await r.text();
+    const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
+    const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    json.table.rows.forEach(row => {
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+      const agentId = g(0); const name = g(1);
+      if (!agentId || !name || name.toLowerCase() === 'full name') return;
+      const exists = agents.find(a => a.agentId === agentId || a.name.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        agents.push({ agentId, name, firm:g(2), phone:g(3), email:g(4), commissionPct:g(5), active:g(6)!=='FALSE', notes:g(7), addedOn:g(8) });
+      }
+    });
+    saveAgents();
+    populateAgentSelector();
+  } catch(e) { /* agents sheet not set up yet */ }
+}
+
+async function readClientsFromSheets() {
+  // Columns A-T: ClientID(0) FullName(1) Phone(2) Email(3) Source(4) RefAgentId(5) RefAgentName(6) Purpose(7) TypePref(8) BudgetMin(9) BudgetMax(10) BedsMin(11) BedsMax(12) Cities(13) SeaMaxKm(14) Status(15) AssignedTo(16) Notes(17) AddedOn(18) LastContact(19)
+  const sheetParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients_CRM';
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&${sheetParam}`);
+    const t = await r.text();
+    const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
+    const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    json.table.rows.forEach(row => {
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+      const clientId = g(0); const fullName = g(1);
+      if (!clientId || !fullName || fullName.toLowerCase() === 'full name') return;
+      const exists = clients.find(c => c.clientId === clientId);
+      if (!exists) {
+        clients.push({ clientId, fullName, phone:g(2), email:g(3), source:g(4), referringAgentId:g(5), referringAgentName:g(6), purpose:g(7), typePreference:g(8), budgetMin:g(9), budgetMax:g(10), bedsMin:g(11), bedsMax:g(12), cities:g(13), seaMaxKm:g(14), status:g(15)||'Active', assignedTo:g(16), notes:g(17), addedOn:g(18), lastContact:g(19) });
+      }
+    });
+    saveClients();
+  } catch(e) { /* clients CRM sheet not set up yet */ }
+}
+
 async function readCommsFromSheets() {
   // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
   try {
@@ -2686,11 +2829,16 @@ async function readCommsFromSheets() {
 
 function resetClient() {
   currentClientCallId = null;
+  cSelectedAgentId = null;
   var sel=document.getElementById('cClientSelector');if(sel)sel.value='';
   ['cName','cPhone','cEmail'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.readOnly=false;}});
   var ct=document.getElementById('cClientType');if(ct){ct.value='';ct.disabled=false;}
   document.getElementById('cNotes').value = '';
   document.querySelectorAll('#pClients .crit-btn.on').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#cStatusGroup .crit-btn').forEach(function(b){b.classList.toggle('on',b.dataset.val==='Active');});
+  var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
+  var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
+  var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
   Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
   document.getElementById('cMatchCount').textContent = '—';
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
@@ -4451,6 +4599,194 @@ function renderMarketPositioning(d) {
   return html;
 }
 
+// ── Client Call — Source / Agent / Status helpers ─────────────
+function cToggleSource(btn) {
+  document.querySelectorAll('#cSourceGroup .crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  var ar = document.getElementById('cAgentRow');
+  if (ar) ar.style.display = btn.dataset.val === 'Agent Referral' ? '' : 'none';
+  if (btn.dataset.val !== 'Agent Referral') { cSelectedAgentId = null; var ab = document.getElementById('cAgentBadge'); if(ab){ab.style.display='none';ab.textContent='';} }
+  autoSaveInvestor();
+}
+function cToggleAssign(btn) {
+  document.querySelectorAll('#cAssignGroup .crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  autoSaveInvestor();
+}
+function cToggleStatus(btn) {
+  document.querySelectorAll('#cStatusGroup .crit-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  autoSaveInvestor();
+}
+function cSelectAgent() {
+  var inp = document.getElementById('cAgentSelect'); if (!inp) return;
+  var val = inp.value.trim();
+  var ag = agents.find(a => (a.name + ' — ' + (a.firm||'')).toLowerCase() === val.toLowerCase() || a.name.toLowerCase() === val.toLowerCase());
+  if (ag) { cSelectedAgentId = ag.agentId; cUpdateAgentBadge(); } else { cSelectedAgentId = null; var abd = document.getElementById('cAgentBadge'); if(abd){abd.style.display='none';abd.textContent='';} }
+}
+function cUpdateAgentBadge() {
+  var ag = agents.find(a => a.agentId === cSelectedAgentId); if (!ag) return;
+  var abd = document.getElementById('cAgentBadge');
+  if (abd) { abd.textContent = '↗ ' + ag.name + ' · ' + (ag.firm||'') + (ag.commissionPct?' · '+ag.commissionPct+'%':''); abd.style.display = ''; }
+}
+function populateAgentSelector() {
+  var dl = document.getElementById('cAgentList'); if (!dl) return;
+  dl.innerHTML = agents.map(a => '<option value="' + (a.name + ' — ' + (a.firm||'')).replace(/"/g,'&quot;') + '">').join('');
+}
+
+// ── Save Client ───────────────────────────────────────────────
+function saveClient() {
+  var name = (document.getElementById('cName')||{}).value||'';
+  if (!name.trim()) { alert('Please enter a client name first.'); return; }
+  var clientId = 'CL' + String(Date.now()).slice(-6);
+  var phone = (document.getElementById('cPhone')||{}).value||'';
+  var email = (document.getElementById('cEmail')||{}).value||'';
+  var source = '';
+  var srcBtn = document.querySelector('#cSourceGroup .crit-btn.on'); if(srcBtn) source = srcBtn.dataset.val||'';
+  var agentId = cSelectedAgentId||'';
+  var agentName = ''; if(agentId){var ag=agents.find(a=>a.agentId===agentId);if(ag)agentName=ag.name;}
+  var purpose = ''; var purposeBtn = document.querySelector('#cPurposeGroup .crit-btn.on'); if(purposeBtn) purpose = purposeBtn.textContent.trim();
+  var types = []; document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Apartment','Villa','House','Penthouse'].includes(b.dataset.val))types.push(b.dataset.val);});
+  var budgetBtn = document.querySelector('#cBudgetGroup .crit-btn.on');
+  var budgetMin = budgetBtn ? budgetBtn.dataset.min||'' : '';
+  var budgetMax = budgetBtn ? budgetBtn.dataset.max||'' : '';
+  var beds = []; document.querySelectorAll('#pClients .crit-multi.on').forEach(function(b){var v=b.dataset.val||b.textContent.trim();if(['Studio','1','2','3','4','5+'].includes(v)&&!types.includes(v))beds.push(v);});
+  var cities = []; document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val))cities.push(b.dataset.val);});
+  var seaBtn = document.querySelector('#cSeaGroup .crit-btn.on'); var seaVal = seaBtn ? seaBtn.dataset.val||'' : '';
+  var statusBtn = document.querySelector('#cStatusGroup .crit-btn.on'); var status = statusBtn ? statusBtn.dataset.val||'Active' : 'Active';
+  var assignBtn = document.querySelector('#cAssignGroup .crit-btn.on'); var assignedTo = assignBtn ? assignBtn.dataset.val||'' : '';
+  var notes = (document.getElementById('cNotes')||{}).value||'';
+  var now = new Date().toISOString();
+  var row = [clientId, name, phone, email, source, agentId, agentName, purpose, types.join(', '), budgetMin, budgetMax, beds[0]||'', beds[beds.length-1]||'', cities.join(', '), seaVal, status, assignedTo, notes, now.slice(0,10), now.slice(0,10)];
+  var tsv = row.join('\t');
+  document.getElementById('saveClientText').value = tsv;
+  var noteEl = document.getElementById('saveClientAgentNote');
+  if (agentId && noteEl) { noteEl.style.display=''; noteEl.textContent = '↗ Referring Agent ID: ' + agentId + ' — ' + agentName + (agents.find(a=>a.agentId===agentId)||{commissionPct:''}).commissionPct ? ' · Commission: ' + ((agents.find(a=>a.agentId===agentId)||{}).commissionPct||'') + '%' : ''; }
+  else if (noteEl) noteEl.style.display='none';
+  document.getElementById('saveClientModal').style.display = 'flex';
+  // Also save to clients[]
+  var clientObj = { clientId, fullName:name, phone, email, source, referringAgentId:agentId, referringAgentName:agentName, purpose, typePreference:types.join(', '), budgetMin, budgetMax, bedsMin:beds[0]||'', bedsMax:beds[beds.length-1]||'', cities:cities.join(', '), seaMaxKm:seaVal, status, assignedTo, notes, addedOn:now.slice(0,10), lastContact:now.slice(0,10) };
+  if (!clients.find(c => c.clientId === clientId)) { clients.push(clientObj); saveClients(); }
+  // Update investor profile with referringAgentName if applicable
+  if (currentClientCallId && agentName) {
+    var inv = investorProfiles.find(i => (i.investorId||i.id) === currentClientCallId);
+    if (inv) { inv.referringAgentId = agentId; inv.referringAgentName = agentName; saveInvestorProfiles(); }
+  }
+}
+
+// ── Agents Tab ────────────────────────────────────────────────
+function toggleAddAgentForm() {
+  var f = document.getElementById('addAgentForm');
+  if (f) f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+function saveNewAgent() {
+  var name = (document.getElementById('agFName')||{}).value||''; if(!name.trim()){alert('Agent name is required.');return;}
+  var firm = (document.getElementById('agFirm')||{}).value||'';
+  var phone = (document.getElementById('agPhone')||{}).value||'';
+  var email = (document.getElementById('agEmail')||{}).value||'';
+  var comm = (document.getElementById('agComm')||{}).value||'';
+  var notes = (document.getElementById('agNotes')||{}).value||'';
+  var agentId = 'AG' + String(Date.now()).slice(-4);
+  var addedOn = new Date().toISOString().slice(0,10);
+  var ag = { agentId, name, firm, phone, email, commissionPct: comm, active: true, notes, addedOn };
+  agents.push(ag); saveAgents(); populateAgentSelector();
+  var row = [agentId, name, firm, phone, email, comm, 'TRUE', notes, addedOn];
+  var cp = document.getElementById('agentCopyPanel'); if(cp) cp.style.display='';
+  var ct = document.getElementById('agentCopyText'); if(ct) ct.value = row.join('\t');
+  // Send mailto
+  if (email) {
+    var subj = encodeURIComponent('Referral Partnership — Y. Habari & Co. LLC');
+    var body = encodeURIComponent('Dear ' + name + ',\n\nWe are pleased to confirm our referral partnership with ' + (firm||'your agency') + '. As agreed, a referral commission of ' + (comm||'[TBD]') + '% will apply to any clients you introduce who proceed to purchase.\n\nWe look forward to a productive collaboration and will ensure each referral receives our full attention.\n\nBest regards,\nY. Habari & Co. LLC');
+    window.location.href = 'mailto:' + email + '?subject=' + subj + '&body=' + body;
+  }
+  // Reset form & re-render
+  ['agFName','agFirm','agPhone','agEmail','agComm','agNotes'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  document.getElementById('addAgentForm').style.display='none';
+  renderAgentsTab();
+}
+function renderAgentsTab() {
+  var wrap = document.getElementById('agentTableWrap'); if (!wrap) return;
+  if (!agents.length) { wrap.innerHTML='<div class="empty" style="padding:1rem">No agents yet. Add the first one above.</div>'; return; }
+  var thS = 'text-align:left;padding:8px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);border-bottom:1px solid var(--bd)';
+  var tdS = 'padding:8px 10px;font-size:12px;border-bottom:1px solid var(--bd)';
+  var rows = agents.map(function(ag) {
+    var referred = clients.filter(function(c){ return c.referringAgentId === ag.agentId; }).length;
+    var referred2 = referred || investorProfiles.filter(function(i){ return i.referringAgentName && i.referringAgentName.toLowerCase() === ag.name.toLowerCase(); }).length;
+    var conversions = clients.filter(function(c){ return c.referringAgentId === ag.agentId && c.status === 'Closed'; }).length;
+    var activeBadge = ag.active ? '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#dcfce7;color:#15803d;font-weight:600">Active</span>' : '<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#f3f4f6;color:#6b7280;font-weight:600">Inactive</span>';
+    return '<tr style="cursor:pointer" onclick="toggleAgentDetail(\'' + ag.agentId + '\')">'
+      + '<td style="'+tdS+'"><span style="font-size:10px;color:var(--mu);font-family:monospace">'+ag.agentId+'</span></td>'
+      + '<td style="'+tdS+';font-weight:500">'+ag.name+'</td>'
+      + '<td style="'+tdS+'">'+( ag.firm||'—' )+'</td>'
+      + '<td style="'+tdS+'">'+( ag.phone||'—' )+'</td>'
+      + '<td style="'+tdS+'">'+( ag.email||'—' )+'</td>'
+      + '<td style="'+tdS+';text-align:center">'+( ag.commissionPct ? ag.commissionPct+'%' : '—' )+'</td>'
+      + '<td style="'+tdS+'">'+activeBadge+'</td>'
+      + '<td style="'+tdS+';text-align:center;font-weight:600">'+referred2+'</td>'
+      + '<td style="'+tdS+';text-align:center;font-weight:600">'+conversions+'</td>'
+      + '</tr>'
+      + '<tr id="agdetail-'+ag.agentId+'" style="display:none"><td colspan="9" style="padding:0">' + renderAgentDetail(ag) + '</td></tr>';
+  }).join('');
+  wrap.innerHTML = '<div class="twrap"><table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr>'
+    + '<th style="'+thS+'">ID</th><th style="'+thS+'">Name</th><th style="'+thS+'">Firm</th><th style="'+thS+'">Phone</th><th style="'+thS+'">Email</th><th style="'+thS+';text-align:center">Comm %</th><th style="'+thS+'">Active</th><th style="'+thS+';text-align:center">Clients</th><th style="'+thS+';text-align:center">Conversions</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+function toggleAgentDetail(agentId) {
+  var row = document.getElementById('agdetail-' + agentId); if(!row) return;
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+function renderAgentDetail(ag) {
+  var refClients = clients.filter(function(c){ return c.referringAgentId === ag.agentId; });
+  // Fallback to investorProfiles if clients[] not populated from sheet
+  var refInvestors = investorProfiles.filter(function(i){ return i.referringAgentName && i.referringAgentName.toLowerCase() === ag.name.toLowerCase(); });
+  var thS = 'text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);border-bottom:1px solid var(--bd)';
+  var tdS = 'padding:6px 10px;font-size:12px;border-bottom:1px solid var(--bd);cursor:pointer';
+  var clientRows = '';
+  if (refClients.length) {
+    clientRows = refClients.map(function(c){
+      return '<tr onclick="loadInvestorToClientCall(\'' + c.fullName + '\')">'
+        + '<td style="'+tdS+'"><span style="font-size:10px;font-family:monospace;color:var(--mu)">'+c.clientId+'</span></td>'
+        + '<td style="'+tdS+';font-weight:500">'+c.fullName+'</td>'
+        + '<td style="'+tdS+'">'+( c.phone||'—' )+'</td>'
+        + '<td style="'+tdS+'">'+( c.source||'—' )+'</td>'
+        + '<td style="'+tdS+'">'+( c.status||'—' )+'</td>'
+        + '<td style="'+tdS+'">'+( c.budgetMin&&c.budgetMax ? '€'+Number(c.budgetMin).toLocaleString()+' – €'+Number(c.budgetMax).toLocaleString() : c.budgetMin||'—' )+'</td>'
+        + '<td style="'+tdS+'">'+( c.cities||'—' )+'</td>'
+        + '<td style="'+tdS+'">'+( c.addedOn||'—' )+'</td>'
+        + '</tr>';
+    }).join('');
+  } else if (refInvestors.length) {
+    clientRows = refInvestors.map(function(i){
+      var budgetLabel = i.budget || (i.criteria&&i.criteria.budget) || '—';
+      var locs = (i.locations&&i.locations.length) ? i.locations.join(', ') : '';
+      return '<tr onclick="loadInvestorToClientCall(\'' + i.name + '\')">'
+        + '<td style="'+tdS+'"><span style="font-size:10px;font-family:monospace;color:var(--mu)">'+(i.investorId||i.id)+'</span></td>'
+        + '<td style="'+tdS+';font-weight:500">'+i.name+'</td>'
+        + '<td style="'+tdS+'">'+( i.phone||'—' )+'</td>'
+        + '<td style="'+tdS+'">Agent Referral</td>'
+        + '<td style="'+tdS+'">'+( i.status||'Active' )+'</td>'
+        + '<td style="'+tdS+'">'+budgetLabel+'</td>'
+        + '<td style="'+tdS+'">'+locs+'</td>'
+        + '<td style="'+tdS+'">'+( i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-GB') : '—' )+'</td>'
+        + '</tr>';
+    }).join('');
+  }
+  var clientTable = (clientRows)
+    ? '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thS+'">ID</th><th style="'+thS+'">Name</th><th style="'+thS+'">Phone</th><th style="'+thS+'">Source</th><th style="'+thS+'">Status</th><th style="'+thS+'">Budget</th><th style="'+thS+'">Cities</th><th style="'+thS+'">Added</th></tr></thead><tbody>'+clientRows+'</tbody></table>'
+    : '<div style="font-size:12px;color:var(--mu);padding:8px 0">No clients referred yet.</div>';
+  return '<div style="padding:14px;background:var(--bg2);border-top:1px solid var(--bd)">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
+    + '<div style="font-size:12px"><span style="color:var(--mu)">Phone: </span>'+(ag.phone||'—')+'</div>'
+    + '<div style="font-size:12px"><span style="color:var(--mu)">Email: </span>'+(ag.email?'<a href="mailto:'+ag.email+'" style="color:inherit">'+ag.email+'</a>':'—')+'</div>'
+    + '<div style="font-size:12px"><span style="color:var(--mu)">Commission: </span>'+(ag.commissionPct?ag.commissionPct+'%':'—')+'</div>'
+    + (ag.notes?'<div style="font-size:12px;grid-column:span 3"><span style="color:var(--mu)">Notes: </span>'+ag.notes+'</div>':'')
+    + '</div>'
+    + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Referred Clients</div>'
+    + clientTable
+    + '</div>';
+}
+
 // ── Investor Profiles ─────────────────────────────────────────
 var investorProfiles = [];
 try{
@@ -4485,6 +4821,15 @@ function saveInvestorProfiles(){try{localStorage.setItem('ip_investors',JSON.str
 function saveCommLog(){try{localStorage.setItem('ip_comms',JSON.stringify(communicationLog));}catch(e){}}
 function saveClientProperties(){try{localStorage.setItem('ip_properties',JSON.stringify(clientProperties));}catch(e){}}
 function nextPropertyId(){var max=clientProperties.reduce(function(m,p){return Math.max(m,p.propertyId||0);},0);return max+1;}
+
+// ── Agents & Clients ──────────────────────────────────────────
+var agents = [];
+try{agents=JSON.parse(localStorage.getItem('ip_agents')||'[]');}catch(e){}
+var clients = [];
+try{clients=JSON.parse(localStorage.getItem('ip_clients')||'[]');}catch(e){}
+function saveAgents(){try{localStorage.setItem('ip_agents',JSON.stringify(agents));}catch(e){}}
+function saveClients(){try{localStorage.setItem('ip_clients',JSON.stringify(clients));}catch(e){}}
+var cSelectedAgentId = null;
 
 var agentName='';
 try{agentName=localStorage.getItem('ip_agent')||'';}catch(e){}
@@ -4569,6 +4914,7 @@ function renderInvestorProfilesPanel(){
       +(inv.clientType?'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+ctStyle+'">'+inv.clientType+'</span>':'')
       +'</div>'
       +'<div style="font-size:11px;color:var(--mu)">'+(inv.phone||'No phone')+(inv.email?' \u00b7 '+inv.email:'')+'</div>'
+      +(inv.referringAgentName?'<div style="font-size:10px;color:var(--gold);margin-top:1px">\u2197 Referred by '+inv.referringAgentName+'</div>':'')
       +(function(){
           var cr=inv.criteria||{};
           var budget=inv.budget||cr.budget||'';
@@ -4617,6 +4963,14 @@ function loadInvestorToClientCall(name){
   var ep=document.getElementById('cPhone');if(ep){ep.value=inv.phone||'';ep.readOnly=true;}
   var ee=document.getElementById('cEmail');if(ee){ee.value=inv.email||'';ee.readOnly=true;}
   var et=document.getElementById('cClientType');if(et){et.value=inv.clientType||'';et.disabled=true;}
+  // Source
+  if(inv.source){document.querySelectorAll('#cSourceGroup .crit-btn').forEach(function(b){b.classList.toggle('on',b.dataset.val===inv.source);});if(inv.source==='Agent Referral'){var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='';}}
+  // Referring agent
+  if(inv.referringAgentId){cSelectedAgentId=inv.referringAgentId;var ab=document.getElementById('cAgentSelect');if(ab)ab.value=inv.referringAgentName||'';cUpdateAgentBadge();}
+  // Assigned To
+  if(inv.assignedTo){document.querySelectorAll('#cAssignGroup .crit-btn').forEach(function(b){b.classList.toggle('on',b.dataset.val===inv.assignedTo);});}
+  // Status
+  var invStatus=inv.status||'Active';document.querySelectorAll('#cStatusGroup .crit-btn').forEach(function(b){b.classList.toggle('on',b.dataset.val===invStatus);});
   // Sync selector
   var sel=document.getElementById('cClientSelector');if(sel)sel.value=currentClientCallId||'';
   var cr=inv.criteria||{};
@@ -4765,11 +5119,16 @@ function selectClientForCall(id){
 
 function clearClientSelection(){
   currentClientCallId=null;
+  cSelectedAgentId=null;
   var sel=document.getElementById('cClientSelector');if(sel)sel.value='';
   ['cName','cPhone','cEmail'].forEach(function(fid){var e=document.getElementById(fid);if(e){e.value='';e.readOnly=false;}});
   var ct=document.getElementById('cClientType');if(ct){ct.value='';ct.disabled=false;}
   var cn=document.getElementById('cNotes');if(cn)cn.value='';
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
+  document.querySelectorAll('#cStatusGroup .crit-btn').forEach(function(b){b.classList.toggle('on',b.dataset.val==='Active');});
+  var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
+  var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
+  var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
   Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
   var mc=document.getElementById('cMatchCount');if(mc)mc.textContent='—';
   var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
@@ -4886,6 +5245,11 @@ function autoSaveInvestor(){
     delivery:deliveryBtn?deliveryBtn.textContent.trim():'',
     notes:document.getElementById('cNotes')?document.getElementById('cNotes').value:''
   };
+  // Source, agent, status, assignedTo
+  var srcBtn=document.querySelector('#cSourceGroup .crit-btn.on');if(srcBtn)inv.source=srcBtn.dataset.val;
+  if(cSelectedAgentId){inv.referringAgentId=cSelectedAgentId;var ab=document.getElementById('cAgentSelect');if(ab)inv.referringAgentName=ab.value.split(' — ')[0].trim();}
+  var stBtn=document.querySelector('#cStatusGroup .crit-btn.on');if(stBtn)inv.status=stBtn.dataset.val;
+  var asBtn=document.querySelector('#cAssignGroup .crit-btn.on');if(asBtn)inv.assignedTo=asBtn.dataset.val;
   saveInvestorProfiles();
   if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
 }
@@ -5261,8 +5625,8 @@ function toggleAIDistrict(dist) {
 function aiPg(d) { aiPage += d; renderAIResults(); }
 
 init();
-// Load investors from Sheets on startup so Client Call & Portfolio Builder selectors are populated
 readInvestorsFromSheets();
+readAgentsFromSheets();
 </script>
 </body>
 </html>
