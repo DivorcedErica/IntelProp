@@ -456,7 +456,7 @@ tr:hover td{background:var(--bg2)}
     <div id="pClients" style="display:none">
 
       <!-- Client info row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px">
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
           <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
@@ -468,6 +468,14 @@ tr:hover td{background:var(--bg2)}
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div>
           <input type="email" id="cEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div>
+          <select id="cClientType" onchange="autoSaveInvestor()" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">— Select —</option>
+            <option value="Investor">Investor</option>
+            <option value="One-off Buyer">One-off Buyer</option>
+          </select>
         </div>
       </div>
 
@@ -838,10 +846,11 @@ tr:hover td{background:var(--bg2)}
         <button onclick="document.getElementById('newInvForm').style.display=document.getElementById('newInvForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New</button>
       </div>
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div><input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div><select id="newInvType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor">Investor</option><option value="One-off Buyer">One-off Buyer</option></select></div>
         </div>
         <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
       </div>
@@ -2148,11 +2157,18 @@ function renderInvestorCard(inv) {
     </div>
 
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-      <div>
-        <div class="inv-card-name">${inv.name}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
+          ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
+        </div>
         <div class="inv-card-contact">
           ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:'<span style="color:var(--mu)">No phone</span>'}
           ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:'<span style="color:var(--mu)">No email</span>'}
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+          ${inv.budget?`<div style="font-size:11px"><span style="color:var(--mu)">Budget</span> <b style="color:var(--tx)">${inv.budget}</b></div>`:''}
+          ${inv.locations&&inv.locations.length?`<div style="font-size:11px"><span style="color:var(--mu)">Locations</span> <b style="color:var(--tx)">${inv.locations.join(' · ')}</b></div>`:''}
         </div>
         <div style="font-size:11px;color:var(--mu);margin-top:4px">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
       </div>
@@ -4055,18 +4071,22 @@ function timeAgo(iso){
   return Math.floor(d/30)+' months ago';
 }
 
-function getOrCreateInvestor(name,phone,email){
+function getOrCreateInvestor(name,phone,email,clientType,budget,locations){
   var inv=investorProfiles.find(function(i){return i.name.toLowerCase()===name.toLowerCase();});
   if(!inv){
-    inv={id:Date.now(),name:name,phone:phone||'',email:email||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:''};
+    inv={id:Date.now(),name:name,phone:phone||'',email:email||'',clientType:clientType||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budget||null,locations:locations||[]};
     investorProfiles.push(inv);
     saveInvestorProfiles();
     logCommunication(inv.id,inv.name,'session','Profile created',null,null,'');
     if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   } else {
-    if(phone&&!inv.phone)inv.phone=phone;
-    if(email&&!inv.email)inv.email=email;
-    saveInvestorProfiles();
+    var changed=false;
+    if(phone&&!inv.phone){inv.phone=phone;changed=true;}
+    if(email&&!inv.email){inv.email=email;changed=true;}
+    if(clientType){inv.clientType=clientType;changed=true;}
+    if(budget){inv.budget=budget;changed=true;}
+    if(locations&&locations.length){inv.locations=locations;changed=true;}
+    if(changed){saveInvestorProfiles();if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);}
   }
   return inv;
 }
@@ -4095,15 +4115,18 @@ function renderInvestorProfilesPanel(){
     var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b'};
     var st=inv.status||'Active';
     var stStyle=statusColors[st]||'#f3f4f6;color:#374151';
+    var ctStyle=inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':inv.clientType==='One-off Buyer'?'#f3e8ff;color:#7c3aed':'';
     var lastC=inv.lastContact?'Last contact: '+timeAgo(inv.lastContact):(inv.createdAt?'Added '+new Date(inv.createdAt).toLocaleDateString('en-GB'):'');
     return '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openInvestorCard('+inv.id+')" onmouseenter="this.style.borderColor=\'#93c5fd\'" onmouseleave="this.style.borderColor=\'var(--bd)\'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">'
       +'<div style="flex:1;min-width:0">'
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">'
+      +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">'
       +'<div style="font-size:13px;font-weight:600">'+inv.name+'</div>'
       +'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+stStyle+'">'+st+'</span>'
+      +(inv.clientType?'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+ctStyle+'">'+inv.clientType+'</span>':'')
       +'</div>'
       +'<div style="font-size:11px;color:var(--mu)">'+(inv.phone||'No phone')+(inv.email?' \u00b7 '+inv.email:'')+'</div>'
+      +(inv.budget||inv.locations&&inv.locations.length?'<div style="font-size:10px;color:var(--tx);margin-top:2px;opacity:.8">'+(inv.budget?'\ud83d\udcb0 '+inv.budget:'')+(inv.budget&&inv.locations&&inv.locations.length?' \u00b7 ':'')+(inv.locations&&inv.locations.length?'\ud83d\udccd '+inv.locations.join(', '):'')+'</div>':'')
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
       +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
       +(myCommsCount?' \u00b7 '+myCommsCount+' activities':'')
@@ -4135,11 +4158,31 @@ function loadInvestorToClientCall(name){
   var el=document.getElementById('cName');if(el)el.value=inv.name;
   var ep=document.getElementById('cPhone');if(ep)ep.value=inv.phone||'';
   var ee=document.getElementById('cEmail');if(ee)ee.value=inv.email||'';
+  var et=document.getElementById('cClientType');if(et)et.value=inv.clientType||'';
+  // Restore saved budget pill
+  if(inv.budget){
+    document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){
+      b.classList.toggle('on',b.textContent.trim()===inv.budget);
+      if(b.textContent.trim()===inv.budget){cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;}
+    });
+  }
+  // Restore saved locations
+  if(inv.locations&&inv.locations.length){
+    cCriteria.cities=[];
+    document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){
+      var isLoc=['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val);
+      if(!isLoc)return;
+      var on=(inv.locations||[]).includes(b.dataset.val);
+      b.classList.toggle('on',on);
+      if(on&&!cCriteria.cities.includes(b.dataset.val))cCriteria.cities.push(b.dataset.val);
+    });
+  }
   inv.lastContact=new Date().toISOString();
   saveInvestorProfiles();
-  logCommunication(inv.id,inv.name,'session','Client Call session started',null,null,'');
+  logCommunication(inv.id,inv.name,'session','Client Call session started',null,null,(inv.clientType?inv.clientType+' · ':'')+(inv.budget?'Budget: '+inv.budget+' · ':'')+(inv.locations&&inv.locations.length?'Locations: '+inv.locations.join(', '):''));
   if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   gotoTab('clients',document.querySelectorAll('.tab')[3]);
+  applyClientFilter();
 }
 
 function deleteInvestorProfile(id){
@@ -4154,11 +4197,13 @@ function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
   var phone=document.getElementById('newInvPhone').value.trim();
   var email=document.getElementById('newInvEmail').value.trim();
+  var clientType=document.getElementById('newInvType').value;
   if(!name){alert('Please enter a name.');return;}
-  var inv=getOrCreateInvestor(name,phone,email);
+  var inv=getOrCreateInvestor(name,phone,email,clientType,'',[]);
   document.getElementById('newInvName').value='';
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
+  document.getElementById('newInvType').value='';
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
   openInvestorCard(inv.id);
@@ -4168,7 +4213,15 @@ function autoSaveInvestor(){
   var name=document.getElementById('cName')&&document.getElementById('cName').value.trim();
   var phone=document.getElementById('cPhone')&&document.getElementById('cPhone').value.trim();
   var email=document.getElementById('cEmail')&&document.getElementById('cEmail').value.trim();
-  if(name)getOrCreateInvestor(name,phone,email);
+  var clientType=document.getElementById('cClientType')&&document.getElementById('cClientType').value;
+  // Capture budget from active criteria button
+  var budgetLabel='';
+  var budgetBtn=document.querySelector('#cBudgetGroup .crit-btn.on');
+  if(budgetBtn)budgetLabel=budgetBtn.textContent.trim();
+  // Capture locations from active multi buttons
+  var locations=[];
+  document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val))locations.push(b.dataset.val);});
+  if(name)getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
 }
 
 // ── Agent Notes ───────────────────────────────────────────────
