@@ -45,7 +45,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tab:hover{color:var(--tx)}
 .tab.on{color:var(--tx);font-weight:500;border-bottom-color:var(--tx)}
 .slbadge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:10px;font-weight:600;border-radius:99px;min-width:15px;height:15px;padding:0 4px;margin-left:4px}
-.frow{display:grid;grid-template-columns:1fr repeat(4,minmax(110px,150px));gap:8px;margin-bottom:10px}
+.frow{display:grid;grid-template-columns:1fr repeat(3,minmax(120px,160px));gap:8px;margin-bottom:10px}
 .frow input,.frow select{font-size:12px;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);width:100%}
 .frow input:focus,.frow select:focus{outline:none;border-color:var(--tx)}
 .prow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -176,18 +176,6 @@ tr:hover td{background:var(--bg2)}
 .modal-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 .modal-map{height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
 
-/* ── Image Carousel ── */
-.carousel{position:relative;width:100%;height:260px;border-radius:16px 16px 0 0;overflow:hidden;background:var(--bg2)}
-.carousel-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease}
-.carousel-img.active{opacity:1}
-.carousel-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1;z-index:5;transition:background .15s;display:flex;align-items:center;justify-content:center}
-.carousel-btn:hover{background:rgba(0,0,0,.7)}
-.carousel-prev{left:10px}.carousel-next{right:10px}
-.carousel-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5}
-.carousel-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.45);cursor:pointer;transition:background .15s;border:none;padding:0}
-.carousel-dot.active{background:#fff}
-.carousel-counter{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.4);color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:99px;z-index:5}
-
 /* ── Pag / dev / shortlist ── */
 .pag{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px}
 .pag button{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer}
@@ -229,7 +217,6 @@ tr:hover td{background:var(--bg2)}
 .portfolio-mini{background:var(--bg);border-radius:8px;padding:8px 10px;border:1px solid var(--bd)}
 .portfolio-mini-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;font-weight:500}
 .portfolio-mini-value{font-size:13px;font-weight:600;color:var(--tx)}
-
 
 /* ── Analytics ── */
 .analytics-wrap{display:flex;gap:0;min-height:600px}
@@ -285,6 +272,7 @@ tr:hover td{background:var(--bg2)}
   </div>
 </div>
 
+<!-- ── Login ── -->
 <div class="shell" id="mainShell">
   <div class="topbar">
     <div>
@@ -307,6 +295,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
       <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
       <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
+      <button class="tab" onclick="gotoTab('aibuilder',this)">✦ AI Search</button>
     </div>
 
     <!-- LISTINGS -->
@@ -316,7 +305,6 @@ tr:hover td{background:var(--bg2)}
         <select id="fCity" onchange="doFilter()"><option value="">All cities</option></select>
         <select id="fType" onchange="doFilter()"><option value="">All types</option></select>
         <select id="fBeds" onchange="doFilter()"><option value="">Any beds</option></select>
-        <select id="fDelivery" onchange="doFilter()"><option value="">Any delivery</option></select>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:8px;margin-top:-4px">
         <button onclick="clearFilters()" style="font-size:11px;padding:3px 12px;border:1px solid var(--bd);border-radius:var(--r);background:none;color:var(--mu);cursor:pointer" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--mu)'">✕ Clear all filters</button>
@@ -746,6 +734,56 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div id="investorProfilesList"><div class="empty">No profiles yet.</div></div>
     </div>
+    <!-- AI BUILDER -->
+    <div id="pAibuilder" style="display:none">
+      <div style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:500;color:var(--tx);margin-bottom:4px">✦ AI Property Search</div>
+        <div style="font-size:11px;color:var(--mu)">Describe what you're looking for in plain language. The AI will match listings and calculate real driving distances to the nearest beach via Google Maps.</div>
+      </div>
+
+      <!-- Prompt input -->
+      <div style="position:relative;margin-bottom:10px">
+        <textarea id="aiPrompt" placeholder="e.g. Villa in Paphos or Protaras, 3 bedrooms, close to the sea, maximum €600k&#10;e.g. Apartment in Limassol under €400k, 2 beds, beachfront preferred&#10;e.g. Investment property under €300k with good rental yield near Ayia Napa" style="width:100%;min-height:80px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;resize:vertical;font-family:inherit;line-height:1.5;outline:none" onkeydown="if(event.ctrlKey&&event.key==='Enter')runAiSearch()"></textarea>
+      </div>
+
+      <!-- Quick suggestion chips -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button onclick="aiChip('3-bed villa in Paphos or Protaras under €600k, close to sea')" class="crit-btn">3-bed villa, Paphos/Protaras, &lt;€600k</button>
+        <button onclick="aiChip('2-bed apartment in Limassol beachfront under €500k')" class="crit-btn">2-bed Limassol beachfront</button>
+        <button onclick="aiChip('Investment apartment Ayia Napa or Larnaca under €300k, 1-2 beds')" class="crit-btn">Investment, Ayia Napa/Larnaca</button>
+        <button onclick="aiChip('Penthouse in Limassol with sea view, 3+ bedrooms under €2M')" class="crit-btn">Limassol penthouse</button>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button onclick="runAiSearch()" class="btn primary" id="aiRunBtn">✦ Search with AI</button>
+        <button onclick="clearAiSearch()" class="btn" style="font-size:11px">✕ Clear</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mu);cursor:pointer">
+          <input type="checkbox" id="aiGmaps" checked style="accent-color:var(--tx)"> Calculate real driving distance via Google Maps
+        </label>
+        <div style="font-size:11px;color:var(--mu)" id="aiStatus"></div>
+      </div>
+
+      <!-- Parsed criteria display -->
+      <div id="aiCriteriaBox" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--mu)">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Parsed criteria</div>
+        <div id="aiCriteriaInner" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- AI narrative -->
+      <div id="aiNarrative" style="display:none;background:var(--bg2);border-left:3px solid var(--tx);border-radius:0 var(--r) var(--r) 0;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--tx);line-height:1.7"></div>
+
+      <!-- Results -->
+      <div id="aiResultsHeader" style="display:none;display:none;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="aiMatchCount" style="color:var(--tx)">—</b></div>
+        <div style="font-size:11px;color:var(--mu)" id="aiSortNote"></div>
+      </div>
+      <div id="aiResults"><div class="empty" style="padding:2rem;text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">✦</div>
+        <div style="font-size:13px;color:var(--tx);font-weight:500;margin-bottom:6px">AI Property Search</div>
+        <div style="font-size:12px;color:var(--mu)">Describe your ideal property above and click Search</div>
+      </div></div>
+    </div>
+
     <!-- SHORTLIST -->
     <div id="pShortlist" style="display:none">
       <div class="slt">
@@ -1008,9 +1046,6 @@ async function init() {
             return raw.split('T')[0] || raw;
           })(),
           complex: (()=>{const v=''+ g(12); return(v&&v.toLowerCase()!=='standalone'&&v!=='—'&&v!=='')?v:null;})(),
-          img1: g(18)||null, img2: g(19)||null, img3: g(20)||null, img4: g(21)||null,
-          delivery: g(22)||null,
-          listingUrl: g(17)||null,
           imageUrl: null,
           lat: null,
           lng: null,
@@ -1046,9 +1081,6 @@ async function init() {
           price: n(8), ppm: n(9),
           priceText: g(10), addedOn: (g(11)||'').split(' ')[0]||g(11),
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
-          img1: g(18)||null, img2: g(19)||null, img3: g(20)||null, img4: g(21)||null,
-          delivery: g(22)||null,
-          listingUrl: g(17)||null,
           imageUrl: null,
           lat: null, lng: null,
           projectUrl: null,
@@ -1078,35 +1110,19 @@ async function init() {
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
-    runBulkEnrichment();
 
   } catch (e) {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
   }
 }
 
-function deliveryYear(val) {
-  if (!val) return null;
-  const s = val.toString().toLowerCase().trim();
-  if (/ready|immediate|completed|now/i.test(s)) return 'Ready now';
-  const m = s.match(/20\d{2}/);
-  return m ? m[0] : null;
-}
-
 function populate() {
   const cities = [...new Set(all.map(d => d.city).filter(Boolean))].sort();
   const types  = [...new Set(all.map(d => d.type).filter(Boolean))].sort();
   const beds   = [...new Set(all.map(d => d.bedrooms).filter(v => v !== null))].sort((a,b)=>a-b);
-  const deliveries = [...new Set(all.map(d => deliveryYear(d.delivery)).filter(Boolean))].sort((a,b)=>{
-    if (a === 'Ready now') return -1;
-    if (b === 'Ready now') return 1;
-    return a > b ? 1 : -1;
-  });
   ['fCity','mCity'].forEach(id => { const el=document.getElementById(id); cities.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); });
   ['fType','mType'].forEach(id => { const el=document.getElementById(id); types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);}); });
   ['fBeds','mBeds'].forEach(id => { const el=document.getElementById(id); beds.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=`${b} bed${b!==1?'s':''}`;el.appendChild(o);}); });
-  const fd = document.getElementById('fDelivery');
-  if (fd) deliveries.forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;fd.appendChild(o); });
 }
 
 function onPrice() {
@@ -1153,8 +1169,6 @@ function doFilter() {
   const maxP = rv < 5000000 ? rv : null;
   const seaEl = document.getElementById('fSea');
   const maxSea = seaEl && seaEl.value ? +seaEl.value : null;
-  const deliveryEl = document.getElementById('fDelivery');
-  const deliveryF = deliveryEl ? deliveryEl.value : '';
   filt=all.filter(d=>{
     if(q&&!`${d.developer} ${d.title} ${d.district} ${d.complex||''} ${d.area!=null?d.area+' m²':''} ${d.bedrooms!=null?d.bedrooms+' bed':''}`.toLowerCase().includes(q))return false;
     if(city&&d.city!==city)return false;
@@ -1162,7 +1176,6 @@ function doFilter() {
     if(beds&&d.bedrooms!==+beds)return false;
     if(maxP&&d.price>maxP)return false;
     if(maxSea&&(d.seaDist==null||d.seaDist>maxSea))return false;
-    if(deliveryF&&deliveryYear(d.delivery)!==deliveryF)return false;
     return true;
   });
   if(sc){
@@ -1400,7 +1413,7 @@ function openModal(id, e) {
         <div style="flex:1;min-width:0">
           <div style="margin-bottom:6px">${tagBadge(d.type)}${d.seaDist!=null?' '+seaBadge(d.seaDist):''}</div>
           <div class="modal-title">${d.title}</div>
-          <div id="modalDevName" style="font-size:12px;color:var(--mu);margin-top:4px">${d.developer}</div>
+          <div style="font-size:12px;color:var(--mu);margin-top:4px">${d.developer}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:16px">
           <div class="modal-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
@@ -1415,7 +1428,6 @@ function openModal(id, e) {
         <div class="meta-cell"><div class="meta-label">Total area</div><div class="meta-value">${d.area!=null?d.area+' m²':'—'}</div></div>
         ${d.plot!=null?`<div class="meta-cell"><div class="meta-label">Plot size</div><div class="meta-value">${d.plot} m²</div></div>`:''}
         <div class="meta-cell"><div class="meta-label">Added</div><div class="meta-value">${d.addedOn||'—'}</div></div>
-        <div class="meta-cell" id="modalDeliveryCell" ${d.delivery?'':'style="display:none"'}><div class="meta-label">Delivery</div><div class="meta-value" id="modalDelivery">${d.delivery||''}</div></div>
         <div class="meta-cell" id="modal-sea-${d.id}"><div class="meta-label">Distance to sea</div><div class="meta-value">${d.seaDist!=null?seaBadge(d.seaDist):'—'}</div></div>
       </div>
       <div class="modal-section-title">Location</div>
@@ -1454,8 +1466,8 @@ function openModal(id, e) {
     </div>`;
   document.getElementById('modalBackdrop').classList.add('open');
   document.body.style.overflow='hidden';
+  // Load property image on demand
   loadModalImage(d);
-  enrichListing(d);
   // Market Positioning + RICS
   const posEl = document.getElementById('modalPositioning');
   if (posEl) posEl.innerHTML = renderMarketPositioning(d);
@@ -1555,7 +1567,7 @@ function renderCard(d) {
       <div class="card-title">${d.title}</div>
       <div class="card-dev">${d.developer}</div>
       ${d.complex ? `<div style="font-size:11px;color:var(--tx);font-weight:500;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.complex}</div>` : ''}
-      <div class="card-facts">${[d.city&&d.district?`${d.city}, ${d.district}`:d.city||d.district,d.bedrooms!=null?`${d.bedrooms} bed${d.bedrooms!==1?'s':''}`:null,d.area!=null?`${d.area} m²`:null,d.delivery?`🗓 ${d.delivery}`:null].filter(Boolean).join(' · ')}</div>
+      <div class="card-facts">${[d.city&&d.district?`${d.city}, ${d.district}`:d.city||d.district,d.bedrooms!=null?`${d.bedrooms} bed${d.bedrooms!==1?'s':''}`:null,d.area!=null?`${d.area} m²`:null].filter(Boolean).join(' · ')}</div>
       <div class="card-price">${d.price!=null?'€'+d.price.toLocaleString():'—'}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap">
         ${d.ppm!=null?`<span class="card-ppm">€${d.ppm.toLocaleString()} / m²</span>`:''}
@@ -1633,7 +1645,6 @@ function clearFilters(){
   document.getElementById('fType').value='';
   document.getElementById('fBeds').value='';
   const fSea=document.getElementById('fSea');if(fSea)fSea.value='';
-  const fDel=document.getElementById('fDelivery');if(fDel)fDel.value='';
   const slider=document.getElementById('priceR');slider.value=slider.max;
   const pinput=document.getElementById('priceInput');pinput.value='';pinput.placeholder='Any';
   doFilter();
@@ -1641,7 +1652,7 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist','aibuilder'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
@@ -2475,6 +2486,8 @@ function pbRebuildOutput() {
     </div>`;
 }
 
+// ── Auth removed ─────────────────────────────────────────────
+const currentUser = { username: 'Yaniv', role: 'Admin' };
 
 // ── Analytics Engine (AirDNA methodology) ────────────────────
 let analyticsSection = 'overview';
@@ -3307,230 +3320,20 @@ function renderAnalyticsComparison() {
 // ── On-demand property image search ─────────────────────────
 const imgCache = {};
 
-// ── Silent enrichment engine ──────────────────────────────────
-let _enrichDB = null;
-
-function openEnrichDB() {
-  if (_enrichDB) return Promise.resolve(_enrichDB);
-  return new Promise((res, rej) => {
-    const req = indexedDB.open('intelprop_enrich', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('listings', {keyPath:'id'});
-    req.onsuccess = e => { _enrichDB = e.target.result; res(_enrichDB); };
-    req.onerror = rej;
-  });
-}
-
-async function enrichGetCache(id) {
-  const db = await openEnrichDB();
-  return new Promise((res, rej) => {
-    const req = db.transaction('listings','readonly').objectStore('listings').get(id);
-    req.onsuccess = e => res(e.target.result || null);
-    req.onerror = rej;
-  });
-}
-
-async function enrichSetCache(id, data) {
-  const db = await openEnrichDB();
-  return new Promise((res, rej) => {
-    const req = db.transaction('listings','readwrite').objectStore('listings').put({id, ...data, ts: Date.now()});
-    req.onsuccess = () => res();
-    req.onerror = rej;
-  });
-}
-
-async function getWaybackUrl(url) {
-  try {
-    const r = await fetch(`https://archive.org/wayback/available?url=${encodeURIComponent(url)}`);
-    const j = await r.json();
-    return j.archived_snapshots?.closest?.available ? j.archived_snapshots.closest.url : null;
-  } catch(e) { return null; }
-}
-
-async function getMementoUrl(url) {
-  try {
-    const r = await fetch(`https://timetravel.mementoweb.org/api/json/${encodeURIComponent(url)}`);
-    const j = await r.json();
-    const uri = j.mementos?.closest?.uri;
-    return uri ? (Array.isArray(uri) ? uri[0] : uri) : null;
-  } catch(e) { return null; }
-}
-
-async function getArchivedUrl(url) {
-  const wb = await getWaybackUrl(url);
-  if (wb) return { url: wb, source: 'Wayback' };
-
-  const mt = await getMementoUrl(url);
-  if (mt) return { url: mt, source: 'Memento' };
-
-  return { url: `https://cc.bingj.com/cache.aspx?url=${encodeURIComponent(url)}&q=${encodeURIComponent(url)}`, source: 'Bing' };
-}
-
-async function fetchAndExtract(url, hint) {
-  const res = await fetch('/api/proxy', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 600,
-      tools: [{type:'web_search_20250305', name:'web_search'}],
-      messages: [{role:'user', content:
-        `Visit this property listing page: ${url}\n` +
-        `Property context: ${hint}\n` +
-        `Extract and return ONLY a JSON object (no other text):\n` +
-        `{"developer":"name or null","complex":"project name or null","delivery":"Q4 2026 or Ready Now or null","images":["url1","url2","url3","url4"]}`
-      }]
-    })
-  });
-  if (!res.ok) throw new Error('proxy ' + res.status);
-  const data = await res.json();
-  const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-  const m = txt.match(/\{[\s\S]*?\}/);
-  return m ? JSON.parse(m[0]) : null;
-}
-
-async function enrichListing(d) {
-  if (!d.listingUrl) return;
-  if (d.img1 && d.developer && d.delivery) return;
-
-  const cached = await enrichGetCache(d.id);
-  if (cached) { applyEnrichment(d, cached); return; }
-
-  const hint = [d.title, d.city, d.type, d.bedrooms ? d.bedrooms+' bed' : ''].filter(Boolean).join(' ');
-  let enriched = null;
-
-  // Try archived sources only: Wayback → Memento → Bing Cache
-  const archive = await getArchivedUrl(d.listingUrl);
-  if (archive) {
-    try { enriched = await fetchAndExtract(archive.url, hint); } catch(e) {}
-  }
-
-  if (enriched) {
-    await enrichSetCache(d.id, enriched);
-    applyEnrichment(d, enriched);
-  }
-}
-
-async function runBulkEnrichment() {
-  const queue = all.filter(d => d.listingUrl && !(d.img1 && d.developer && d.delivery));
-  if (!queue.length) return;
-
-  // Apply any already-cached results instantly
-  const pending = [];
-  for (const d of queue) {
-    const c = await enrichGetCache(d.id);
-    if (c) applyEnrichment(d, c);
-    else pending.push(d);
-  }
-
-  if (!pending.length) return;
-
-  const sub = document.getElementById('sub');
-  let done = 0;
-  const total = pending.length;
-
-  const updateProgress = () => {
-    if (sub) sub.textContent = `Enriching listings… ${done}/${total}`;
-  };
-
-  updateProgress();
-
-  // Process 3 concurrently, Wayback only
-  for (let i = 0; i < pending.length; i += 3) {
-    await Promise.all(pending.slice(i, i + 3).map(async d => {
-      await enrichListing(d);
-      done++;
-      updateProgress();
-    }));
-    await new Promise(r => setTimeout(r, 400));
-  }
-
-  const enriched = all.filter(d => d.img1 || d.developer).length;
-  if (sub) sub.textContent = `${all.length.toLocaleString()} listings · ${enriched.toLocaleString()} enriched · ${new Date().toLocaleDateString('en-GB')}`;
-}
-
-function applyEnrichment(d, e) {
-  if (e.developer && !d.developer) d.developer = e.developer;
-  if (e.complex   && !d.complex)   d.complex   = e.complex;
-  if (e.delivery  && !d.delivery)  d.delivery  = e.delivery;
-  if (Array.isArray(e.images)) {
-    d.img1 = d.img1 || e.images[0] || null;
-    d.img2 = d.img2 || e.images[1] || null;
-    d.img3 = d.img3 || e.images[2] || null;
-    d.img4 = d.img4 || e.images[3] || null;
-  }
-  // Refresh open modal if it's showing this listing
-  const area = document.getElementById('modalImgArea');
-  if (area) {
-    const imgs = [d.img1, d.img2, d.img3, d.img4].filter(Boolean);
-    if (imgs.length) renderModalCarousel(area, imgs, d);
-  }
-  const devEl = document.getElementById('modalDevName');
-  if (devEl && e.developer) devEl.textContent = e.developer;
-  const delEl = document.getElementById('modalDelivery');
-  if (delEl && e.delivery) { delEl.textContent = e.delivery; document.getElementById('modalDeliveryCell').style.display = ''; }
-}
-
-// ── Image Carousel ────────────────────────────────────────────
-let _carIdx = 0, _carUrls = [];
-
-function carouselNav(dir) {
-  carouselGo((_carIdx + dir + _carUrls.length) % _carUrls.length);
-}
-
-function carouselGo(idx) {
-  const area = document.querySelector('.carousel');
-  if (!area) return;
-  const imgs = area.querySelectorAll('.carousel-img');
-  const dots = area.querySelectorAll('.carousel-dot');
-  if (imgs[_carIdx]) imgs[_carIdx].classList.remove('active');
-  if (dots[_carIdx]) dots[_carIdx].classList.remove('active');
-  _carIdx = idx;
-  if (imgs[_carIdx]) imgs[_carIdx].classList.add('active');
-  if (dots[_carIdx]) dots[_carIdx].classList.add('active');
-  const counter = document.getElementById('carouselCounter');
-  if (counter) counter.textContent = (_carIdx + 1) + ' / ' + _carUrls.length;
-}
-
-function renderModalCarousel(area, urls, d) {
-  _carIdx = 0;
-  _carUrls = urls;
-  const imgs = urls.map((u, i) =>
-    `<img class="carousel-img${i===0?' active':''}" src="${u}" alt="${d.title}" loading="${i===0?'eager':'lazy'}" onerror="this.style.display='none'">`
-  ).join('');
-  const multi = urls.length > 1;
-  const nav = multi
-    ? `<button class="carousel-btn carousel-prev" onclick="carouselNav(-1)">&#8249;</button><button class="carousel-btn carousel-next" onclick="carouselNav(1)">&#8250;</button>`
-    : '';
-  const dots = multi
-    ? `<div class="carousel-dots">${urls.map((_, i) => `<button class="carousel-dot${i===0?' active':''}" onclick="carouselGo(${i})"></button>`).join('')}</div>`
-    : '';
-  const counter = multi ? `<div class="carousel-counter" id="carouselCounter">1 / ${urls.length}</div>` : '';
-  area.className = 'carousel';
-  area.style.cssText = '';
-  area.innerHTML = imgs + nav + dots + counter;
-}
-
-function renderModalImgEmpty(area) {
-  area.className = '';
-  area.style.cssText = 'width:100%;height:200px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center';
-  area.innerHTML = '<div style="text-align:center;opacity:.35"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:11px;margin-top:6px;color:var(--mu)">No image</div></div>';
-}
-
 async function loadModalImage(d) {
   const area = document.getElementById('modalImgArea');
   if (!area) return;
 
-  // Use sheet image columns if available
-  const sheetImgs = [d.img1, d.img2, d.img3, d.img4].filter(Boolean);
-  if (sheetImgs.length) { renderModalCarousel(area, sheetImgs, d); return; }
-
-  // Fall back to AI-fetched single image
   const cacheKey = (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + d.city;
   if (imgCache[cacheKey]) {
     if (imgCache[cacheKey] === 'none') { renderModalImgEmpty(area); return; }
-    renderModalCarousel(area, [imgCache[cacheKey]], d);
+    renderModalImg(area, imgCache[cacheKey], d);
     return;
   }
+
+  const query = d.complex && d.complex !== 'Standalone'
+    ? '"' + d.complex + '" Cyprus property site:' + (d.developer||'').toLowerCase().replace(/\s+/g,'') + '.com OR site:bazaraki.com OR site:spitogatos.cy'
+    : '"' + d.developer + '" Cyprus "' + d.city + '" property development';
 
   try {
     const res = await fetch('/api/proxy', {
@@ -3542,17 +3345,18 @@ async function loadModalImage(d) {
         tools: [{type: 'web_search_20250305', name: 'web_search'}],
         messages: [{
           role: 'user',
-          content: 'Find a property photo for: ' + (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + ' in ' + d.city + ' Cyprus. Return ONLY one direct image URL ending in .jpg .jpeg .png or .webp. Nothing else.'
+          content: 'Find a property photo for: ' + (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + ' in ' + d.city + ' Cyprus. Search the developer website or property portals. Return ONLY one direct image URL ending in .jpg .jpeg .png or .webp. Nothing else. Just the URL on its own line.'
         }]
       })
     });
+
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
     const txt = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const urlMatch = txt.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|webp)(?:\?[^\s]*)?/i);
     if (urlMatch) {
       imgCache[cacheKey] = urlMatch[0];
-      renderModalCarousel(area, [urlMatch[0]], d);
+      renderModalImg(area, urlMatch[0], d);
     } else {
       imgCache[cacheKey] = 'none';
       renderModalImgEmpty(area);
@@ -3561,6 +3365,26 @@ async function loadModalImage(d) {
     imgCache[cacheKey] = 'none';
     renderModalImgEmpty(area);
   }
+}
+
+function renderModalImg(area, url, d) {
+  var img = document.createElement('img');
+  img.src = url;
+  img.alt = d.title;
+  img.style.cssText = 'width:100%;height:220px;object-fit:cover;border-radius:16px 16px 0 0;display:block';
+  img.onerror = function() { renderModalImgEmpty(area); };
+  area.innerHTML = '';
+  area.style.cssText = 'width:100%;border-radius:16px 16px 0 0;overflow:hidden';
+  area.appendChild(img);
+}
+
+function renderModalImgEmpty(area) {
+  area.style.cssText = 'width:100%;height:220px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px';
+  area.innerHTML = '';
+  var div = document.createElement('div');
+  div.style.cssText = 'text-align:center;opacity:.4';
+  div.innerHTML = '<div style="font-size:11px;color:var(--mu);margin-top:8px">No image found</div>';
+  area.appendChild(div);
 }
 
 
@@ -3755,7 +3579,7 @@ function saveModalNote(id){
 function exportPropertyPDF(id){
   var d=all.find(function(x){return x.id===id;});
   if(!d)return;
-  var agentName='IntelProp';
+  var agentName=currentUser&&currentUser.username?currentUser.username:'Your Agent';
   var clientName=document.getElementById('cName')?document.getElementById('cName').value.trim():'';
   var clientNote=clientName?getInvestorNote(clientName,id):'';
   var rentRange=estimateRentRange(d,'Short-term rental');
@@ -3793,6 +3617,275 @@ function exportPropertyPDF(id){
   setTimeout(function(){win.print();},500);
 }
 
+
+// ── AI Builder ────────────────────────────────────────────────
+function aiChip(text) {
+  document.getElementById('aiPrompt').value = text;
+}
+
+function clearAiSearch() {
+  document.getElementById('aiPrompt').value = '';
+  document.getElementById('aiResults').innerHTML = '<div class="empty" style="padding:2rem;text-align:center"><div style="font-size:32px;margin-bottom:10px">✦</div><div style="font-size:13px;color:var(--tx);font-weight:500;margin-bottom:6px">AI Property Search</div><div style="font-size:12px;color:var(--mu)">Describe your ideal property above and click Search</div></div>';
+  document.getElementById('aiCriteriaBox').style.display = 'none';
+  document.getElementById('aiNarrative').style.display = 'none';
+  document.getElementById('aiResultsHeader').style.display = 'none';
+  document.getElementById('aiStatus').textContent = '';
+}
+
+async function runAiSearch() {
+  const prompt = document.getElementById('aiPrompt').value.trim();
+  if (!prompt) return;
+
+  const btn = document.getElementById('aiRunBtn');
+  const statusEl = document.getElementById('aiStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">✦</span> Searching…';
+  statusEl.textContent = 'Asking AI to parse your request…';
+
+  document.getElementById('aiCriteriaBox').style.display = 'none';
+  document.getElementById('aiNarrative').style.display = 'none';
+  document.getElementById('aiResultsHeader').style.display = 'none';
+  document.getElementById('aiResults').innerHTML = '<div class="empty" style="padding:2rem;text-align:center"><span class="spin" style="font-size:24px">✦</span><div style="margin-top:10px;font-size:12px;color:var(--mu)">Analysing request…</div></div>';
+
+  try {
+    // Step 1: Parse criteria via Claude
+    const systemPrompt = `You are a Cyprus real estate assistant. Parse the user's natural language query into structured search criteria.
+Available cities: Nicosia, Limassol, Larnaca, Paphos, Famagusta (includes Ayia Napa, Protaras, Paralimni).
+Available types: Apartment, Villa, House, Penthouse, Flat.
+Respond ONLY with valid JSON, no markdown, no explanation:
+{
+  "cities": ["array of city names, empty=any"],
+  "types": ["array of property types, empty=any"],
+  "bedsMin": null or int,
+  "bedsMax": null or int,
+  "priceMax": null or int,
+  "seaMaxKm": null or float,
+  "keywords": ["any other keywords to search in title/developer/district"],
+  "narrative": "1-2 sentence friendly summary of what you're searching for",
+  "sortBy": "seaDist|price|bedrooms|ppm|null"
+}`;
+
+    const parseRes = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!parseRes.ok) throw new Error('API error ' + parseRes.status);
+    const parseData = await parseRes.json();
+    const parseText = parseData.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    const criteria = JSON.parse(parseText.replace(/```json|```/g, '').trim());
+
+    // Display parsed criteria chips
+    const chips = [];
+    if (criteria.cities && criteria.cities.length) chips.push(...criteria.cities.map(c => `<span class="crit-btn on" style="cursor:default">${c}</span>`));
+    if (criteria.types && criteria.types.length) chips.push(...criteria.types.map(t => `<span class="crit-btn on" style="cursor:default">${t}</span>`));
+    if (criteria.bedsMin || criteria.bedsMax) {
+      const bedLabel = criteria.bedsMin === criteria.bedsMax ? `${criteria.bedsMin} beds` : criteria.bedsMin && criteria.bedsMax ? `${criteria.bedsMin}–${criteria.bedsMax} beds` : criteria.bedsMin ? `${criteria.bedsMin}+ beds` : `up to ${criteria.bedsMax} beds`;
+      chips.push(`<span class="crit-btn on" style="cursor:default">🛏 ${bedLabel}</span>`);
+    }
+    if (criteria.priceMax) chips.push(`<span class="crit-btn on" style="cursor:default">€${(criteria.priceMax/1000).toFixed(0)}k max</span>`);
+    if (criteria.seaMaxKm) chips.push(`<span class="crit-btn on" style="cursor:default">🌊 &lt;${criteria.seaMaxKm}km to sea</span>`);
+    if (criteria.keywords && criteria.keywords.length) chips.push(...criteria.keywords.map(k => `<span class="crit-btn on" style="cursor:default">🔍 ${k}</span>`));
+
+    document.getElementById('aiCriteriaInner').innerHTML = chips.join('') || '<span style="font-size:11px;color:var(--mu)">No specific filters parsed</span>';
+    document.getElementById('aiCriteriaBox').style.display = '';
+
+    if (criteria.narrative) {
+      document.getElementById('aiNarrative').textContent = criteria.narrative;
+      document.getElementById('aiNarrative').style.display = '';
+    }
+
+    // Step 2: Filter listings
+    statusEl.textContent = 'Filtering listings…';
+    let matched = all.filter(d => {
+      if (criteria.cities && criteria.cities.length) {
+        const cityMatch = criteria.cities.some(c => {
+          const cl = c.toLowerCase();
+          const dl = (d.city || '').toLowerCase();
+          const ddistrict = (d.district || '').toLowerCase();
+          // Famagusta covers east coast towns
+          if (cl === 'famagusta') return dl === 'famagusta' || ddistrict.includes('protaras') || ddistrict.includes('ayia napa') || ddistrict.includes('paralimni') || ddistrict.includes('sotira') || ddistrict.includes('frenaros') || ddistrict.includes('cape greco');
+          return dl === cl;
+        });
+        if (!cityMatch) return false;
+      }
+      if (criteria.types && criteria.types.length) {
+        const typeMatch = criteria.types.some(t => (d.type || '').toLowerCase().includes(t.toLowerCase()));
+        if (!typeMatch) return false;
+      }
+      if (criteria.bedsMin !== null && criteria.bedsMin !== undefined && d.bedrooms !== null && d.bedrooms < criteria.bedsMin) return false;
+      if (criteria.bedsMax !== null && criteria.bedsMax !== undefined && d.bedrooms !== null && d.bedrooms > criteria.bedsMax) return false;
+      if (criteria.priceMax && d.price && d.price > criteria.priceMax) return false;
+      if (criteria.seaMaxKm && d.seaDist != null && d.seaDist > criteria.seaMaxKm) return false;
+      if (criteria.keywords && criteria.keywords.length) {
+        const haystack = `${d.developer} ${d.title} ${d.district} ${d.complex || ''} ${d.city}`.toLowerCase();
+        const kwMatch = criteria.keywords.some(kw => haystack.includes(kw.toLowerCase()));
+        if (!kwMatch && criteria.keywords.length > 0) {
+          // Keywords are hints not hard filters — skip if city/type already match
+        }
+      }
+      return true;
+    });
+
+    // Sort
+    const sortBy = criteria.sortBy || (criteria.seaMaxKm ? 'seaDist' : 'price');
+    if (sortBy === 'seaDist') matched.sort((a, b) => (a.seaDist ?? 999) - (b.seaDist ?? 999));
+    else if (sortBy === 'price') matched.sort((a, b) => (a.price ?? 9999999) - (b.price ?? 9999999));
+    else if (sortBy === 'ppm') matched.sort((a, b) => (a.ppm ?? 9999999) - (b.ppm ?? 9999999));
+
+    statusEl.textContent = `Found ${matched.length} listings.`;
+    document.getElementById('aiMatchCount').textContent = matched.length;
+    document.getElementById('aiSortNote').textContent = sortBy === 'seaDist' ? 'Sorted by distance to sea' : sortBy === 'price' ? 'Sorted by price' : '';
+    document.getElementById('aiResultsHeader').style.display = 'flex';
+
+    if (!matched.length) {
+      document.getElementById('aiResults').innerHTML = '<div class="empty" style="padding:2rem;text-align:center"><div style="font-size:13px;color:var(--tx)">No listings match those criteria.</div><div style="font-size:12px;color:var(--mu);margin-top:6px">Try relaxing price, distance, or location filters.</div></div>';
+      btn.disabled = false; btn.innerHTML = '✦ Search with AI';
+      return;
+    }
+
+    // Step 3: Google Maps distance enrichment (for top 12)
+    const useGmaps = document.getElementById('aiGmaps').checked && window.googleMapsReady && window.google && google.maps;
+    const topN = matched.slice(0, 12);
+
+    if (useGmaps) {
+      statusEl.textContent = `Calculating real driving distances to sea for top ${topN.length} results…`;
+      await Promise.all(topN.map(async d => {
+        if (d.gmapsSeaDist !== undefined) return;
+        const coords = await getCoords(d);
+        if (!coords) return;
+        const beach = nearestSeaCoastPoint(d.seaDist);
+        const beachCoord = findNearestCoastPoint(coords[0], coords[1]);
+        if (!beachCoord) return;
+        try {
+          const dist = await new Promise((resolve, reject) => {
+            const svc = new google.maps.DistanceMatrixService();
+            svc.getDistanceMatrix({
+              origins: [new google.maps.LatLng(coords[0], coords[1])],
+              destinations: [new google.maps.LatLng(beachCoord.lat, beachCoord.lon)],
+              travelMode: google.maps.TravelMode.DRIVING,
+              unitSystem: google.maps.UnitSystem.METRIC,
+            }, (res, status) => {
+              if (status === 'OK' && res.rows[0].elements[0].status === 'OK') {
+                const el = res.rows[0].elements[0];
+                resolve({ distanceText: el.distance.text, distanceValue: el.distance.value, durationText: el.duration.text, beachName: beachCoord.name });
+              } else {
+                resolve(null);
+              }
+            });
+          });
+          if (dist) {
+            d.gmapsSeaDist = dist.distanceValue / 1000; // km
+            d.gmapsSeaText = dist.distanceText;
+            d.gmapsDurationText = dist.durationText;
+            d.gmapsBeachName = dist.beachName;
+          }
+        } catch(e) { /* skip */ }
+      }));
+
+      // Re-sort top results by gmaps distance if available
+      topN.sort((a, b) => {
+        const ad = a.gmapsSeaDist ?? a.seaDist ?? 999;
+        const bd = b.gmapsSeaDist ?? b.seaDist ?? 999;
+        return ad - bd;
+      });
+    }
+
+    // Render results
+    renderAiResults(matched, topN, useGmaps, sortBy);
+    statusEl.textContent = useGmaps ? `${matched.length} listings · real driving distances calculated` : `${matched.length} listings`;
+
+  } catch(e) {
+    document.getElementById('aiResults').innerHTML = `<div class="empty" style="padding:2rem"><div style="font-size:12px;color:var(--red)">Error: ${e.message}</div></div>`;
+    statusEl.textContent = '';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '✦ Search with AI';
+}
+
+function findNearestCoastPoint(lat, lon) {
+  let best = null, bestD = Infinity;
+  COAST.forEach(c => {
+    const d = haversine(lat, lon, c.lat, c.lon);
+    if (d < bestD) { bestD = d; best = c; }
+  });
+  return best;
+}
+
+function nearestSeaCoastPoint(seaDist) { return null; } // unused helper placeholder
+
+function renderAiResults(allMatched, topN, usedGmaps, sortBy) {
+  const rest = allMatched.slice(topN.length);
+
+  let html = '';
+
+  // Top results (with distances)
+  html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:${rest.length ? '20px' : '0'}">`;
+
+  topN.forEach(d => {
+    const price = d.price ? `€${d.price.toLocaleString()}` : '—';
+    const beds = d.bedrooms != null ? `🛏 ${d.bedrooms}` : '';
+    const area = d.area ? `📐 ${d.area}m²` : '';
+
+    let seaHtml = '';
+    if (usedGmaps && d.gmapsSeaText) {
+      const dkm = d.gmapsSeaDist || 0;
+      const cls = dkm < 0.5 ? 'sea-vclose' : dkm < 1 ? 'sea-close' : dkm < 3 ? 'sea-mid' : dkm < 8 ? 'sea-far' : 'sea-inland';
+      seaHtml = `<div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span class="sea-badge ${cls}">🚗 ${d.gmapsSeaText} to sea</span>
+        <span style="font-size:10px;color:var(--mu)">${d.gmapsDurationText} drive · ${d.gmapsBeachName}</span>
+      </div>`;
+    } else if (d.seaDist != null) {
+      seaHtml = `<div style="margin-top:8px">${seaBadge(d.seaDist)}${d.nearestBeach ? `<span style="font-size:10px;color:var(--mu);margin-left:6px">${d.nearestBeach}</span>` : ''}</div>`;
+    }
+
+    html += `<div onclick="openModal(${d.id})" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(0,0,0,.22)'" onmouseout="this.style.borderColor='var(--bd)'">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--tx);line-height:1.4;margin-bottom:2px">${d.title}</div>
+          <div style="font-size:11px;color:var(--mu)">${d.developer}</div>
+        </div>
+        ${tagBadge(d.type)}
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-bottom:8px">📍 ${d.city}${d.district ? ', ' + d.district : ''}</div>
+      <div style="display:flex;gap:10px;font-size:11px;color:var(--mu);margin-bottom:8px;flex-wrap:wrap">
+        ${beds ? `<span>${beds}</span>` : ''}${area ? `<span>${area}</span>` : ''}
+        ${d.ppm ? `<span>€${d.ppm.toLocaleString()}/m²</span>` : ''}
+      </div>
+      ${seaHtml}
+      <div style="font-size:17px;font-weight:700;color:var(--tx);margin-top:10px">${price}</div>
+    </div>`;
+  });
+
+  html += '</div>';
+
+  // Remaining results in compact table
+  if (rest.length) {
+    html += `<div style="font-size:11px;color:var(--mu);margin-bottom:8px">+ ${rest.length} more matching listings (showing summary below, click to view details)</div>`;
+    html += `<div class="twrap"><table><thead><tr><th>Developer / Title</th><th>City</th><th>Type</th><th>Beds</th><th>Price</th><th>Sea dist</th></tr></thead><tbody>`;
+    rest.forEach(d => {
+      const sea = d.seaDist != null ? (d.seaDist < 1 ? Math.round(d.seaDist*1000)+'m' : d.seaDist.toFixed(1)+'km') : '—';
+      html += `<tr onclick="openModal(${d.id})" style="cursor:pointer">
+        <td><div style="font-weight:500;font-size:12px">${d.title}</div><div style="font-size:11px;color:var(--mu)">${d.developer}</div></td>
+        <td>${d.city}${d.district?'<br><span style="font-size:10px;color:var(--mu)">'+d.district+'</span>':''}</td>
+        <td>${tagBadge(d.type)}</td>
+        <td>${d.bedrooms != null ? d.bedrooms : '—'}</td>
+        <td>${d.price ? '€'+d.price.toLocaleString() : '—'}</td>
+        <td>${seaBadge(d.seaDist)}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  document.getElementById('aiResults').innerHTML = html;
+}
 
 init();
 </script>
