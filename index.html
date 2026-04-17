@@ -455,11 +455,20 @@ tr:hover td{background:var(--bg2)}
     <!-- CLIENTS -->
     <div id="pClients" style="display:none">
 
-      <!-- Client info row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <!-- Client selector -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
+        <span style="font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap">Client</span>
+        <select id="cClientSelector" onchange="selectClientForCall(this.value)" style="flex:1;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <option value="">— Select a client —</option>
+        </select>
+        <button onclick="clearClientSelection()" class="btn" style="font-size:11px;padding:0 10px">✕ Clear</button>
+      </div>
+
+      <!-- Client info row (read-only when client selected) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px" id="cContactRow">
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client name</div>
-          <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px" onblur="autoSaveInvestor()">
+          <input type="text" id="cName" placeholder="e.g. David Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
@@ -642,6 +651,14 @@ tr:hover td{background:var(--bg2)}
           <div style="font-size:11px;color:var(--mu);margin-top:2px">Build a multi-asset investment portfolio from our listings</div>
         </div>
         <button onclick="resetPortfolioBuilder()" class="btn" style="font-size:11px">✕ Reset</button>
+      </div>
+      <!-- Client selector -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
+        <span style="font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap">Client</span>
+        <select id="pbClientSelector" onchange="selectClientForPortfolio(this.value)" style="flex:1;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <option value="">— Select a client —</option>
+        </select>
+        <button onclick="clearPortfolioClient()" class="btn" style="font-size:11px;padding:0 10px">✕ Clear</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
         <div>
@@ -857,10 +874,11 @@ tr:hover td{background:var(--bg2)}
       <input id="invSearch" type="text" placeholder="Search by name, phone or email…" oninput="refreshInvestorList()" style="width:100%;height:34px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:12px;box-sizing:border-box">
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
         <!-- Row 1: contact fields -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div><input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Nationality</div><input type="text" id="newInvNationality" placeholder="e.g. Israeli" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button></div></div>
         </div>
         <!-- Row 2: budget -->
@@ -928,7 +946,7 @@ const ANTHROPIC_KEY = ''; // Key handled by proxy
 const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
-const APPS_SCRIPT_URL = ''; // Paste your deployed Google Apps Script URL here
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzDNOB6Sr9XFkmV8GjG_Vjed4CXivxlisYcn6l7xA2w6EoDzsk-AjgKGRP_8qbwv872/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
 const rentalCache = {};
@@ -1825,6 +1843,7 @@ function gotoTab(t,el){
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
   if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();initAgentField();}
+  if(t==='clients'||t==='portfolio')populateClientSelectors();
 }
 
 function renderDev(filterDev) {
@@ -2245,11 +2264,21 @@ function renderInvestorCard(inv) {
           ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
           <button onclick="showEditContact(${inv.investorId||inv.id})" title="Edit contact" style="font-size:12px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:3px 8px;line-height:1;margin-left:auto">✏</button>
         </div>
-        <div class="inv-card-contact" style="margin-bottom:4px">
+        <div class="inv-card-contact" style="margin-bottom:8px">
           ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:''}
           ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:''}
+          ${inv.nationality?`<span style="color:var(--mu)">🌍 ${inv.nationality}</span>`:''}
         </div>
-        ${crBudget||crLocs.length?`<div style="font-size:12px;margin-bottom:3px">${crBudget?`<span style="color:var(--mu)">Budget </span><b>${crBudget}</b>`:''}${crBudget&&crLocs.length?'&nbsp;&nbsp;':''}${crLocs.length?`<span style="color:var(--mu)">Locations </span><b>${crLocs.join(' · ')}</b>`:''}</div>`:''}
+        <!-- Criteria pills inline -->
+        ${hasCriteria?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          ${crBudget?pBudget('💰 '+crBudget):''}
+          ${crLocs.map(l=>pLoc('📍 '+l)).join('')}
+          ${crTypes.map(t=>pType('🏠 '+pluralType(t),t)).join('')}
+          ${crPurpose?pPurpose('🎯 '+crPurpose):''}
+          ${crSea?pSea('🌊 '+crSea):''}
+          ${crDelivery?pDelivery('📅 '+crDelivery):''}
+          <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:99px;padding:3px 10px;cursor:pointer;color:var(--mu)">✏ Amend</button>
+        </div>`:'<div style="font-size:12px;color:var(--mu);margin-bottom:8px">No criteria saved yet. <button onclick="amendCriteria(\'${inv.name.replace(/'/g,"\\'")}\');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:2px 8px;cursor:pointer;color:var(--mu)">+ Set criteria</button></div>'}
         <div style="font-size:11px;color:var(--mu)">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
       </div>
       <!-- Stats on the right -->
@@ -2257,11 +2286,12 @@ function renderInvestorCard(inv) {
         <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
         <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${myComms.length}</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
       </div>
-      <div id="invContactEdit" style="display:none">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div id="invContactEdit" style="display:none;width:100%">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Name</div><input id="eiName" value="${inv.name.replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Phone</div><input id="eiPhone" value="${(inv.phone||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="${(inv.email||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="${(inv.nationality||'').replace(/"/g,'&quot;')}" placeholder="e.g. Israeli" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor"${inv.clientType==='Investor'?' selected':''}>Investor</option><option value="One-off Buyer"${inv.clientType==='One-off Buyer'?' selected':''}>One-off Buyer</option></select></div>
         </div>
         <div style="display:flex;gap:6px">
@@ -2270,8 +2300,6 @@ function renderInvestorCard(inv) {
         </div>
       </div>
     </div>
-
-    ${criteriaHtml}
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">🗑 Delete</button>
@@ -2333,6 +2361,7 @@ function saveEditContact(id) {
   inv.name = name;
   inv.phone = document.getElementById('eiPhone').value.trim();
   inv.email = email;
+  const eiNat = document.getElementById('eiNationality'); if(eiNat) inv.nationality = eiNat.value.trim();
   inv.clientType = document.getElementById('eiType').value;
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
@@ -2360,6 +2389,7 @@ async function syncInvestorToSheets(inv) {
     (inv.locations && inv.locations.length ? inv.locations : (cr.cities || [])).join(', '),
     (cr.types || []).join(', '),
     cr.notes || inv.generalNotes || '',
+    inv.nationality || '',
   ];
   try { await fetch(APPS_SCRIPT_URL, { method:'POST', body: JSON.stringify({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row }) }); } catch(e) {}
 }
@@ -2439,14 +2469,17 @@ async function readCommsFromSheets() {
 }
 
 function resetClient() {
-  document.getElementById('cName').value = '';
-  document.getElementById('cPhone').value = '';
+  currentClientCallId = null;
+  var sel=document.getElementById('cClientSelector');if(sel)sel.value='';
+  ['cName','cPhone','cEmail'].forEach(function(id){var e=document.getElementById(id);if(e){e.value='';e.readOnly=false;}});
+  var ct=document.getElementById('cClientType');if(ct){ct.value='';ct.disabled=false;}
   document.getElementById('cNotes').value = '';
   document.querySelectorAll('#pClients .crit-btn.on').forEach(b => b.classList.remove('on'));
   Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
   document.getElementById('cMatchCount').textContent = '—';
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
   const cs = document.getElementById('cSaveStatus'); if(cs) cs.textContent = '';
+  var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
 }
 
 // ── Market Intelligence ──────────────────────────────────────
@@ -4218,6 +4251,7 @@ try{
 var communicationLog = [];
 try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
 var currentInvestorCard = null;
+var currentClientCallId = null;
 
 // Sequential auto-number counters (PK generators)
 function nextInvestorId(){
@@ -4354,14 +4388,17 @@ function renderInvestorProfilesPanel(){
 function loadInvestorToClientCall(name){
   var inv=investorProfiles.find(function(i){return i.name===name;});
   if(!inv)return;
+  currentClientCallId=inv.investorId||inv.id;
   // Reset all criteria first
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
   Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
-  // Fill contact fields
-  var el=document.getElementById('cName');if(el)el.value=inv.name;
-  var ep=document.getElementById('cPhone');if(ep)ep.value=inv.phone||'';
-  var ee=document.getElementById('cEmail');if(ee)ee.value=inv.email||'';
-  var et=document.getElementById('cClientType');if(et)et.value=inv.clientType||'';
+  // Fill contact fields (read-only)
+  var el=document.getElementById('cName');if(el){el.value=inv.name;el.readOnly=true;}
+  var ep=document.getElementById('cPhone');if(ep){ep.value=inv.phone||'';ep.readOnly=true;}
+  var ee=document.getElementById('cEmail');if(ee){ee.value=inv.email||'';ee.readOnly=true;}
+  var et=document.getElementById('cClientType');if(et){et.value=inv.clientType||'';et.disabled=true;}
+  // Sync selector
+  var sel=document.getElementById('cClientSelector');if(sel)sel.value=currentClientCallId||'';
   var cr=inv.criteria||{};
   // Purpose
   if(cr.purpose)document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.purpose){b.classList.add('on');cCriteria.purpose=cr.purpose;}});
@@ -4430,10 +4467,70 @@ function niToggle(btn,group){
 function niMulti(btn){btn.classList.toggle('on');}
 function niSelectAllTypes(){document.querySelectorAll('#newInvTypeGroup .crit-btn[data-val]').forEach(function(b){b.classList.add('on');});}
 
+function populateClientSelectors(){
+  var sorted=investorProfiles.slice().sort(function(a,b){return(a.name||'').localeCompare(b.name||'');});
+  ['cClientSelector','pbClientSelector'].forEach(function(selId){
+    var sel=document.getElementById(selId);
+    if(!sel)return;
+    var cur=sel.value;
+    sel.innerHTML='<option value="">— Select a client —</option>';
+    sorted.forEach(function(inv){
+      var id=inv.investorId||inv.id;
+      var opt=document.createElement('option');
+      opt.value=id;
+      opt.textContent=inv.name+(inv.clientType?' ('+inv.clientType+')':'');
+      sel.appendChild(opt);
+    });
+    if(cur)sel.value=cur;
+  });
+}
+
+function selectClientForCall(id){
+  if(!id){clearClientSelection();return;}
+  var invId=+id;
+  var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===invId;});
+  if(!inv)return;
+  loadInvestorToClientCall(inv.name);
+}
+
+function clearClientSelection(){
+  currentClientCallId=null;
+  var sel=document.getElementById('cClientSelector');if(sel)sel.value='';
+  ['cName','cPhone','cEmail'].forEach(function(fid){var e=document.getElementById(fid);if(e){e.value='';e.readOnly=false;}});
+  var ct=document.getElementById('cClientType');if(ct){ct.value='';ct.disabled=false;}
+  var cn=document.getElementById('cNotes');if(cn)cn.value='';
+  document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
+  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  var mc=document.getElementById('cMatchCount');if(mc)mc.textContent='—';
+  var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
+  var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
+}
+
+function selectClientForPortfolio(id){
+  if(!id){clearPortfolioClient();return;}
+  var invId=+id;
+  var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===invId;});
+  if(!inv)return;
+  var pbn=document.getElementById('pbName');if(pbn)pbn.value=inv.name;
+  var budget=inv.budget||(inv.criteria&&inv.criteria.budget)||'';
+  if(budget){
+    document.querySelectorAll('#pbBudgetGroup .crit-btn').forEach(function(b){
+      b.classList.remove('on');
+      if(b.textContent.trim()===budget)b.classList.add('on');
+    });
+  }
+}
+
+function clearPortfolioClient(){
+  var sel=document.getElementById('pbClientSelector');if(sel)sel.value='';
+  var pbn=document.getElementById('pbName');if(pbn)pbn.value='';
+}
+
 function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
   var phone=document.getElementById('newInvPhone').value.trim();
   var email=document.getElementById('newInvEmail').value.trim();
+  var nationality=document.getElementById('newInvNationality').value.trim();
   var clientTypeBtn=document.querySelector('#newInvTypeGroup2 .crit-btn.on');
   var clientType=clientTypeBtn?clientTypeBtn.dataset.val:'';
   var budgetBtn=document.querySelector('#newInvBudgetGroup .crit-btn.on');
@@ -4450,40 +4547,46 @@ function createNewInvestor(){
   if(!locations.length)missing.push('Locations');
   if(!types.length)missing.push('Type of Properties');
   if(missing.length){alert('Please complete: '+missing.join(', '));return;}
-  var inv=getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
-  if(inv){
-    if(!inv.criteria)inv.criteria={};
-    inv.criteria.types=types;
-    inv.criteria.cities=locations;
-    inv.criteria.budget=budgetLabel;
-    if(budgetBtn){inv.criteria.budgetMin=+budgetBtn.dataset.min;inv.criteria.budgetMax=+budgetBtn.dataset.max;}
-    saveInvestorProfiles();
-    if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
+  if(!isValidEmail(email)){alert('Please enter a valid email address.');return;}
+  // Duplicate check by name, phone or email
+  var dup=investorProfiles.find(function(i){
+    return i.name.toLowerCase()===name.toLowerCase()||(phone&&i.phone&&i.phone===phone)||(email&&i.email&&i.email.toLowerCase()===email.toLowerCase());
+  });
+  if(dup){
+    if(!confirm('A client already exists with the same name, phone or email:\n\n'+dup.name+' ('+dup.phone+')\n\nOpen existing profile?'))return;
+    openInvestorCard(dup.investorId||dup.id);
+    document.getElementById('newInvForm').style.display='none';
+    return;
   }
+  var newId=nextInvestorId();
+  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',clientType:clientType,status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
+  investorProfiles.push(inv);
+  saveInvestorProfiles();
+  logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
+  if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   // Reset form
   document.getElementById('newInvName').value='';
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
-  document.querySelectorAll('#newInvTypeGroup2 .crit-btn.on').forEach(function(b){b.classList.remove('on');});
+  document.getElementById('newInvNationality').value='';
   document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
-  openInvestorCard(inv.investorId||inv.id);
+  populateClientSelectors();
+  openInvestorCard(inv.investorId);
 }
 
 function autoSaveInvestor(){
-  var name=document.getElementById('cName')&&document.getElementById('cName').value.trim();
-  if(!name)return;
-  var phone=document.getElementById('cPhone')&&document.getElementById('cPhone').value.trim();
-  var email=document.getElementById('cEmail')&&document.getElementById('cEmail').value.trim();
-  var clientType=document.getElementById('cClientType')&&document.getElementById('cClientType').value;
+  if(!currentClientCallId)return;
+  var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===currentClientCallId;});
+  if(!inv)return;
   var budgetLabel='';
   var budgetBtn=document.querySelector('#cBudgetGroup .crit-btn.on');
   if(budgetBtn)budgetLabel=budgetBtn.textContent.trim();
   var locations=[];
   document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val))locations.push(b.dataset.val);});
-  var inv=getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
-  if(!inv)return;
+  if(budgetLabel)inv.budget=budgetLabel;
+  if(locations.length)inv.locations=locations;
   // Save full criteria snapshot
   var purposeBtn=document.querySelector('#cPurposeGroup .crit-btn.on');
   var seaBtn=document.querySelector('#cSeaGroup .crit-btn.on');
