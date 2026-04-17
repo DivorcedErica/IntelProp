@@ -849,11 +849,45 @@ tr:hover td{background:var(--bg2)}
         <button onclick="document.getElementById('newInvForm').style.display=document.getElementById('newInvForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New</button>
       </div>
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <!-- Row 1: contact fields -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div><input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div><select id="newInvType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor">Investor</option><option value="One-off Buyer">One-off Buyer</option></select></div>
+        </div>
+        <!-- Row 2: budget -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Budget</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvBudgetGroup">
+            <button class="crit-btn" onclick="niToggle(this,'budget')" data-min="0" data-max="200000">Under €200k</button>
+            <button class="crit-btn" onclick="niToggle(this,'budget')" data-min="200000" data-max="500000">€200k–€500k</button>
+            <button class="crit-btn" onclick="niToggle(this,'budget')" data-min="500000" data-max="1000000">€500k–€1M</button>
+            <button class="crit-btn" onclick="niToggle(this,'budget')" data-min="1000000" data-max="2000000">€1M–€2M</button>
+            <button class="crit-btn" onclick="niToggle(this,'budget')" data-min="2000000" data-max="99000000">€2M+</button>
+          </div>
+        </div>
+        <!-- Row 3: locations + property types -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Locations</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvLocGroup">
+              <button class="crit-btn" onclick="niMulti(this,'loc')" data-val="Nicosia">Nicosia</button>
+              <button class="crit-btn" onclick="niMulti(this,'loc')" data-val="Limassol">Limassol</button>
+              <button class="crit-btn" onclick="niMulti(this,'loc')" data-val="Larnaca">Larnaca</button>
+              <button class="crit-btn" onclick="niMulti(this,'loc')" data-val="Paphos">Paphos</button>
+              <button class="crit-btn" onclick="niMulti(this,'loc')" data-val="Famagusta">Famagusta</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Type of Properties</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvTypeGroup">
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Apartment">Apartment</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa">Villa</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House">House</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse">Penthouse</button>
+            </div>
+          </div>
         </div>
         <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
       </div>
@@ -4297,17 +4331,39 @@ function deleteInvestorProfile(id){
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
 }
 
+function niToggle(btn,group){
+  document.querySelectorAll('#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+'Group .crit-btn').forEach(function(b){b.classList.remove('on');});
+  btn.classList.add('on');
+}
+function niMulti(btn){btn.classList.toggle('on');}
+
 function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
   var phone=document.getElementById('newInvPhone').value.trim();
   var email=document.getElementById('newInvEmail').value.trim();
   var clientType=document.getElementById('newInvType').value;
   if(!name){alert('Please enter a name.');return;}
-  var inv=getOrCreateInvestor(name,phone,email,clientType,'',[]);
+  var budgetBtn=document.querySelector('#newInvBudgetGroup .crit-btn.on');
+  var budgetLabel=budgetBtn?budgetBtn.textContent.trim():'';
+  var locations=[],types=[];
+  document.querySelectorAll('#newInvLocGroup .crit-btn.on').forEach(function(b){locations.push(b.dataset.val);});
+  document.querySelectorAll('#newInvTypeGroup .crit-btn.on').forEach(function(b){types.push(b.dataset.val);});
+  var inv=getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
+  if(inv){
+    if(!inv.criteria)inv.criteria={};
+    inv.criteria.types=types;
+    inv.criteria.cities=locations;
+    inv.criteria.budget=budgetLabel;
+    if(budgetBtn){inv.criteria.budgetMin=+budgetBtn.dataset.min;inv.criteria.budgetMax=+budgetBtn.dataset.max;}
+    saveInvestorProfiles();
+    if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
+  }
+  // Reset form
   document.getElementById('newInvName').value='';
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
   document.getElementById('newInvType').value='';
+  document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
   openInvestorCard(inv.investorId||inv.id);
