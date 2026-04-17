@@ -4071,14 +4071,16 @@ function renderAIResults() {
   const sortEl = document.getElementById('aiSortSel');
   if (sortEl) sortEl.value = aiState.sort;
 
-  // Area pills: "All" first, then distinct districts
+  // Area pills — click to EXCLUDE that area (red ✕), click again to re-include
   const districts = [...new Set(raw.map(d => d.district).filter(Boolean))].sort();
-  const noneSelected = aiState.districtFilter.length === 0;
+  const hasExcl = aiState.excluded.some(e => districts.some(dist => dist.toLowerCase().includes(e.toLowerCase())));
   document.getElementById('aiAreaPills').innerHTML =
-    `<button class="ai-area-btn${noneSelected?' on':''}" onclick="aiState.districtFilter=[];aiPage=1;renderAIResults()">All</button>` +
+    (hasExcl ? `<button class="ai-area-btn" onclick="aiState.excluded=aiState.excluded.filter(e=>!${JSON.stringify(districts)}.some(d=>d.toLowerCase().includes(e.toLowerCase())));aiPage=1;renderAIResults()" style="color:#3b82f6;border-color:#93c5fd">↺ Reset areas</button>` : '') +
     districts.map(dist => {
-      const on = aiState.districtFilter.includes(dist) ? ' on' : '';
-      return `<button class="ai-area-btn${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
+      const isExcl = aiState.excluded.some(e => dist.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase() === dist.toLowerCase());
+      return isExcl
+        ? `<button class="ai-area-btn" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')">✕ ${dist}</button>`
+        : `<button class="ai-area-btn" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
     }).join('');
 
   const parts = [
@@ -4141,9 +4143,9 @@ function renderAIResults() {
 }
 
 function toggleAIDistrict(dist) {
-  const idx = aiState.districtFilter.indexOf(dist);
-  if (idx === -1) aiState.districtFilter.push(dist);
-  else aiState.districtFilter.splice(idx, 1);
+  const idx = aiState.excluded.findIndex(e => e.toLowerCase() === dist.toLowerCase());
+  if (idx === -1) aiState.excluded.push(dist);
+  else aiState.excluded.splice(idx, 1);
   aiPage = 1;
   renderAIResults();
 }
