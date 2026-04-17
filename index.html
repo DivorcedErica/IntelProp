@@ -889,11 +889,13 @@ tr:hover td{background:var(--bg2)}
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Type of Properties</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvTypeGroup">
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Apartment">Apartments</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa">Villas</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House">Houses</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse">Penthouses</button>
-              <button class="crit-btn" onclick="niSelectAllTypes()">Apartments, Villas, Houses, Penthouses</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Apartment" style="--pt-bg:#dbeafe;--pt-co:#1e40af">Apartments</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa" style="--pt-bg:#d1fae5;--pt-co:#065f46">Villas</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House" style="--pt-bg:#fed7aa;--pt-co:#9a3412">Houses</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse" style="--pt-bg:#f3e8ff;--pt-co:#6b21a8">Penthouses</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Hotel" style="--pt-bg:#ccfbf1;--pt-co:#0f766e">Hotels</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Office" style="--pt-bg:#e0e7ff;--pt-co:#3730a3">Offices</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Commercial" style="--pt-bg:#f1f5f9;--pt-co:#334155">Commercial Buildings</button>
             </div>
           </div>
         </div>
@@ -2203,10 +2205,11 @@ function renderInvestorCard(inv) {
   const crSea = cr.sea || '';
   const crDelivery = cr.delivery || '';
   const hasCriteria = crBudget || crLocs.length || crTypes.length || crPurpose || crSea || crDelivery;
-  const pluralType = t => ({Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses'}[t]||t);
+  const pluralType = t => ({Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses',Hotel:'Hotels',Office:'Offices',Commercial:'Commercial Buildings'}[t]||t);
+  const typeColors = {Apartment:['#dbeafe','#1e40af','#bfdbfe'],Villa:['#d1fae5','#065f46','#a7f3d0'],House:['#fed7aa','#9a3412','#fdba74'],Penthouse:['#f3e8ff','#6b21a8','#e9d5ff'],Hotel:['#ccfbf1','#0f766e','#99f6e4'],Office:['#e0e7ff','#3730a3','#c7d2fe'],Commercial:['#f1f5f9','#334155','#cbd5e1']};
   const pBudget   = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#fef3c7;color:#92400e;border:1px solid #fde68a">${v}</span>`;
   const pLoc      = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe">${v}</span>`;
-  const pType     = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0">${v}</span>`;
+  const pType     = (v,raw) => { const c=typeColors[raw]||['#f3f4f6','#374151','#e5e7eb']; return `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:${c[0]};color:${c[1]};border:1px solid ${c[2]}">${v}</span>`; };
   const pPurpose  = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff">${v}</span>`;
   const pSea      = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">${v}</span>`;
   const pDelivery = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3">${v}</span>`;
@@ -2218,7 +2221,7 @@ function renderInvestorCard(inv) {
     ${hasCriteria ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
       ${crBudget ? pBudget('💰 '+crBudget) : ''}
       ${crLocs.map(l=>pLoc('📍 '+l)).join('')}
-      ${crTypes.map(t=>pType('🏠 '+pluralType(t))).join('')}
+      ${crTypes.map(t=>pType('🏠 '+pluralType(t),t)).join('')}
       ${crPurpose ? pPurpose('🎯 '+crPurpose) : ''}
       ${crSea ? pSea('🌊 '+crSea) : ''}
       ${crDelivery ? pDelivery('📅 '+crDelivery) : ''}
@@ -4316,7 +4319,7 @@ function renderInvestorProfilesPanel(){
           var budget=inv.budget||cr.budget||'';
           var locs=(inv.locations&&inv.locations.length)?inv.locations:(cr.cities&&cr.cities.length?cr.cities:[]);
           var types=cr.types&&cr.types.length?cr.types:[];
-          var pluralT=function(t){return{Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses'}[t]||t;};
+          var pluralT=function(t){return{Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses',Hotel:'Hotels',Office:'Offices',Commercial:'Commercial Buildings'}[t]||t;};
           var parts=[];
           if(budget)parts.push('\ud83d\udcb0 '+budget);
           if(locs.length)parts.push('\ud83d\udccd '+locs.join(', '));
