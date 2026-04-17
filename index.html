@@ -151,21 +151,27 @@ tr:hover td{background:var(--bg2)}
 .ai-ex:hover{border-color:var(--tx);color:var(--tx)}
 .ai-crumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .ai-crumb{font-size:11px;padding:3px 10px;border-radius:99px;background:var(--tx);color:var(--bg);font-weight:500}
-.ai-area-pill{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);cursor:pointer;transition:all .12s}
-.ai-area-pill:hover{border-color:var(--tx)}
-.ai-area-pill.on{background:var(--tx);color:var(--bg)}
-.ai-summary-line{font-size:12px;color:var(--mu);margin-bottom:14px}
+.ai-area-btn{font-size:12px;padding:6px 16px;border:1px solid rgba(0,0,0,.15);border-radius:99px;background:var(--bg);color:var(--tx);cursor:pointer;white-space:nowrap;transition:border-color .1s}
+.ai-area-btn:hover{border-color:rgba(0,0,0,.35)}
+.ai-area-btn.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+@media(prefers-color-scheme:dark){.ai-area-btn{border-color:rgba(255,255,255,.2)}.ai-area-btn:hover{border-color:rgba(255,255,255,.5)}}
+.ai-summary-line{font-size:12px;color:var(--mu)}
 .ai-summary-line b{color:var(--tx)}
-.ai-dev-card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
-.ai-dev-card:hover{border-color:rgba(0,0,0,.22)}
-@media(prefers-color-scheme:dark){.ai-dev-card:hover{border-color:rgba(255,255,255,.22)}}
-.ai-dev-title{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:2px}
-.ai-dev-sub{font-size:11px;color:var(--mu);margin-bottom:10px}
-.ai-price-badge{background:var(--bg2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap}
-.ai-dev-body{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.ai-dev-stat{background:var(--bg2);border-radius:8px;padding:8px 10px}
-.ai-dev-stat-lbl{font-size:10px;color:var(--mu);margin-bottom:2px}
-.ai-dev-stat-val{font-size:13px;font-weight:600;color:var(--tx)}
+.ai-card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
+.ai-card:hover{border-color:rgba(0,0,0,.2)}
+@media(prefers-color-scheme:dark){.ai-card:hover{border-color:rgba(255,255,255,.25)}}
+.ai-card-title{font-size:14px;font-weight:600;color:var(--tx)}
+.ai-card-sub{font-size:11px;color:var(--mu);margin-bottom:10px;margin-top:2px}
+.ai-price-pill{background:#dbeafe;color:#1d4ed8;padding:3px 12px;border-radius:99px;font-size:13px;font-weight:600;white-space:nowrap}
+.ai-stat-grid{display:grid;grid-template-columns:1fr 1fr 36px 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.ai-stat{background:var(--bg2);border-radius:8px;padding:8px 10px}
+.ai-stat-lbl{font-size:10px;color:var(--mu);margin-bottom:3px}
+.ai-stat-val{font-size:12px;font-weight:600;color:var(--tx)}
+.ai-dl-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--bd);background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--mu);flex-shrink:0}
+.ai-dl-btn:hover{border-color:var(--tx);color:var(--tx)}
+.ai-nearest{font-size:11px;color:var(--mu);margin-bottom:4px}
+.ai-view-link{font-size:11px;color:#1d4ed8;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.ai-view-link:hover{text-decoration:underline}
 
 /* ── Map ── */
 #mapWrap{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;height:580px;position:relative}
@@ -571,7 +577,7 @@ tr:hover td{background:var(--bg2)}
       </div>
 
       <div id="aiResultsWrap" style="display:none">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="aiAreaPills"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="aiAreaPills"></div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:11px;color:var(--mu)">
           <span>Distance from sea:</span>
           <span class="sea-badge sea-vclose">under 1 km</span>
@@ -4001,20 +4007,31 @@ function aiSetSort(val) {
   renderAIResults();
 }
 
+function seaDistText(dist) {
+  if (dist == null) return '<span style="color:var(--mu)">—</span>';
+  if (dist < 0.3) return '<span style="color:#15803d;font-weight:600">Beachfront</span>';
+  const val = dist < 1 ? Math.round(dist*1000)+'m' : dist.toFixed(1)+' km';
+  const col = dist < 1 ? '#1d4ed8' : dist < 3 ? '#0369a1' : dist < 8 ? '#15803d' : '#92400e';
+  return `<span style="color:${col};font-weight:600">${val}</span>`;
+}
+
 function renderAIResults() {
   const raw = getAIMatches();
   const results = sortAIResults(raw);
   document.getElementById('aiResultsWrap').style.display = 'block';
 
-  // Sync dropdown to current sort state
   const sortEl = document.getElementById('aiSortSel');
   if (sortEl) sortEl.value = aiState.sort;
 
+  // Area pills: "All" first, then distinct districts
   const districts = [...new Set(raw.map(d => d.district).filter(Boolean))].sort();
-  document.getElementById('aiAreaPills').innerHTML = districts.map(dist => {
-    const on = aiState.districtFilter.includes(dist) ? ' on' : '';
-    return `<button class="ai-area-pill${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
-  }).join('');
+  const noneSelected = aiState.districtFilter.length === 0;
+  document.getElementById('aiAreaPills').innerHTML =
+    `<button class="ai-area-btn${noneSelected?' on':''}" onclick="aiState.districtFilter=[];aiPage=1;renderAIResults()">All</button>` +
+    districts.map(dist => {
+      const on = aiState.districtFilter.includes(dist) ? ' on' : '';
+      return `<button class="ai-area-btn${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
+    }).join('');
 
   const parts = [
     `<b>${results.length.toLocaleString()}</b> listing${results.length===1?'':'s'}`,
@@ -4032,34 +4049,46 @@ function renderAIResults() {
   }
 
   const tot = Math.ceil(results.length / aiPS) || 1;
-  const page = results.slice((aiPage-1)*aiPS, aiPage*aiPS);
+  const pg = results.slice((aiPage-1)*aiPS, aiPage*aiPS);
 
-  document.getElementById('aiDevCards').innerHTML = page.map(d => {
-    const seaHtml = d.seaDist != null
-      ? (d.seaDist < 0.3 ? '<span class="sea-badge sea-vclose">Beachfront</span>'
-        : d.seaDist < 1  ? `<span class="sea-badge sea-vclose">${Math.round(d.seaDist*1000)}m from sea</span>`
-        : d.seaDist < 3  ? `<span class="sea-badge sea-close">${d.seaDist.toFixed(1)}km from sea</span>`
-        : d.seaDist < 8  ? `<span class="sea-badge sea-mid">${d.seaDist.toFixed(1)}km from sea</span>`
-        : `<span class="sea-badge sea-far">${d.seaDist.toFixed(1)}km from sea</span>`)
-      : '<span style="color:var(--mu);font-size:11px">—</span>';
-    const col3lbl = d.plot ? 'Plot' : 'Beds';
-    const col3val = d.plot ? d.plot.toLocaleString()+' m²' : (d.bedrooms!=null?d.bedrooms:'—');
-    return `<div class="ai-dev-card" onclick="openModal(${d.id})">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
-        <div class="ai-dev-title">${d.title||d.developer||'—'}</div>
-        <span class="ai-price-badge">${d.price?'€'+d.price.toLocaleString():'—'}</span>
+  document.getElementById('aiDevCards').innerHTML = pg.map(d => {
+    // Nearest beach name
+    let nearestName = d.district || d.city || '';
+    if (d.lat && d.lng) {
+      const ns = nearestSea(d.lat, d.lng);
+      if (ns && ns.beach) nearestName = ns.beach.name;
+    }
+
+    const priceHtml = d.price ? `<span class="ai-price-pill">€${d.price.toLocaleString()}</span>` : '';
+    const devSub = [d.developer, d.district].filter(Boolean).join(' · ');
+    const areaVal = d.area ? d.area.toLocaleString()+' sqm' : '—';
+    const plotVal = d.plot ? d.plot.toLocaleString()+' sqm' : '—';
+    const linkHtml = d.listingUrl
+      ? `<a class="ai-view-link" href="${d.listingUrl}" target="_blank" onclick="event.stopPropagation()">↗ View on dom.com.cy</a>`
+      : '';
+
+    return `<div class="ai-card" onclick="openModal(${d.id})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
+        <div class="ai-card-title">${d.title||d.developer||'—'}</div>
+        <div style="text-align:right;flex-shrink:0;margin-left:12px">
+          ${priceHtml}
+          <div style="font-size:10px;color:var(--mu);margin-top:3px">1 unit available</div>
+        </div>
       </div>
-      <div class="ai-dev-sub">${d.developer||''}${d.developer&&d.district?' · ':''}${d.district||''}</div>
-      <div class="ai-dev-body">
-        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">From sea</div><div class="ai-dev-stat-val">${seaHtml}</div></div>
-        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">Size</div><div class="ai-dev-stat-val">${d.area?d.area.toLocaleString()+' m²':'—'}</div></div>
-        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">${col3lbl}</div><div class="ai-dev-stat-val">${col3val}</div></div>
+      <div class="ai-card-sub">${devSub}</div>
+      <div class="ai-stat-grid">
+        <div class="ai-stat"><div class="ai-stat-lbl">From sea</div><div class="ai-stat-val">${seaDistText(d.seaDist)}</div></div>
+        <div class="ai-stat"><div class="ai-stat-lbl">Avg size</div><div class="ai-stat-val">${areaVal}</div></div>
+        <button class="ai-dl-btn" onclick="event.stopPropagation();exportPropertyPDF(${d.id})">↓</button>
+        <div class="ai-stat"><div class="ai-stat-lbl">Avg plot</div><div class="ai-stat-val">${plotVal}</div></div>
       </div>
+      <div class="ai-nearest">Nearest: ${nearestName}</div>
+      ${linkHtml}
     </div>`;
   }).join('');
 
   document.getElementById('aiPagination').innerHTML = tot <= 1 ? '' : `
-    <div style="display:flex;align-items:center;gap:8px">
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <button onclick="aiPg(-1)" ${aiPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
       <span style="font-size:11px;color:var(--mu)">Page ${aiPage} of ${tot} · ${results.length.toLocaleString()} listings</span>
       <button onclick="aiPg(1)" ${aiPage>=tot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
