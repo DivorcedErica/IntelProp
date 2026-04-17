@@ -3903,10 +3903,10 @@ function aiExample(btn) {
 function parseAIQuery(text) {
   const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null, excluded:[] };
 
-  if (/\bvilla\b/i.test(text)) s.types.push('Villa');
-  if (/\bapartment\b|\bapt\b/i.test(text)) s.types.push('Apartment');
-  if (/\bhouse\b|\bbungalow\b/i.test(text)) s.types.push('House');
-  if (/\bpenthouse\b/i.test(text)) s.types.push('Penthouse');
+  if (/\bvillas?\b/i.test(text)) s.types.push('Villa');
+  if (/\bapartments?\b|\bapt\b/i.test(text)) s.types.push('Apartment');
+  if (/\bhouses?\b|\bbungalows?\b/i.test(text)) s.types.push('House');
+  if (/\bpenthouses?\b/i.test(text)) s.types.push('Penthouse');
 
   const cityMap = {
     'Paphos':    /\bpaphos\b|coral\s*bay|geroskipou|kato\s*paphos|peyia|pegeia|chlorakas|konia|tala/i,
@@ -3965,20 +3965,25 @@ function runAISearch() {
   if (!text) return;
   const parsed = parseAIQuery(text);
 
-  // Refinement detection: if the new query has NO positive criteria of its own
-  // but has exclusions (or sort), merge into existing state rather than wiping it
-  const hasPositive = parsed.types.length || parsed.cities.length || parsed.beds.length ||
-                      parsed.maxPrice != null || parsed.maxSea != null;
+  const hasOtherPositive = parsed.cities.length || parsed.beds.length ||
+                           parsed.maxPrice != null || parsed.maxSea != null;
+  const hasPositive = parsed.types.length || hasOtherPositive;
   const prevHasState = aiState.types.length || aiState.cities.length || aiState.beds.length;
 
   if (!hasPositive && prevHasState) {
-    // Refinement mode: layer new exclusions / sort on top of existing criteria
+    // Pure refinement (only exclusions / sort) — keep everything, layer on top
     if (parsed.excluded.length) {
       aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
     }
     if (parsed.sort) aiState.sort = parsed.sort;
   } else {
-    // Fresh search
+  } else if (parsed.types.length && !hasOtherPositive && prevHasState) {
+    // Type-only refinement: "only villas", "just apartments" — update type, keep rest
+    aiState.types = parsed.types;
+    if (parsed.excluded.length) aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
+    if (parsed.sort) aiState.sort = parsed.sort;
+  } else {
+    // Full fresh search
     aiState = {
       ...parsed,
       districtFilter: [],
