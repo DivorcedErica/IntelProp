@@ -2575,13 +2575,10 @@ async function readInvestorsFromSheets() {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Clients`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
-    // Validate this is actually the Clients sheet by checking the column label (gviz puts headers in cols, not rows)
-    const h0 = json.table.cols && json.table.cols[0] && json.table.cols[0].label ? String(json.table.cols[0].label).toLowerCase().trim() : '';
-    if (h0 !== 'investorid') return; // Wrong sheet loaded
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
       const invId = +g(0); const name = g(1);
-      if (!name || name.toLowerCase() === 'name' || isNaN(invId)) return;
+      if (!name || isNaN(invId) || invId <= 0) return; // skip header or blank rows
       let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
       // Columns: InvestorID(0) Name(1) Phone(2) Email(3) Status(4) Created(5) Last Contact(6) Client Type(7) Budget(8) Locations(9) Type of Properties(10) Notes(11)
       if (!inv) {
@@ -2605,7 +2602,7 @@ async function readInvestorsFromSheets() {
     saveInvestorProfiles();
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
-  } catch(e) { /* sheet not set up yet */ }
+  } catch(e) { console.error('readInvestorsFromSheets error:', e); }
 }
 
 async function readCommsFromSheets() {
