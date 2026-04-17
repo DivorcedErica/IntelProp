@@ -3857,7 +3857,7 @@ function exportPropertyPDF(id){
 
 
 // ── AI Search ─────────────────────────────────────────────────
-let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[] };
+let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc' };
 let aiPage = 1, aiPS = 20;
 
 function aiExample(btn) {
@@ -3866,7 +3866,7 @@ function aiExample(btn) {
 }
 
 function parseAIQuery(text) {
-  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null };
+  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null };
 
   if (/\bvilla\b/i.test(text)) s.types.push('Villa');
   if (/\bapartment\b|\bapt\b/i.test(text)) s.types.push('Apartment');
@@ -3893,7 +3893,8 @@ function parseAIQuery(text) {
     });
   }
 
-  const priceM = text.match(/(?:max(?:imum)?|under|up\s*to|below|budget|no\s*more\s*than)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
+  // Price: handles "maximum price 600000", "max €600k", "under 500,000", "budget 1m"
+  const priceM = text.match(/(?:max(?:imum)?(?:\s+price)?|under|up\s*to|below|budget|no\s*more\s*than)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
   if (priceM) {
     let v = parseFloat(priceM[1].replace(/,/g, ''));
     const suf = (priceM[2] || '').toLowerCase();
@@ -3903,10 +3904,17 @@ function parseAIQuery(text) {
     if (v > 10000) s.maxPrice = v;
   }
 
-  if (/beachfront|beach\s*front|on\s*the\s*beach/i.test(text)) s.maxSea = 0.3;
-  else if (/walking\s*distance|steps?\s*from\s*(the\s*)?sea|right\s*on\s*(the\s*)?sea/i.test(text)) s.maxSea = 0.5;
-  else if (/close\s*to\s*(the\s*)?sea|near\s*(the\s*)?sea|seaview|sea\s*view|seafront|sea\s*front/i.test(text)) s.maxSea = 1;
+  // Sea distance — beach, sea, and coast synonyms
+  if (/beachfront|beach\s*front|on\s*the\s*beach|right\s*(on|by)\s*the\s*(beach|sea)/i.test(text)) s.maxSea = 0.3;
+  else if (/walking\s*distance|steps?\s*from\s*(the\s*)?(sea|beach)|right\s*on\s*(the\s*)?sea/i.test(text)) s.maxSea = 0.5;
+  else if (/close\s*to\s*(the\s*)?(sea|beach)|near\s*(the\s*)?(sea|beach)|seaview|sea\s*view|seafront|sea\s*front|by\s*the\s*(sea|beach)/i.test(text)) s.maxSea = 1;
   else { const kmM = text.match(/within\s*(\d+)\s*km/i); if (kmM) s.maxSea = +kmM[1]; }
+
+  // Sort intent from natural language
+  if (/sort\s*(by\s*)?(distance|sea|closest|nearest)|nearest\s*(to\s*the?\s*)?(sea|beach)|closest\s*(to\s*the?\s*)?(sea|beach)/i.test(text)) s.sort = 'seaDist_asc';
+  else if (/sort\s*(by\s*)?price\s*(asc|low|cheap)|cheapest|lowest\s*price/i.test(text)) s.sort = 'price_asc';
+  else if (/sort\s*(by\s*)?price\s*(desc|high|exp)|most\s*expensive|highest\s*price/i.test(text)) s.sort = 'price_desc';
+  else if (/sort\s*(by\s*)?(size|area|largest)|biggest|largest/i.test(text)) s.sort = 'area_desc';
 
   return s;
 }
@@ -3914,7 +3922,8 @@ function parseAIQuery(text) {
 function runAISearch() {
   const text = document.getElementById('aiQuery').value.trim();
   if (!text) return;
-  aiState = { ...parseAIQuery(text), districtFilter: [] };
+  const parsed = parseAIQuery(text);
+  aiState = { ...parsed, districtFilter: [], sort: parsed.sort || aiState.sort || 'seaDist_asc' };
   aiPage = 1;
 
   const labels = [
@@ -3932,6 +3941,9 @@ function runAISearch() {
   } else {
     crumbsEl.style.display = 'none';
   }
+
+  const sel = document.getElementById('aiSortSel');
+  if (sel) sel.value = aiState.sort;
   renderAIResults();
 }
 
@@ -3957,15 +3969,37 @@ function getAIMatches() {
   });
 }
 
+function sortAIResults(results) {
+  const s = aiState.sort;
+  return [...results].sort((a, b) => {
+    if (s === 'seaDist_asc') {
+      const av = a.seaDist ?? 999, bv = b.seaDist ?? 999;
+      return av - bv;
+    }
+    if (s === 'price_asc')  return (a.price ?? Infinity) - (b.price ?? Infinity);
+    if (s === 'price_desc') return (b.price ?? -Infinity) - (a.price ?? -Infinity);
+    if (s === 'area_desc')  return (b.area ?? 0) - (a.area ?? 0);
+    return 0;
+  });
+}
+
 function renderAIResults() {
-  const results = getAIMatches();
+  const raw = getAIMatches();
+  const results = sortAIResults(raw);
   document.getElementById('aiResultsWrap').style.display = 'block';
 
-  const districts = [...new Set(results.map(d => d.district).filter(Boolean))].sort();
+  const districts = [...new Set(raw.map(d => d.district).filter(Boolean))].sort();
   document.getElementById('aiAreaPills').innerHTML = districts.map(dist => {
     const on = aiState.districtFilter.includes(dist) ? ' on' : '';
     return `<button class="ai-area-pill${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
   }).join('');
+
+  const sortSel = `<select id="aiSortSel" onchange="aiState.sort=this.value;aiPage=1;renderAIResults()" style="font-size:11px;height:28px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+    <option value="seaDist_asc"${aiState.sort==='seaDist_asc'?' selected':''}>Closest to sea</option>
+    <option value="price_asc"${aiState.sort==='price_asc'?' selected':''}>Price ↑</option>
+    <option value="price_desc"${aiState.sort==='price_desc'?' selected':''}>Price ↓</option>
+    <option value="area_desc"${aiState.sort==='area_desc'?' selected':''}>Largest</option>
+  </select>`;
 
   const parts = [
     `<b>${results.length.toLocaleString()}</b> listing${results.length===1?'':'s'}`,
@@ -3974,7 +4008,12 @@ function renderAIResults() {
     aiState.cities.length ? aiState.cities.join(' / ') : null,
     aiState.maxPrice ? 'up to €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k') : null,
   ].filter(Boolean);
-  document.getElementById('aiSummaryLine').innerHTML = parts.join(' · ');
+
+  document.getElementById('aiSummaryLine').innerHTML =
+    `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span>${parts.join(' · ')}</span>
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--mu)">Sort:</span>${sortSel}</div>
+    </div>`;
 
   if (!results.length) {
     document.getElementById('aiDevCards').innerHTML = '<div class="empty">No listings match — try relaxing the criteria.</div>';
