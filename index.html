@@ -2564,7 +2564,8 @@ function syncPropertyToSheets(prop) {
   var row = [
     prop.propertyId, prop.investorId, prop.developer||'', prop.title||'',
     prop.type||'', prop.city||'', prop.district||'', prop.bedrooms||'',
-    prop.totalArea||'', prop.plotSize||'', prop.price||'', prop.pricePerM2||'', prop.complex||''
+    prop.totalArea||'', prop.plotSize||'', prop.price||'', prop.pricePerM2||'', prop.complex||'',
+    prop.addedAt||new Date().toISOString()
   ];
   syncViaJsonp({ type:'property', sheet:'Properties', propertyId: prop.propertyId, investorId: prop.investorId, row });
 }
@@ -2633,7 +2634,7 @@ async function readPropertiesFromSheets() {
           city: g(5), district: g(6), bedrooms: g(7),
           totalArea: g(8), plotSize: g(9),
           price: g(10), pricePerM2: g(11), complex: g(12),
-          addedAt: new Date().toISOString()
+          addedAt: g(13) || new Date().toISOString()
         });
         added++;
       }
