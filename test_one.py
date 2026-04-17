@@ -28,9 +28,8 @@ async def test(url: str):
             rows = await r.json(content_type=None)
 
         if len(rows) < 2:
-            print('   ✗ No Wayback snapshot found')
-            print('   → Trying live URL instead...')
-            archived_url = url
+            print('   ✗ No Wayback snapshot found — nothing to do.')
+            return
         else:
             ts, orig = rows[1]
             archived_url = f'https://web.archive.org/web/{ts}/{orig}'

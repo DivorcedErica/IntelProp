@@ -3388,7 +3388,7 @@ async function fetchAndExtract(url, hint) {
   return m ? JSON.parse(m[0]) : null;
 }
 
-async function enrichListing(d, waybackOnly = false) {
+async function enrichListing(d) {
   if (!d.listingUrl) return;
   if (d.img1 && d.developer && d.delivery) return;
 
@@ -3398,15 +3398,10 @@ async function enrichListing(d, waybackOnly = false) {
   const hint = [d.title, d.city, d.type, d.bedrooms ? d.bedrooms+' bed' : ''].filter(Boolean).join(' ');
   let enriched = null;
 
-  // Try archived sources: Wayback → Memento → Bing Cache
+  // Try archived sources only: Wayback → Memento → Bing Cache
   const archive = await getArchivedUrl(d.listingUrl);
   if (archive) {
     try { enriched = await fetchAndExtract(archive.url, hint); } catch(e) {}
-  }
-
-  // Live dom.com.cy — on-demand only, not during bulk run
-  if (!enriched && !waybackOnly) {
-    try { enriched = await fetchAndExtract(d.listingUrl, hint); } catch(e) {}
   }
 
   if (enriched) {
@@ -3442,7 +3437,7 @@ async function runBulkEnrichment() {
   // Process 3 concurrently, Wayback only
   for (let i = 0; i < pending.length; i += 3) {
     await Promise.all(pending.slice(i, i + 3).map(async d => {
-      await enrichListing(d, true);
+      await enrichListing(d);
       done++;
       updateProgress();
     }));

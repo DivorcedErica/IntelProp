@@ -168,12 +168,10 @@ async def process(session: aiohttp.ClientSession, row_idx: int, row: list) -> di
         return None
 
     wayback_url = await get_wayback_url(session, listing_url)
-    source = 'wayback'
 
     if not wayback_url:
-        # Fallback: try live site
-        wayback_url = listing_url
-        source = 'live'
+        print(f'  [no archive] row {row_idx}: {listing_url}')
+        return None
 
     html = await fetch_html(session, wayback_url)
     if not html:
@@ -184,7 +182,7 @@ async def process(session: aiohttp.ClientSession, row_idx: int, row: list) -> di
         return None
 
     imgs = (data['images'] + ['', '', '', ''])[:4]
-    print(f'  [{source}] row {row_idx}: {len(data["images"])} imgs  delivery={data["delivery"]}')
+    print(f'  [wayback] row {row_idx}: {len(data["images"])} imgs  delivery={data["delivery"]}')
     return {'row': row_idx, 'imgs': imgs, 'delivery': data['delivery'] or ''}
 
 # ── Main ─────────────────────────────────────────────────────────
