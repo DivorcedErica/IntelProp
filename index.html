@@ -2605,6 +2605,7 @@ async function readInvestorsFromSheets() {
     });
     saveInvestorProfiles();
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+    populateClientSelectors();
   } catch(e) { /* sheet not set up yet */ }
 }
 
@@ -5203,6 +5204,8 @@ function toggleAIDistrict(dist) {
 function aiPg(d) { aiPage += d; renderAIResults(); }
 
 init();
+// Load investors from Sheets on startup so Client Call & Portfolio Builder selectors are populated
+readInvestorsFromSheets();
 </script>
 </body>
 </html>
