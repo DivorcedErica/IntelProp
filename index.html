@@ -893,10 +893,13 @@ tr:hover td{background:var(--bg2)}
               <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa">Villa</button>
               <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House">House</button>
               <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse">Penthouse</button>
+              <button class="crit-btn" onclick="niSelectAllTypes()" style="opacity:.7">All</button>
             </div>
           </div>
         </div>
-        <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
+        <div style="display:flex;justify-content:flex-end">
+          <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
+        </div>
       </div>
       <!-- List view -->
       <div id="invListView">
@@ -2224,22 +2227,25 @@ function renderInvestorCard(inv) {
       <div style="margin-left:auto;font-size:11px;color:var(--mu)">${lastC}</div>
     </div>
 
-    <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bd)">
-      <div id="invContactDisplay">
-        <!-- Header row: name + type + edit icon -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
-            ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
-          </div>
-          <button onclick="showEditContact(${inv.investorId||inv.id})" title="Edit contact" style="font-size:13px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:4px 9px;line-height:1">✏</button>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bd);flex-wrap:wrap">
+      <div id="invContactDisplay" style="flex:1;min-width:0">
+        <!-- Name + type + edit icon -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
+          ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
+          <button onclick="showEditContact(${inv.investorId||inv.id})" title="Edit contact" style="font-size:12px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:3px 8px;line-height:1;margin-left:auto">✏</button>
         </div>
-        <!-- Details grid -->
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:12px">
-          <span style="color:var(--mu)">Phone</span><span>${inv.phone?`<a href="tel:${inv.phone}" style="color:var(--tx);text-decoration:none">${inv.phone}</a>`:'<span style="color:var(--mu)">—</span>'}</span>
-          <span style="color:var(--mu)">Email</span><span>${inv.email?`<a href="mailto:${inv.email}" style="color:var(--tx);text-decoration:none">${inv.email}</a>`:'<span style="color:var(--mu)">—</span>'}</span>
-          <span style="color:var(--mu)">Added</span><span>${new Date(inv.createdAt).toLocaleDateString('en-GB')}</span>
+        <div class="inv-card-contact" style="margin-bottom:4px">
+          ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:''}
+          ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:''}
         </div>
+        ${crBudget||crLocs.length?`<div style="font-size:12px;margin-bottom:3px">${crBudget?`<span style="color:var(--mu)">Budget </span><b>${crBudget}</b>`:''}${crBudget&&crLocs.length?'&nbsp;&nbsp;':''}${crLocs.length?`<span style="color:var(--mu)">Locations </span><b>${crLocs.join(' · ')}</b>`:''}</div>`:''}
+        <div style="font-size:11px;color:var(--mu)">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
+      </div>
+      <!-- Stats on the right -->
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${myComms.length}</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
       </div>
       <div id="invContactEdit" style="display:none">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
@@ -2255,10 +2261,8 @@ function renderInvestorCard(inv) {
       </div>
     </div>
 
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bd)">
-      <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
-      <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${myComms.length}</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
-      <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="margin-left:auto;font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">🗑 Delete</button>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">🗑 Delete</button>
     </div>
 
     ${criteriaHtml}
@@ -4318,6 +4322,7 @@ function renderInvestorProfilesPanel(){
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
+      +'<button onclick="amendCriteria(\''+inv.name.replace(/'/g,"\\'")+'\')" class="btn primary" style="font-size:11px">▶ Load</button>'
       +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
       +'</div></div></div>';
   }).join('');
@@ -4406,11 +4411,13 @@ function deleteInvestorProfile(id){
 }
 
 function niToggle(btn,group){
+  var wasOn=btn.classList.contains('on');
   var containerId=group.includes('Group')?'#newInv'+group:'#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+'Group';
   document.querySelectorAll(containerId+' .crit-btn').forEach(function(b){b.classList.remove('on');});
-  btn.classList.add('on');
+  if(!wasOn)btn.classList.add('on');
 }
 function niMulti(btn){btn.classList.toggle('on');}
+function niSelectAllTypes(){document.querySelectorAll('#newInvTypeGroup .crit-btn[data-val]').forEach(function(b){b.classList.add('on');});}
 
 function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
