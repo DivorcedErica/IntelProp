@@ -2607,7 +2607,46 @@ async function readInvestorsFromSheets() {
     saveInvestorProfiles();
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
+    await readPropertiesFromSheets();
   } catch(e) { console.error('[investors] readInvestorsFromSheets error:', e); }
+}
+
+async function readPropertiesFromSheets() {
+  // Columns: PropertyID(0) InvestorID(1) Developer(2) Title(3) Type(4) City(5) District(6) Bedrooms(7) TotalArea(8) PlotSize(9) Price(10) PricePerM2(11) Complex(12)
+  try {
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Properties`);
+    const t = await r.text();
+    const m = t.match(/setResponse\(([\s\S]*)\)/);
+    if (!m) return;
+    const json = JSON.parse(m[1]);
+    if (!json.table || !json.table.rows) return;
+    let added = 0;
+    json.table.rows.forEach(row => {
+      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+      const propId = +g(0); const invId = +g(1);
+      if (!propId || isNaN(propId) || propId <= 0 || !invId || isNaN(invId) || invId <= 0) return;
+      const exists = clientProperties.find(p => p.propertyId === propId);
+      if (!exists) {
+        clientProperties.push({
+          propertyId: propId, investorId: invId,
+          developer: g(2), title: g(3), type: g(4),
+          city: g(5), district: g(6), bedrooms: g(7),
+          totalArea: g(8), plotSize: g(9),
+          price: g(10), pricePerM2: g(11), complex: g(12),
+          addedAt: new Date().toISOString()
+        });
+        added++;
+      }
+    });
+    if (added > 0) {
+      console.log('[properties] loaded from Sheets:', added);
+      saveClientProperties();
+      if (currentInvestorCard) {
+        const inv = investorProfiles.find(i => (i.investorId||i.id) === currentInvestorCard);
+        if (inv) renderInvestorCard(inv);
+      }
+    }
+  } catch(e) { console.error('[properties] readPropertiesFromSheets error:', e); }
 }
 
 async function readCommsFromSheets() {
