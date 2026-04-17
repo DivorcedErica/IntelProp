@@ -966,6 +966,37 @@ tr:hover td{background:var(--bg2)}
   </div>
 </div>
 
+<!-- Add Property Modal -->
+<div id="addPropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:24px;width:min(700px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-size:14px;font-weight:600">Add Property</div>
+      <button onclick="closeAddPropModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--mu)">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Developer</div><input id="apDeveloper" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div style="grid-column:span 2"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Title</div><input id="apTitle" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Type</div><select id="apType" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option>Apartment</option><option>Villa</option><option>House</option><option>Penthouse</option><option>Commercial</option><option>Land</option></select></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">City</div><input id="apCity" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">District</div><input id="apDistrict" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Complex</div><input id="apComplex" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px">
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Bedrooms</div><input id="apBedrooms" type="number" min="0" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Total Area m²</div><input id="apTotalArea" type="number" min="0" oninput="calcPricePerM2()" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Plot Size m²</div><input id="apPlotSize" type="number" min="0" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Price (€)</div><input id="apPrice" type="number" min="0" oninput="calcPricePerM2()" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+      <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">€ / m²</div><input id="apPricePerM2" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--mu);font-size:12px"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveClientProperty()" class="btn primary">Save Property</button>
+      <button onclick="closeAddPropModal()" class="btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Add your Anthropic API key here ──
 const ANTHROPIC_KEY = ''; // Key handled by proxy
@@ -2275,6 +2306,32 @@ function renderInvestorCard(inv) {
     inlineCriteriaHtml = '<div style="font-size:12px;color:var(--mu);margin-bottom:8px">No criteria saved yet. <button onclick="amendCriteria(\''+nameSafe+'\');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:2px 8px;cursor:pointer;color:var(--mu)">+ Set criteria</button></div>';
   }
 
+  const invId = inv.investorId || inv.id;
+  const assignedProps = clientProperties.filter(function(p){ return p.investorId === invId; });
+  const thStyle = 'text-align:left;padding:6px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)';
+  const tdStyle = 'padding:6px 8px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--bd)';
+  let assignedPropsHtml = assignedProps.length
+    ? '<div style="overflow-x:auto;margin-bottom:4px"><table style="width:100%;border-collapse:collapse">'
+      + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Title</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Beds</th><th style="'+thStyle+'">Area m²</th><th style="'+thStyle+'">Plot m²</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'">€/m²</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'"></th></tr>'
+      + assignedProps.map(function(p){
+          return '<tr>'
+            +'<td style="'+tdStyle+'">'+(p.developer||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.title||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.type||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.city||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.district||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.bedrooms||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.totalArea||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.plotSize||'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.price?'€'+Number(p.price).toLocaleString():'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.pricePerM2?'€'+Number(p.pricePerM2).toLocaleString():'—')+'</td>'
+            +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
+            +'<td style="'+tdStyle+'"><button onclick="deleteClientProperty('+p.propertyId+')" style="font-size:11px;background:none;border:1px solid var(--red);border-radius:var(--r);color:var(--red);cursor:pointer;padding:2px 8px">✕</button></td>'
+            +'</tr>';
+        }).join('')
+      + '</table></div>'
+    : '<div style="font-size:12px;color:var(--mu);padding:4px 0 8px">No properties added yet.</div>';
+
   document.getElementById('invCardView').innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
       <button onclick="closeInvestorCard()" class="btn" style="font-size:11px">← All clients</button>
@@ -2330,7 +2387,13 @@ function renderInvestorCard(inv) {
       <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">🗑 Delete</button>
     </div>
 
-    <div class="inv-section-title">Properties found (${noteProps.length})</div>
+    <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Properties (${assignedProps.length})</span>
+      <button onclick="showAddPropModal(${invId})" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>
+    </div>
+    ${assignedPropsHtml}
+
+    <div class="inv-section-title">Listings noted (${noteProps.length})</div>
     ${propsHtml}
 
     <div class="inv-section-title">Activity log (${myComms.length})</div>
@@ -2442,6 +2505,16 @@ async function syncCommToSheets(entry) {
     entry.note || '',
   ];
   syncViaJsonp({ type:'communication', sheet:'Client Communications', commId: entry.commId, investorId: entry.investorId, row });
+}
+
+function syncPropertyToSheets(prop) {
+  if (!APPS_SCRIPT_URL) return;
+  var row = [
+    prop.propertyId, prop.investorId, prop.developer||'', prop.title||'',
+    prop.type||'', prop.city||'', prop.district||'', prop.bedrooms||'',
+    prop.totalArea||'', prop.plotSize||'', prop.price||'', prop.pricePerM2||'', prop.complex||''
+  ];
+  syncViaJsonp({ type:'property', sheet:'Properties', propertyId: prop.propertyId, investorId: prop.investorId, row });
 }
 
 async function readInvestorsFromSheets() {
@@ -4283,6 +4356,8 @@ try{
 }catch(e){}
 var communicationLog = [];
 try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
+var clientProperties = [];
+try{clientProperties=JSON.parse(localStorage.getItem('ip_properties')||'[]');}catch(e){}
 var currentInvestorCard = null;
 var currentClientCallId = null;
 
@@ -4298,6 +4373,8 @@ function nextCommId(){
 
 function saveInvestorProfiles(){try{localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}catch(e){}}
 function saveCommLog(){try{localStorage.setItem('ip_comms',JSON.stringify(communicationLog));}catch(e){}}
+function saveClientProperties(){try{localStorage.setItem('ip_properties',JSON.stringify(clientProperties));}catch(e){}}
+function nextPropertyId(){var max=clientProperties.reduce(function(m,p){return Math.max(m,p.propertyId||0);},0);return max+1;}
 
 var agentName='';
 try{agentName=localStorage.getItem('ip_agent')||'';}catch(e){}
@@ -4488,6 +4565,56 @@ function deleteInvestorProfile(id){
   saveInvestorProfiles();
   closeInvestorCard();
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
+}
+
+var _addPropInvestorId = null;
+function showAddPropModal(investorId){
+  _addPropInvestorId = investorId;
+  ['apDeveloper','apTitle','apCity','apDistrict','apComplex','apBedrooms','apTotalArea','apPlotSize','apPrice','apPricePerM2'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var t=document.getElementById('apType');if(t)t.value='';
+  var m=document.getElementById('addPropModal');if(m){m.style.display='flex';}
+}
+function closeAddPropModal(){
+  var m=document.getElementById('addPropModal');if(m)m.style.display='none';
+  _addPropInvestorId=null;
+}
+function calcPricePerM2(){
+  var price=+document.getElementById('apPrice').value||0;
+  var area=+document.getElementById('apTotalArea').value||0;
+  var el=document.getElementById('apPricePerM2');
+  if(el)el.value=(price&&area)?Math.round(price/area):'';
+}
+function saveClientProperty(){
+  if(!_addPropInvestorId)return;
+  var prop={
+    propertyId: nextPropertyId(),
+    investorId: _addPropInvestorId,
+    developer: document.getElementById('apDeveloper').value.trim(),
+    title: document.getElementById('apTitle').value.trim(),
+    type: document.getElementById('apType').value,
+    city: document.getElementById('apCity').value.trim(),
+    district: document.getElementById('apDistrict').value.trim(),
+    complex: document.getElementById('apComplex').value.trim(),
+    bedrooms: document.getElementById('apBedrooms').value,
+    totalArea: document.getElementById('apTotalArea').value,
+    plotSize: document.getElementById('apPlotSize').value,
+    price: document.getElementById('apPrice').value,
+    pricePerM2: document.getElementById('apPricePerM2').value,
+    addedAt: new Date().toISOString()
+  };
+  clientProperties.push(prop);
+  saveClientProperties();
+  syncPropertyToSheets(prop);
+  closeAddPropModal();
+  var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===_addPropInvestorId;});
+  if(inv)renderInvestorCard(inv);
+}
+function deleteClientProperty(propertyId){
+  if(!confirm('Remove this property?'))return;
+  clientProperties=clientProperties.filter(function(p){return p.propertyId!==propertyId;});
+  saveClientProperties();
+  var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===currentInvestorCard;});
+  if(inv)renderInvestorCard(inv);
 }
 
 function niToggle(btn,group){
