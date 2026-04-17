@@ -1750,9 +1750,13 @@ function renderDev(filterDev) {
   const devs = Object.values(m).sort((a, b) => b.n - a.n);
 
   if (filterDev) {
+    currentDevFilter = filterDev;
     const devListings = all.filter(d => d.developer === filterDev);
+    const devTot = Math.ceil(devListings.length / devPS) || 1;
+    devPage = Math.max(1, Math.min(devPage, devTot));
+    const pageItems = devListings.slice((devPage - 1) * devPS, devPage * devPS);
     const cw = '<col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px">';
-    const rows = devListings.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+    const rows = pageItems.map(d => `<tr style="cursor:pointer" onclick="openModal(${d.id})">
       <td title="${d.title||''}">${d.title||'—'}</td>
       <td>${tagBadge(d.type)}</td>
       <td>${d.city||'—'}</td>
@@ -1764,7 +1768,7 @@ function renderDev(filterDev) {
     </tr>`).join('');
     document.getElementById('devView').innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <button onclick="renderDev()" class="btn" style="font-size:11px">← All developers</button>
+        <button onclick="currentDevFilter=null;devPage=1;renderDev()" class="btn" style="font-size:11px">← All developers</button>
         <div>
           <div style="font-size:14px;font-weight:600">${filterDev}</div>
           <div style="font-size:11px;color:var(--mu)">${devListings.length} listings</div>
@@ -1773,7 +1777,20 @@ function renderDev(filterDev) {
       <div class="twrap"><table><colgroup>${cw}</colgroup>
         <thead><tr><th>Title</th><th>Type</th><th>City</th><th>District</th><th>Beds</th><th>Area</th><th>Price</th><th>€/m²</th></tr></thead>
         <tbody>${rows}</tbody>
-      </table></div>`;
+      </table></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:11px;color:var(--mu)">Per page</span>
+          <button class="vtb ${devPS===25?'on':''}" onclick="setDevPS(25)">25</button>
+          <button class="vtb ${devPS===50?'on':''}" onclick="setDevPS(50)">50</button>
+          <button class="vtb ${devPS===100?'on':''}" onclick="setDevPS(100)">100</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="devPg(-1)" ${devPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
+          <span style="font-size:11px;color:var(--mu)">Page ${devPage} of ${devTot} · ${devListings.length} listings</span>
+          <button onclick="devPg(1)" ${devPage>=devTot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
+        </div>
+      </div>`;
     return;
   }
 
@@ -1833,6 +1850,9 @@ function exportXLSX(){
 // ── Client Call ──────────────────────────────────────────────
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
 let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
+let devPS = 25, devPage = 1, currentDevFilter = null;
+let invPS = 25, invPage = 1;
+let pbPS = 25, pbPage = 1;
 
 function toggleCrit(btn, key) {
   const group = btn.parentElement;
@@ -2019,6 +2039,17 @@ function sortClientBy(key) {
 }
 function setCPS(n) { cPS = n; cPage = 1; applyClientFilter(); }
 function cPg(d) { cPage += d; applyClientFilter(false); }
+
+function setDevPS(n) { devPS = n; devPage = 1; renderDev(currentDevFilter); }
+function devPg(d) { devPage += d; renderDev(currentDevFilter); }
+function setInvPS(n) { invPS = n; invPage = 1; refreshInvestorList(); }
+function invPg(d) { invPage += d; refreshInvestorList(); }
+function setPbPS(n) { pbPS = n; pbPage = 1; pbRebuildOutput(); }
+function pbPg(d) { pbPage += d; pbRebuildOutput(); }
+
+function refreshInvestorList() {
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+}
 
 function resetClient() {
   document.getElementById('cName').value = '';
@@ -2378,6 +2409,7 @@ function buildPortfolio() {
   pbPortfolio.strategy = strategy;
   pbPortfolio.risk = risk;
   pbPortfolio.budget = budget;
+  pbPage = 1;
   const selected = pbPortfolio.selected;
 
   const getRemaining = () => budget - selected.reduce((s,x) => s+(x.price||0), 0);
@@ -2508,10 +2540,14 @@ function pbRebuildOutput() {
     return `<div class="intel-row"><div class="intel-row-label">${city}</div><div class="intel-row-val"><div class="intel-row-main">${totalPrice?Math.round(cp/totalPrice*100):0}%</div><div class="intel-row-sec">${pNote} · €${cp.toLocaleString()}</div></div></div>`;
   }).join('');
 
-  const cards = selected.map((d,i) => `
-    <div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
+  const pbTot = Math.ceil(selected.length / pbPS) || 1;
+  pbPage = Math.max(1, Math.min(pbPage, pbTot));
+  const pageSelected = selected.slice((pbPage - 1) * pbPS, pbPage * pbPS);
+  const cards = pageSelected.map((d,i) => {
+    const globalIdx = (pbPage - 1) * pbPS + i;
+    return `<div class="portfolio-card" style="cursor:pointer" onclick="openModal(${d.id})">
       <div style="display:flex;gap:4px;margin-bottom:8px">
-        <div class="portfolio-card-role">Asset ${i+1}</div>
+        <div class="portfolio-card-role">Asset ${globalIdx+1}</div>
         ${d._purpose?`<div class="portfolio-card-role" style="background:var(--bg2);border-color:var(--gold);color:var(--gold)">${d._purpose}</div>`:''}
       </div>
       <div class="portfolio-card-title">${d.title||'—'}</div>
@@ -2533,7 +2569,8 @@ function pbRebuildOutput() {
         <button onclick="event.stopPropagation();pbRemoveAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>
         <button onclick="event.stopPropagation();pbSwapAsset(${d.id})" style="flex:1;height:28px;font-size:11px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">↻ Alternatives</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   document.getElementById('pbOutput').innerHTML = `
     <div class="portfolio-shell">
@@ -2558,6 +2595,19 @@ function pbRebuildOutput() {
       <div class="portfolio-section">
         <div class="portfolio-section-title">Selected assets — click to view · use buttons to remove or swap</div>
         <div class="portfolio-cards">${cards}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:11px;color:var(--mu)">Per page</span>
+            <button class="vtb ${pbPS===25?'on':''}" onclick="setPbPS(25)">25</button>
+            <button class="vtb ${pbPS===50?'on':''}" onclick="setPbPS(50)">50</button>
+            <button class="vtb ${pbPS===100?'on':''}" onclick="setPbPS(100)">100</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="pbPg(-1)" ${pbPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
+            <span style="font-size:11px;color:var(--mu)">Page ${pbPage} of ${pbTot} · ${selected.length} assets</span>
+            <button onclick="pbPg(1)" ${pbPage>=pbTot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -3759,7 +3809,10 @@ function getInvestorNote(investorName,propertyId){
 
 function renderInvestorProfilesPanel(){
   if(!investorProfiles.length)return'<div class="empty" style="padding:1rem">No profiles yet. Use Client Call to create one.</div>';
-  return investorProfiles.map(function(inv){
+  var invTot=Math.ceil(investorProfiles.length/invPS)||1;
+  invPage=Math.max(1,Math.min(invPage,invTot));
+  var pageItems=investorProfiles.slice((invPage-1)*invPS,invPage*invPS);
+  var rows=pageItems.map(function(inv){
     var nc=Object.keys(inv.notes||{}).length;
     return '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px">'
       +'<div><div style="font-size:13px;font-weight:600">'+inv.name+'</div>'
@@ -3770,6 +3823,19 @@ function renderInvestorProfilesPanel(){
       +'<button onclick="deleteInvestorProfile('+inv.id+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
       +'</div></div>';
   }).join('');
+  var pager='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">'
+    +'<div style="display:flex;align-items:center;gap:5px">'
+    +'<span style="font-size:11px;color:var(--mu)">Per page</span>'
+    +'<button class="vtb '+(invPS===25?'on':'')+'" onclick="setInvPS(25)">25</button>'
+    +'<button class="vtb '+(invPS===50?'on':'')+'" onclick="setInvPS(50)">50</button>'
+    +'<button class="vtb '+(invPS===100?'on':'')+'" onclick="setInvPS(100)">100</button>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px">'
+    +'<button onclick="invPg(-1)" '+(invPage<=1?'disabled':'')+' style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">\u2190 Prev</button>'
+    +'<span style="font-size:11px;color:var(--mu)">Page '+invPage+' of '+invTot+' \u00b7 '+investorProfiles.length+' profiles</span>'
+    +'<button onclick="invPg(1)" '+(invPage>=invTot?'disabled':'')+' style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next \u2192</button>'
+    +'</div></div>';
+  return rows+pager;
 }
 
 function loadInvestorToClientCall(name){
