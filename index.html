@@ -580,6 +580,9 @@ tr:hover td{background:var(--bg2)}
 
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+
+      <!-- Comm log (shown when client is loaded) -->
+      <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
     </div>
 
     <!-- AI SEARCH -->
@@ -4224,34 +4227,62 @@ function renderInvestorProfilesPanel(){
 function loadInvestorToClientCall(name){
   var inv=investorProfiles.find(function(i){return i.name===name;});
   if(!inv)return;
+  // Reset all criteria first
+  document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
+  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  // Fill contact fields
   var el=document.getElementById('cName');if(el)el.value=inv.name;
   var ep=document.getElementById('cPhone');if(ep)ep.value=inv.phone||'';
   var ee=document.getElementById('cEmail');if(ee)ee.value=inv.email||'';
   var et=document.getElementById('cClientType');if(et)et.value=inv.clientType||'';
-  // Restore saved budget pill
-  if(inv.budget){
-    document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){
-      b.classList.toggle('on',b.textContent.trim()===inv.budget);
-      if(b.textContent.trim()===inv.budget){cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;}
-    });
-  }
-  // Restore saved locations
-  if(inv.locations&&inv.locations.length){
-    cCriteria.cities=[];
-    document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){
-      var isLoc=['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val);
-      if(!isLoc)return;
-      var on=(inv.locations||[]).includes(b.dataset.val);
-      b.classList.toggle('on',on);
-      if(on&&!cCriteria.cities.includes(b.dataset.val))cCriteria.cities.push(b.dataset.val);
-    });
-  }
+  var cr=inv.criteria||{};
+  // Purpose
+  if(cr.purpose)document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.purpose){b.classList.add('on');cCriteria.purpose=cr.purpose;}});
+  // Budget
+  var budgetLabel=cr.budget||inv.budget||'';
+  if(budgetLabel)document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){
+    if(b.textContent.trim()===budgetLabel){b.classList.add('on');cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;}
+  });
+  // Types
+  if(cr.types&&cr.types.length){cCriteria.types=cr.types.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(cr.types.includes(b.dataset.val))b.classList.add('on');});}
+  // Beds
+  if(cr.beds&&cr.beds.length){cCriteria.beds=cr.beds.slice();document.querySelectorAll('#pClients .crit-multi').forEach(function(b){var v=b.dataset.val||b.textContent.trim();if(cr.beds.includes(v))b.classList.add('on');});}
+  // Cities
+  var locs=cr.cities&&cr.cities.length?cr.cities:(inv.locations||[]);
+  if(locs.length){cCriteria.cities=locs.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(locs.includes(b.dataset.val))b.classList.add('on');});}
+  // Sea distance
+  if(cr.sea)document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.sea){b.classList.add('on');cCriteria.maxSea=+b.dataset.val||null;}});
+  // Delivery
+  if(cr.delivery)document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.delivery){b.classList.add('on');cCriteria.delivery=cr.delivery;}});
+  // Notes
+  var cn=document.getElementById('cNotes');if(cn)cn.value=cr.notes||inv.generalNotes||'';
+  // Comm log
+  renderClientCommLog(inv.investorId||inv.id);
   inv.lastContact=new Date().toISOString();
   saveInvestorProfiles();
-  logCommunication(inv.id,inv.name,'session','Client Call session started',null,null,(inv.clientType?inv.clientType+' · ':'')+(inv.budget?'Budget: '+inv.budget+' · ':'')+(inv.locations&&inv.locations.length?'Locations: '+inv.locations.join(', '):''));
+  logCommunication(inv.investorId||inv.id,inv.name,'session','Client Call session started',null,null,'');
   if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   gotoTab('clients',document.querySelectorAll('.tab')[3]);
   applyClientFilter();
+}
+
+function renderClientCommLog(investorId){
+  var wrap=document.getElementById('cCommLog');
+  if(!wrap)return;
+  var entries=(communicationLog||[]).filter(function(c){return c.investorId===investorId;}).slice().reverse().slice(0,20);
+  if(!entries.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  wrap.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Activity Log</div>'
+    +entries.map(function(c){
+      var d=new Date(c.date);
+      var ds=d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
+        +'<span style="color:var(--mu);white-space:nowrap;flex-shrink:0">'+ds+'</span>'
+        +'<span style="font-weight:500">'+c.action+'</span>'
+        +(c.propertyTitle?'<span style="color:var(--mu)"> · '+c.propertyTitle+'</span>':'')
+        +(c.note?'<span style="color:var(--mu)"> · '+c.note+'</span>':'')
+        +'</div>';
+    }).join('');
 }
 
 function deleteInvestorProfile(id){
@@ -4280,17 +4311,40 @@ function createNewInvestor(){
 
 function autoSaveInvestor(){
   var name=document.getElementById('cName')&&document.getElementById('cName').value.trim();
+  if(!name)return;
   var phone=document.getElementById('cPhone')&&document.getElementById('cPhone').value.trim();
   var email=document.getElementById('cEmail')&&document.getElementById('cEmail').value.trim();
   var clientType=document.getElementById('cClientType')&&document.getElementById('cClientType').value;
-  // Capture budget from active criteria button
   var budgetLabel='';
   var budgetBtn=document.querySelector('#cBudgetGroup .crit-btn.on');
   if(budgetBtn)budgetLabel=budgetBtn.textContent.trim();
-  // Capture locations from active multi buttons
   var locations=[];
   document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val))locations.push(b.dataset.val);});
-  if(name)getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
+  var inv=getOrCreateInvestor(name,phone,email,clientType,budgetLabel,locations);
+  if(!inv)return;
+  // Save full criteria snapshot
+  var purposeBtn=document.querySelector('#cPurposeGroup .crit-btn.on');
+  var seaBtn=document.querySelector('#cSeaGroup .crit-btn.on');
+  var deliveryBtn=document.querySelector('#cDeliveryGroup .crit-btn.on');
+  var types=[],beds=[];
+  document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){
+    if(['Apartment','Villa','House','Penthouse'].includes(b.dataset.val))types.push(b.dataset.val);
+  });
+  document.querySelectorAll('#pClients .crit-multi.on').forEach(function(b){
+    var v=b.dataset.val||b.textContent.trim();
+    if(['Studio','1','2','3','4','5+'].includes(v)&&!types.includes(v)&&!locations.includes(v))beds.push(v);
+  });
+  inv.criteria={
+    purpose:purposeBtn?purposeBtn.textContent.trim():'',
+    types:types,beds:beds,
+    budget:budgetLabel,budgetMin:cCriteria.budgetMin,budgetMax:cCriteria.budgetMax,
+    cities:locations,
+    sea:seaBtn?seaBtn.textContent.trim():'',seaVal:seaBtn?seaBtn.dataset.val:'',
+    delivery:deliveryBtn?deliveryBtn.textContent.trim():'',
+    notes:document.getElementById('cNotes')?document.getElementById('cNotes').value:''
+  };
+  saveInvestorProfiles();
+  if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
 }
 
 // ── Agent Notes ───────────────────────────────────────────────
