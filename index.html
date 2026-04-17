@@ -579,7 +579,18 @@ tr:hover td{background:var(--bg2)}
           <span class="sea-badge sea-mid">3–5 km</span>
           <span class="sea-badge sea-far">5 km+</span>
         </div>
-        <div id="aiSummaryLine" class="ai-summary-line"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div id="aiSummaryLine" class="ai-summary-line" style="margin-bottom:0"></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--mu)">Sort by:</span>
+            <select id="aiSortSel" onchange="aiSetSort(this.value)" style="font-size:11px;height:28px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+              <option value="seaDist_asc">Closest to sea</option>
+              <option value="price_asc">Price ↑ (low to high)</option>
+              <option value="price_desc">Price ↓ (high to low)</option>
+              <option value="area_desc">Largest size</option>
+            </select>
+          </div>
+        </div>
         <div id="aiDevCards"></div>
         <div style="display:flex;justify-content:center;margin-top:4px" id="aiPagination"></div>
       </div>
@@ -3942,8 +3953,6 @@ function runAISearch() {
     crumbsEl.style.display = 'none';
   }
 
-  const sel = document.getElementById('aiSortSel');
-  if (sel) sel.value = aiState.sort;
   renderAIResults();
 }
 
@@ -3969,18 +3978,27 @@ function getAIMatches() {
   });
 }
 
-function sortAIResults(results) {
+function sortAIResults(arr) {
   const s = aiState.sort;
-  return [...results].sort((a, b) => {
-    if (s === 'seaDist_asc') {
-      const av = a.seaDist ?? 999, bv = b.seaDist ?? 999;
-      return av - bv;
-    }
-    if (s === 'price_asc')  return (a.price ?? Infinity) - (b.price ?? Infinity);
-    if (s === 'price_desc') return (b.price ?? -Infinity) - (a.price ?? -Infinity);
-    if (s === 'area_desc')  return (b.area ?? 0) - (a.area ?? 0);
+  const cmp = (av, bv, asc) => {
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return asc ? av - bv : bv - av;
+  };
+  return [...arr].sort((a, b) => {
+    if (s === 'seaDist_asc')  return cmp(a.seaDist, b.seaDist, true);
+    if (s === 'price_asc')    return cmp(a.price,   b.price,   true);
+    if (s === 'price_desc')   return cmp(a.price,   b.price,   false);
+    if (s === 'area_desc')    return cmp(a.area,    b.area,    false);
     return 0;
   });
+}
+
+function aiSetSort(val) {
+  aiState.sort = val;
+  aiPage = 1;
+  renderAIResults();
 }
 
 function renderAIResults() {
@@ -3988,18 +4006,15 @@ function renderAIResults() {
   const results = sortAIResults(raw);
   document.getElementById('aiResultsWrap').style.display = 'block';
 
+  // Sync dropdown to current sort state
+  const sortEl = document.getElementById('aiSortSel');
+  if (sortEl) sortEl.value = aiState.sort;
+
   const districts = [...new Set(raw.map(d => d.district).filter(Boolean))].sort();
   document.getElementById('aiAreaPills').innerHTML = districts.map(dist => {
     const on = aiState.districtFilter.includes(dist) ? ' on' : '';
     return `<button class="ai-area-pill${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
   }).join('');
-
-  const sortSel = `<select id="aiSortSel" onchange="aiState.sort=this.value;aiPage=1;renderAIResults()" style="font-size:11px;height:28px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
-    <option value="seaDist_asc"${aiState.sort==='seaDist_asc'?' selected':''}>Closest to sea</option>
-    <option value="price_asc"${aiState.sort==='price_asc'?' selected':''}>Price ↑</option>
-    <option value="price_desc"${aiState.sort==='price_desc'?' selected':''}>Price ↓</option>
-    <option value="area_desc"${aiState.sort==='area_desc'?' selected':''}>Largest</option>
-  </select>`;
 
   const parts = [
     `<b>${results.length.toLocaleString()}</b> listing${results.length===1?'':'s'}`,
@@ -4008,12 +4023,7 @@ function renderAIResults() {
     aiState.cities.length ? aiState.cities.join(' / ') : null,
     aiState.maxPrice ? 'up to €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k') : null,
   ].filter(Boolean);
-
-  document.getElementById('aiSummaryLine').innerHTML =
-    `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span>${parts.join(' · ')}</span>
-      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--mu)">Sort:</span>${sortSel}</div>
-    </div>`;
+  document.getElementById('aiSummaryLine').innerHTML = parts.join(' · ');
 
   if (!results.length) {
     document.getElementById('aiDevCards').innerHTML = '<div class="empty">No listings match — try relaxing the criteria.</div>';
