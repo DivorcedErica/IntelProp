@@ -861,7 +861,7 @@ tr:hover td{background:var(--bg2)}
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Name</div><input type="text" id="newInvName" placeholder="e.g. Ariel Cohen" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div><select id="newInvType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor">Investor</option><option value="One-off Buyer">One-off Buyer</option></select></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button></div></div>
         </div>
         <!-- Row 2: budget -->
         <div style="margin-bottom:10px">
@@ -2200,19 +2200,19 @@ function renderInvestorCard(inv) {
   const crSea = cr.sea || '';
   const crDelivery = cr.delivery || '';
   const hasCriteria = crBudget || crLocs.length || crTypes.length || crPurpose || crSea || crDelivery;
-  const pill = (v, color) => `<span style="font-size:11px;padding:3px 10px;border-radius:99px;background:${color||'var(--bg2)'};border:1px solid var(--bd);color:var(--tx)">${v}</span>`;
+  const pill = v => `<span class="crit-btn on" style="font-size:11px;cursor:default">${v}</span>`;
   const criteriaHtml = `
     <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Search Criteria</span>
       <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" class="btn primary" style="font-size:11px;padding:0 14px">✏ Amend in Client Call</button>
     </div>
     ${hasCriteria ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-      ${crBudget ? pill('💰 '+crBudget,'#dcfce7') : ''}
-      ${crLocs.map(l=>pill('📍 '+l,'#dbeafe')).join('')}
-      ${crTypes.map(t=>pill('🏠 '+t,'#f3e8ff')).join('')}
-      ${crPurpose ? pill('🎯 '+crPurpose,'#fef3c7') : ''}
-      ${crSea ? pill('🌊 '+crSea,'#e0f2fe') : ''}
-      ${crDelivery ? pill('📅 '+crDelivery,'#fce7f3') : ''}
+      ${crBudget ? pill('💰 '+crBudget) : ''}
+      ${crLocs.map(l=>pill('📍 '+l)).join('')}
+      ${crTypes.map(t=>pill('🏠 '+t)).join('')}
+      ${crPurpose ? pill('🎯 '+crPurpose) : ''}
+      ${crSea ? pill('🌊 '+crSea) : ''}
+      ${crDelivery ? pill('📅 '+crDelivery) : ''}
     </div>` : '<div style="font-size:12px;color:var(--mu);margin-bottom:16px">No criteria saved yet. Use <b>Client Call</b> to filter and they will appear here.</div>'}`;
 
   document.getElementById('invCardView').innerHTML = `
@@ -4406,7 +4406,8 @@ function deleteInvestorProfile(id){
 }
 
 function niToggle(btn,group){
-  document.querySelectorAll('#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+'Group .crit-btn').forEach(function(b){b.classList.remove('on');});
+  var containerId=group.includes('Group')?'#newInv'+group:'#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+'Group';
+  document.querySelectorAll(containerId+' .crit-btn').forEach(function(b){b.classList.remove('on');});
   btn.classList.add('on');
 }
 function niMulti(btn){btn.classList.toggle('on');}
@@ -4415,7 +4416,8 @@ function createNewInvestor(){
   var name=document.getElementById('newInvName').value.trim();
   var phone=document.getElementById('newInvPhone').value.trim();
   var email=document.getElementById('newInvEmail').value.trim();
-  var clientType=document.getElementById('newInvType').value;
+  var clientTypeBtn=document.querySelector('#newInvTypeGroup2 .crit-btn.on');
+  var clientType=clientTypeBtn?clientTypeBtn.dataset.val:'';
   if(!name){alert('Please enter a name.');return;}
   var email=document.getElementById('newInvEmail').value.trim();
   if(email&&!isValidEmail(email)){alert('Please enter a valid email address.');document.getElementById('newInvEmail').focus();return;}
@@ -4438,7 +4440,7 @@ function createNewInvestor(){
   document.getElementById('newInvName').value='';
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
-  document.getElementById('newInvType').value='';
+  document.querySelectorAll('#newInvTypeGroup2 .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
