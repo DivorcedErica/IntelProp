@@ -881,6 +881,17 @@ tr:hover td{background:var(--bg2)}
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Nationality</div><input type="text" id="newInvNationality" placeholder="e.g. Israeli" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button></div></div>
         </div>
+        <!-- Row 1b: source -->
+        <div style="margin-bottom:10px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Source</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvSourceGroup">
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Outbound">Outbound</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Inbound">Inbound</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Network">Network</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Referrals">Referrals</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="SEO">SEO</button>
+          </div>
+        </div>
         <!-- Row 2: budget -->
         <div style="margin-bottom:10px">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Budget</div>
@@ -2270,6 +2281,7 @@ function renderInvestorCard(inv) {
           ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:''}
           ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:''}
           ${inv.nationality?`<span style="color:var(--mu)">🌍 ${inv.nationality}</span>`:''}
+          ${inv.source?`<span style="color:var(--mu)">📥 ${inv.source}</span>`:''}
         </div>
         <!-- Criteria pills inline -->
         ${inlineCriteriaHtml}
@@ -2287,6 +2299,10 @@ function renderInvestorCard(inv) {
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="${(inv.email||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="${(inv.nationality||'').replace(/"/g,'&quot;')}" placeholder="e.g. Israeli" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor"${inv.clientType==='Investor'?' selected':''}>Investor</option><option value="One-off Buyer"${inv.clientType==='One-off Buyer'?' selected':''}>One-off Buyer</option></select></div>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Source</div>
+          <select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Outbound"${inv.source==='Outbound'?' selected':''}>Outbound</option><option value="Inbound"${inv.source==='Inbound'?' selected':''}>Inbound</option><option value="Network"${inv.source==='Network'?' selected':''}>Network</option><option value="Referrals"${inv.source==='Referrals'?' selected':''}>Referrals</option><option value="SEO"${inv.source==='SEO'?' selected':''}>SEO</option></select>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="saveEditContact(${inv.investorId||inv.id})" class="btn primary" style="font-size:11px">Save</button>
@@ -2356,6 +2372,7 @@ function saveEditContact(id) {
   inv.phone = document.getElementById('eiPhone').value.trim();
   inv.email = email;
   const eiNat = document.getElementById('eiNationality'); if(eiNat) inv.nationality = eiNat.value.trim();
+  const eiSrc = document.getElementById('eiSource'); if(eiSrc) inv.source = eiSrc.value;
   inv.clientType = document.getElementById('eiType').value;
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
@@ -2390,6 +2407,7 @@ async function syncInvestorToSheets(inv) {
     (cr.types || []).join(', '),
     cr.notes || inv.generalNotes || '',
     inv.nationality || '',
+    inv.source || '',
   ];
   syncViaJsonp({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row });
 }
@@ -4531,6 +4549,8 @@ function createNewInvestor(){
   var phone=document.getElementById('newInvPhone').value.trim();
   var email=document.getElementById('newInvEmail').value.trim();
   var nationality=document.getElementById('newInvNationality').value.trim();
+  var sourceBtn=document.querySelector('#newInvSourceGroup .crit-btn.on');
+  var source=sourceBtn?sourceBtn.dataset.val:'';
   var clientTypeBtn=document.querySelector('#newInvTypeGroup2 .crit-btn.on');
   var clientType=clientTypeBtn?clientTypeBtn.dataset.val:'';
   var budgetBtn=document.querySelector('#newInvBudgetGroup .crit-btn.on');
@@ -4559,7 +4579,7 @@ function createNewInvestor(){
     return;
   }
   var newId=nextInvestorId();
-  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',clientType:clientType,status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
+  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
   logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
