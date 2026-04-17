@@ -2370,10 +2370,11 @@ function syncViaJsonp(data) {
   if (!APPS_SCRIPT_URL) return;
   var payload = JSON.stringify(data);
   var url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(payload);
-  console.log('[SYNC] firing →', payload.slice(0,200));
-  fetch(url, { method: 'GET', mode: 'no-cors' })
-    .then(function(){ console.log('[SYNC] request sent OK'); })
-    .catch(function(e){ console.error('[SYNC] fetch error', e); });
+  console.log('[SYNC] URL →', url.slice(0, 300));
+  // Image beacon — guaranteed cross-origin GET, no CORS restrictions
+  var img = new Image();
+  img.onload = img.onerror = function() { console.log('[SYNC] beacon fired'); };
+  img.src = url;
 }
 
 async function syncInvestorToSheets(inv) {
