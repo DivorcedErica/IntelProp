@@ -2575,10 +2575,9 @@ async function readInvestorsFromSheets() {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Clients`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
-    // Validate this is actually the Investors sheet by checking the header row
-    const hrow = json.table.rows[0];
-    const h0 = hrow && hrow.c[0] && hrow.c[0].v ? String(hrow.c[0].v).toLowerCase().trim() : '';
-    if (h0 !== 'investorid') return; // Wrong sheet loaded (e.g. gviz fallback to listings)
+    // Validate this is actually the Clients sheet by checking the column label (gviz puts headers in cols, not rows)
+    const h0 = json.table.cols && json.table.cols[0] && json.table.cols[0].label ? String(json.table.cols[0].label).toLowerCase().trim() : '';
+    if (h0 !== 'investorid') return; // Wrong sheet loaded
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
       const invId = +g(0); const name = g(1);
