@@ -2368,13 +2368,8 @@ function amendCriteria(name) {
 
 function syncViaJsonp(data) {
   if (!APPS_SCRIPT_URL) return;
-  var payload = JSON.stringify(data);
-  var url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(payload);
-  console.log('[SYNC] URL →', url.slice(0, 300));
-  // Image beacon — guaranteed cross-origin GET, no CORS restrictions
   var img = new Image();
-  img.onload = img.onerror = function() { console.log('[SYNC] beacon fired'); };
-  img.src = url;
+  img.src = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(data));
 }
 
 async function syncInvestorToSheets(inv) {
