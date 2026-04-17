@@ -1078,6 +1078,7 @@ async function init() {
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
+    runBulkEnrichment();
 
   } catch (e) {
     document.getElementById('mainView').innerHTML = `<div class="empty">Could not load data.<br><small style="opacity:.6">${e.message}</small></div>`;
@@ -3368,26 +3369,22 @@ async function fetchAndExtract(url, hint) {
   return m ? JSON.parse(m[0]) : null;
 }
 
-async function enrichListing(d) {
+async function enrichListing(d, waybackOnly = false) {
   if (!d.listingUrl) return;
-  const alreadyFull = d.img1 && d.developer && d.delivery;
-  if (alreadyFull) return;
+  if (d.img1 && d.developer && d.delivery) return;
 
-  // Check cache
   const cached = await enrichGetCache(d.id);
   if (cached) { applyEnrichment(d, cached); return; }
 
   const hint = [d.title, d.city, d.type, d.bedrooms ? d.bedrooms+' bed' : ''].filter(Boolean).join(' ');
-
-  // 1. Try Wayback Machine
   let enriched = null;
+
   const waybackUrl = await getWaybackUrl(d.listingUrl);
   if (waybackUrl) {
     try { enriched = await fetchAndExtract(waybackUrl, hint); } catch(e) {}
   }
 
-  // 2. Fall back to live dom.com.cy
-  if (!enriched) {
+  if (!enriched && !waybackOnly) {
     try { enriched = await fetchAndExtract(d.listingUrl, hint); } catch(e) {}
   }
 
@@ -3395,6 +3392,43 @@ async function enrichListing(d) {
     await enrichSetCache(d.id, enriched);
     applyEnrichment(d, enriched);
   }
+}
+
+async function runBulkEnrichment() {
+  const queue = all.filter(d => d.listingUrl && !(d.img1 && d.developer && d.delivery));
+  if (!queue.length) return;
+
+  // Apply any already-cached results instantly
+  const pending = [];
+  for (const d of queue) {
+    const c = await enrichGetCache(d.id);
+    if (c) applyEnrichment(d, c);
+    else pending.push(d);
+  }
+
+  if (!pending.length) return;
+
+  const sub = document.getElementById('sub');
+  let done = 0;
+  const total = pending.length;
+
+  const updateProgress = () => {
+    if (sub) sub.textContent = `Enriching listings… ${done}/${total}`;
+  };
+
+  updateProgress();
+
+  // Process 3 concurrently, Wayback only
+  for (let i = 0; i < pending.length; i += 3) {
+    await Promise.all(pending.slice(i, i + 3).map(async d => {
+      await enrichListing(d, true);
+      done++;
+      updateProgress();
+    }));
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  if (sub) sub.textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
 }
 
 function applyEnrichment(d, e) {
