@@ -4694,16 +4694,16 @@ function saveNewAgent() {
   var row = [agentId, name, firm, phone, email, comm, 'TRUE', notes, addedOn];
   var cp = document.getElementById('agentCopyPanel'); if(cp) cp.style.display='';
   var ct = document.getElementById('agentCopyText'); if(ct) ct.value = row.join('\t');
-  // Send mailto
-  if (email) {
-    var subj = encodeURIComponent('Referral Partnership — Y. Habari & Co. LLC');
-    var body = encodeURIComponent('Dear ' + name + ',\n\nWe are pleased to confirm our referral partnership with ' + (firm||'your agency') + '. As agreed, a referral commission of ' + (comm||'[TBD]') + '% will apply to any clients you introduce who proceed to purchase.\n\nWe look forward to a productive collaboration and will ensure each referral receives our full attention.\n\nBest regards,\nY. Habari & Co. LLC');
-    window.location.href = 'mailto:' + email + '?subject=' + subj + '&body=' + body;
-  }
-  // Reset form & re-render
+  // Reset form & re-render BEFORE mailto so table always updates
   ['agFName','agFirm','agPhone','agEmail','agComm','agNotes'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('addAgentForm').style.display='none';
   renderAgentsTab();
+  // Open mailto in new tab so page is never navigated away
+  if (email) {
+    var subj = encodeURIComponent('Referral Partnership — Y. Habari & Co. LLC');
+    var body = encodeURIComponent('Dear ' + name + ',\n\nWe are pleased to confirm our referral partnership with ' + (firm||'your agency') + '. As agreed, a referral commission of ' + (comm||'[TBD]') + '% will apply to any clients you introduce who proceed to purchase.\n\nWe look forward to a productive collaboration and will ensure each referral receives our full attention.\n\nBest regards,\nY. Habari & Co. LLC');
+    setTimeout(function(){ window.open('mailto:' + email + '?subject=' + subj + '&body=' + body); }, 100);
+  }
 }
 function renderAgentsTab() {
   var wrap = document.getElementById('agentTableWrap'); if (!wrap) return;
