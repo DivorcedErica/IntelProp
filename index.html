@@ -3881,17 +3881,16 @@ function exportPropertyPDF(id){
 
 
 // ── AI Search ─────────────────────────────────────────────────
-let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc' };
+let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc', excluded:[] };
 let aiPage = 1, aiPS = 20;
 
 function aiExample(btn) {
-  // Normalise the quick-example shorthand (dots → commas) before searching
   document.getElementById('aiQuery').value = btn.textContent.trim().replace(/\s*·\s*/g, ', ');
   runAISearch();
 }
 
 function parseAIQuery(text) {
-  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null };
+  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null, excluded:[] };
 
   if (/\bvilla\b/i.test(text)) s.types.push('Villa');
   if (/\bapartment\b|\bapt\b/i.test(text)) s.types.push('Apartment');
@@ -3918,7 +3917,6 @@ function parseAIQuery(text) {
     });
   }
 
-  // Price: handles "maximum price 600000", "max €600k", "under 500,000", "budget 1m"
   const priceM = text.match(/(?:max(?:imum)?(?:\s+price)?|under|up\s*to|below|budget|no\s*more\s*than)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
   if (priceM) {
     let v = parseFloat(priceM[1].replace(/,/g, ''));
@@ -3929,17 +3927,24 @@ function parseAIQuery(text) {
     if (v > 10000) s.maxPrice = v;
   }
 
-  // Sea distance — beach, sea, and coast synonyms
   if (/beachfront|beach\s*front|on\s*the\s*beach|right\s*(on|by)\s*the\s*(beach|sea)/i.test(text)) s.maxSea = 0.3;
   else if (/walking\s*distance|steps?\s*from\s*(the\s*)?(sea|beach)|right\s*on\s*(the\s*)?sea/i.test(text)) s.maxSea = 0.5;
   else if (/close\s*to\s*(the\s*)?(sea|beach)|near\s*(the\s*)?(sea|beach)|seaview|sea\s*view|seafront|sea\s*front|by\s*the\s*(sea|beach)/i.test(text)) s.maxSea = 1;
   else { const kmM = text.match(/within\s*(\d+)\s*km/i); if (kmM) s.maxSea = +kmM[1]; }
 
-  // Sort intent from natural language
   if (/sort\s*(by\s*)?(distance|sea|closest|nearest)|nearest\s*(to\s*the?\s*)?(sea|beach)|closest\s*(to\s*the?\s*)?(sea|beach)/i.test(text)) s.sort = 'seaDist_asc';
   else if (/sort\s*(by\s*)?price\s*(asc|low|cheap)|cheapest|lowest\s*price/i.test(text)) s.sort = 'price_asc';
   else if (/sort\s*(by\s*)?price\s*(desc|high|exp)|most\s*expensive|highest\s*price/i.test(text)) s.sort = 'price_desc';
   else if (/sort\s*(by\s*)?(size|area|largest)|biggest|largest/i.test(text)) s.sort = 'area_desc';
+
+  // Exclusions: "avoid X", "not X", "exclude X", "except X", "without X", "no X", "skip X", "but not X"
+  const exclRx = /\b(?:avoid|not\s+in|without|except|exclude|skip|but\s+not|don'?t\s+want|no)\s+([A-Za-z][A-Za-z\s]{1,25}?)(?=\s*(?:[,\.!]|\band\b|\bor\b|\bbut\b|$))/gi;
+  let em;
+  while ((em = exclRx.exec(text)) !== null) {
+    const area = em[1].trim();
+    const skip = ['villas','apartments','apartments','the','a','an','more','less','view','pool'];
+    if (area && !skip.includes(area.toLowerCase())) s.excluded.push(area);
+  }
 
   return s;
 }
@@ -3948,20 +3953,43 @@ function runAISearch() {
   const text = document.getElementById('aiQuery').value.trim();
   if (!text) return;
   const parsed = parseAIQuery(text);
-  aiState = { ...parsed, districtFilter: [], sort: parsed.sort || aiState.sort || 'seaDist_asc' };
+
+  // Refinement detection: if the new query has NO positive criteria of its own
+  // but has exclusions (or sort), merge into existing state rather than wiping it
+  const hasPositive = parsed.types.length || parsed.cities.length || parsed.beds.length ||
+                      parsed.maxPrice != null || parsed.maxSea != null;
+  const prevHasState = aiState.types.length || aiState.cities.length || aiState.beds.length;
+
+  if (!hasPositive && prevHasState) {
+    // Refinement mode: layer new exclusions / sort on top of existing criteria
+    if (parsed.excluded.length) {
+      aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
+    }
+    if (parsed.sort) aiState.sort = parsed.sort;
+  } else {
+    // Fresh search
+    aiState = {
+      ...parsed,
+      districtFilter: [],
+      sort: parsed.sort || aiState.sort || 'seaDist_asc',
+      excluded: parsed.excluded,
+    };
+  }
   aiPage = 1;
 
+  // Build crumb labels
   const labels = [
     ...aiState.types,
     ...aiState.cities,
     aiState.beds.length ? (aiState.beds.join('/') + (aiState.beds.some(b=>b==='Studio')?'':' bed')) : null,
-    aiState.maxPrice ? 'max €' + (aiState.maxPrice >= 1000000 ? (aiState.maxPrice/1e6).toFixed(1)+'M' : Math.round(aiState.maxPrice/1000)+'k') : null,
-    aiState.maxSea != null ? (aiState.maxSea <= 0.3 ? 'Beachfront' : aiState.maxSea <= 0.5 ? 'Walking to sea' : aiState.maxSea <= 1 ? 'Close to sea (<1km)' : '<'+aiState.maxSea+'km from sea') : null,
+    aiState.maxPrice ? 'max €' + (aiState.maxPrice >= 1e6 ? (aiState.maxPrice/1e6).toFixed(1)+'M' : Math.round(aiState.maxPrice/1000)+'k') : null,
+    aiState.maxSea != null ? (aiState.maxSea <= 0.3 ? 'Beachfront' : aiState.maxSea <= 0.5 ? 'Walking to sea' : aiState.maxSea <= 1 ? 'Close to sea' : '<'+aiState.maxSea+'km from sea') : null,
   ].filter(Boolean);
 
   const crumbsEl = document.getElementById('aiCrumbs');
-  if (labels.length) {
-    crumbsEl.innerHTML = labels.map(c => `<span class="ai-crumb">${c}</span>`).join('');
+  const exclHtml = (aiState.excluded||[]).map(e => `<span class="ai-crumb" style="background:#fee2e2;color:#991b1b">✕ ${e}</span>`).join('');
+  if (labels.length || exclHtml) {
+    crumbsEl.innerHTML = labels.map(c => `<span class="ai-crumb">${c}</span>`).join('') + exclHtml;
     crumbsEl.style.display = 'flex';
   } else {
     crumbsEl.style.display = 'none';
@@ -3975,6 +4003,16 @@ function getAIMatches() {
     if (aiState.types.length && !aiState.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
     if (aiState.cities.length && !aiState.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
     if (aiState.districtFilter.length && !aiState.districtFilter.some(x => (d.district||'').toLowerCase() === x.toLowerCase())) return false;
+    // Exclusions: match against district, city, developer, complex, title
+    if (aiState.excluded && aiState.excluded.length) {
+      for (const ex of aiState.excluded) {
+        const exl = ex.toLowerCase();
+        if ((d.district||'').toLowerCase().includes(exl) ||
+            (d.city||'').toLowerCase().includes(exl) ||
+            (d.title||'').toLowerCase().includes(exl) ||
+            (d.complex||'').toLowerCase().includes(exl)) return false;
+      }
+    }
     if (aiState.beds.length) {
       const has5p = aiState.beds.includes('5+');
       const nums = aiState.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
