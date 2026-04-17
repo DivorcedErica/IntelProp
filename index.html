@@ -3976,7 +3976,6 @@ function runAISearch() {
       aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
     }
     if (parsed.sort) aiState.sort = parsed.sort;
-  } else {
   } else if (parsed.types.length && !hasOtherPositive && prevHasState) {
     // Type-only refinement: "only villas", "just apartments" — update type, keep rest
     aiState.types = parsed.types;
