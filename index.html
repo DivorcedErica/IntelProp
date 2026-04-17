@@ -889,11 +889,11 @@ tr:hover td{background:var(--bg2)}
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Type of Properties</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap" id="newInvTypeGroup">
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Apartment">Apartment</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa">Villa</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House">House</button>
-              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse">Penthouse</button>
-              <button class="crit-btn" onclick="niSelectAllTypes()" style="opacity:.7">All</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Apartment">Apartments</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Villa">Villas</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="House">Houses</button>
+              <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Penthouse">Penthouses</button>
+              <button class="crit-btn" onclick="niSelectAllTypes()">Apartments, Villas, Houses, Penthouses</button>
             </div>
           </div>
         </div>
@@ -2203,19 +2203,25 @@ function renderInvestorCard(inv) {
   const crSea = cr.sea || '';
   const crDelivery = cr.delivery || '';
   const hasCriteria = crBudget || crLocs.length || crTypes.length || crPurpose || crSea || crDelivery;
-  const pill = v => `<span class="crit-btn on" style="font-size:11px;cursor:default">${v}</span>`;
+  const pluralType = t => ({Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses'}[t]||t);
+  const pBudget   = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#fef3c7;color:#92400e;border:1px solid #fde68a">${v}</span>`;
+  const pLoc      = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe">${v}</span>`;
+  const pType     = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#d1fae5;color:#065f46;border:1px solid #a7f3d0">${v}</span>`;
+  const pPurpose  = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff">${v}</span>`;
+  const pSea      = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd">${v}</span>`;
+  const pDelivery = v => `<span style="font-size:11px;padding:3px 11px;border-radius:99px;background:#ffe4e6;color:#9f1239;border:1px solid #fecdd3">${v}</span>`;
   const criteriaHtml = `
     <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Search Criteria</span>
-      <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" class="btn primary" style="font-size:11px;padding:0 14px">✏ Amend in Client Call</button>
+      <button onclick="amendCriteria('${inv.name.replace(/'/g,"\\'")}');closeInvestorCard()" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:var(--r);padding:3px 10px;cursor:pointer;color:var(--mu)">✏ Amend</button>
     </div>
     ${hasCriteria ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-      ${crBudget ? pill('💰 '+crBudget) : ''}
-      ${crLocs.map(l=>pill('📍 '+l)).join('')}
-      ${crTypes.map(t=>pill('🏠 '+t)).join('')}
-      ${crPurpose ? pill('🎯 '+crPurpose) : ''}
-      ${crSea ? pill('🌊 '+crSea) : ''}
-      ${crDelivery ? pill('📅 '+crDelivery) : ''}
+      ${crBudget ? pBudget('💰 '+crBudget) : ''}
+      ${crLocs.map(l=>pLoc('📍 '+l)).join('')}
+      ${crTypes.map(t=>pType('🏠 '+pluralType(t))).join('')}
+      ${crPurpose ? pPurpose('🎯 '+crPurpose) : ''}
+      ${crSea ? pSea('🌊 '+crSea) : ''}
+      ${crDelivery ? pDelivery('📅 '+crDelivery) : ''}
     </div>` : '<div style="font-size:12px;color:var(--mu);margin-bottom:16px">No criteria saved yet. Use <b>Client Call</b> to filter and they will appear here.</div>'}`;
 
   document.getElementById('invCardView').innerHTML = `
@@ -4310,10 +4316,11 @@ function renderInvestorProfilesPanel(){
           var budget=inv.budget||cr.budget||'';
           var locs=(inv.locations&&inv.locations.length)?inv.locations:(cr.cities&&cr.cities.length?cr.cities:[]);
           var types=cr.types&&cr.types.length?cr.types:[];
+          var pluralT=function(t){return{Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses'}[t]||t;};
           var parts=[];
           if(budget)parts.push('\ud83d\udcb0 '+budget);
           if(locs.length)parts.push('\ud83d\udccd '+locs.join(', '));
-          if(types.length)parts.push('\ud83c\udfe0 '+types.join(', '));
+          if(types.length)parts.push('\ud83c\udfe0 '+types.map(pluralT).join(', '));
           return parts.length?'<div style="font-size:10px;color:var(--tx);margin-top:2px;opacity:.8">'+parts.join(' \u00b7 ')+'</div>':'';
         }())
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
@@ -4322,7 +4329,6 @@ function renderInvestorProfilesPanel(){
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
-      +'<button onclick="amendCriteria(\''+inv.name.replace(/'/g,"\\'")+'\')" class="btn primary" style="font-size:11px">▶ Load</button>'
       +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
       +'</div></div></div>';
   }).join('');
