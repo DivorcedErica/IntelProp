@@ -484,6 +484,7 @@ tr:hover td{background:var(--bg2)}
             <option value="">— Select —</option>
             <option value="Investor">Investor</option>
             <option value="One-off Buyer">One-off Buyer</option>
+            <option value="Agent">Agent</option>
           </select>
         </div>
       </div>
@@ -675,7 +676,7 @@ tr:hover td{background:var(--bg2)}
         </div>
         <div>
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div>
-          <select id="pbClientType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor">Investor</option><option value="One-off Buyer">One-off Buyer</option></select>
+          <select id="pbClientType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor">Investor</option><option value="One-off Buyer">One-off Buyer</option><option value="Agent">Agent</option></select>
         </div>
       </div>
       <div style="margin-bottom:16px">
@@ -893,7 +894,7 @@ tr:hover td{background:var(--bg2)}
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div><input type="text" id="newInvPhone" placeholder="+972 50 000 0000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Nationality</div><input type="text" id="newInvNationality" placeholder="e.g. Israeli" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button></div></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Agent">Agent</button></div></div>
         </div>
         <!-- Row 1b: source -->
         <div style="margin-bottom:10px">
@@ -2399,7 +2400,7 @@ function renderInvestorCard(inv) {
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Phone</div><input id="eiPhone" value="${(inv.phone||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="${(inv.email||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="${(inv.nationality||'').replace(/"/g,'&quot;')}" placeholder="e.g. Israeli" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor"${inv.clientType==='Investor'?' selected':''}>Investor</option><option value="One-off Buyer"${inv.clientType==='One-off Buyer'?' selected':''}>One-off Buyer</option></select></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor"${inv.clientType==='Investor'?' selected':''}>Investor</option><option value="One-off Buyer"${inv.clientType==='One-off Buyer'?' selected':''}>One-off Buyer</option><option value="Agent"${inv.clientType==='Agent'?' selected':''}>Agent</option></select></div>
         </div>
         <div style="margin-bottom:8px">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Source</div>
@@ -4477,7 +4478,7 @@ function renderInvestorProfilesPanel(){
     var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b'};
     var st=inv.status||'Active';
     var stStyle=statusColors[st]||'#f3f4f6;color:#374151';
-    var ctStyle=inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':inv.clientType==='One-off Buyer'?'#f3e8ff;color:#7c3aed':'';
+    var ctStyle=inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':inv.clientType==='One-off Buyer'?'#f3e8ff;color:#7c3aed':inv.clientType==='Agent'?'#dcfce7;color:#15803d':'';
     var lastC=inv.lastContact?'Last contact: '+timeAgo(inv.lastContact):(inv.createdAt?'Added '+new Date(inv.createdAt).toLocaleDateString('en-GB'):'');
     return '<div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openInvestorCard('+inv.id+')" onmouseenter="this.style.borderColor=\'#93c5fd\'" onmouseleave="this.style.borderColor=\'var(--bd)\'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">'
