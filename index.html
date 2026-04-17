@@ -2368,16 +2368,8 @@ function amendCriteria(name) {
 
 function syncViaJsonp(data) {
   if (!APPS_SCRIPT_URL) return;
-  return new Promise(function(resolve) {
-    var cbName = 'ipCb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
-    var done = false;
-    window[cbName] = function(resp) { done=true; delete window[cbName]; if(s.parentNode)s.parentNode.removeChild(s); resolve(resp); };
-    var s = document.createElement('script');
-    s.src = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(data)) + '&callback=' + cbName;
-    s.onerror = function() { done=true; delete window[cbName]; resolve(null); };
-    document.head.appendChild(s);
-    setTimeout(function() { if(!done){ delete window[cbName]; try{s.parentNode.removeChild(s);}catch(e){} resolve(null); } }, 10000);
-  });
+  var url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(data));
+  fetch(url, { method: 'GET', mode: 'no-cors' }).catch(function() {});
 }
 
 async function syncInvestorToSheets(inv) {
