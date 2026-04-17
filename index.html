@@ -2041,6 +2041,25 @@ function exportXLSX(){
   XLSX.writeFile(wb,`intelprop_shortlist_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+function exportClientProperties(invId, invName) {
+  var props = clientProperties.filter(function(p){ return p.investorId === invId; });
+  if (!props.length) { alert('No properties to export for this client.'); return; }
+  var rows = props.map(function(p){
+    return [p.developer||'', p.title||'', p.type||'', p.city||'', p.district||'',
+            p.complex||'', p.bedrooms||'', p.totalArea||'', p.plotSize||'',
+            p.price?Number(p.price):'', p.pricePerM2?Number(p.pricePerM2):''];
+  });
+  var ws = XLSX.utils.aoa_to_sheet([
+    ['Developer','Title','Type','City','District','Complex','Bedrooms','Area m²','Plot m²','Price (€)','€/m²'],
+    ...rows
+  ]);
+  ws['!cols'] = [20,35,14,14,18,20,10,10,10,14,10].map(function(w){return {wch:w};});
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Properties');
+  var safe = (invName||'client').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'_');
+  XLSX.writeFile(wb, 'properties_' + safe + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
 // ── Client Call ──────────────────────────────────────────────
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
 let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
@@ -2419,7 +2438,10 @@ function renderInvestorCard(inv) {
 
     <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Properties (${assignedProps.length})</span>
-      <button onclick="showAddPropModal(${invId})" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>
+      <div style="display:flex;gap:6px">
+        ${assignedProps.length ? `<button onclick="exportClientProperties(${invId},'${inv.name.replace(/'/g,"\\'")}')" class="btn" style="font-size:11px;padding:0 12px;height:28px">↓ Export</button>` : ''}
+        <button onclick="showAddPropModal(${invId})" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>
+      </div>
     </div>
     ${assignedPropsHtml}
 
