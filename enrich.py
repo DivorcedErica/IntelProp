@@ -36,6 +36,7 @@ COL_DELIVERY    = 17   # column R
 CONCURRENCY   = 6      # parallel Wayback requests
 BATCH_SIZE    = 20     # rows per batch before writing progress
 BATCH_DELAY   = 1.0    # seconds between batches
+MAX_ROWS      = 5      # set to None to process all
 PROGRESS_FILE = Path('enrich_progress.json')
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; research/archival)'}
@@ -188,6 +189,8 @@ def main():
         for i, row in enumerate(data_rows)
         if str(i + 2) not in done
     ]
+    if MAX_ROWS:
+        pending = pending[:MAX_ROWS]
     print(f'{len(pending)} listings to process  ({len(done)} already done)\n')
 
     updates = []
