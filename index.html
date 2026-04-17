@@ -2281,10 +2281,14 @@ async function readInvestorsFromSheets() {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=investors`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
+    // Validate this is actually the Investors sheet by checking the header row
+    const hrow = json.table.rows[0];
+    const h0 = hrow && hrow.c[0] && hrow.c[0].v ? String(hrow.c[0].v).toLowerCase().trim() : '';
+    if (h0 !== 'investorid') return; // Wrong sheet loaded (e.g. gviz fallback to listings)
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
       const invId = +g(0); const name = g(1);
-      if (!name || name.toLowerCase() === 'name') return;
+      if (!name || name.toLowerCase() === 'name' || isNaN(invId)) return;
       let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
       if (!inv) {
         const newId = invId || nextInvestorId();
@@ -4090,7 +4094,17 @@ function renderMarketPositioning(d) {
 
 // ── Investor Profiles ─────────────────────────────────────────
 var investorProfiles = [];
-try{investorProfiles=JSON.parse(localStorage.getItem('ip_investors')||'[]');}catch(e){}
+try{
+  var _raw=JSON.parse(localStorage.getItem('ip_investors')||'[]');
+  // Strip entries that look like property listings (long names or property-title patterns)
+  investorProfiles=_raw.filter(function(i){
+    if(!i||typeof i.name!=='string')return false;
+    if(i.name.length>80)return false;
+    if(i.name.includes(' / ') && (i.name.toLowerCase().startsWith('new ') || i.name.toLowerCase().startsWith('luxury ')))return false;
+    return true;
+  });
+  if(investorProfiles.length!==_raw.length){localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}
+}catch(e){}
 var communicationLog = [];
 try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
 var currentInvestorCard = null;
