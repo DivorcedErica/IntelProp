@@ -2226,16 +2226,20 @@ function renderInvestorCard(inv) {
 
     <div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bd)">
       <div id="invContactDisplay">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-          <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
-          ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
+        <!-- Header row: name + type + edit icon -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
+            ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
+          </div>
+          <button onclick="showEditContact(${inv.investorId||inv.id})" title="Edit contact" style="font-size:13px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:4px 9px;line-height:1">✏</button>
         </div>
-        <div class="inv-card-contact">
-          ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:'<span style="color:var(--mu)">No phone</span>'}
-          ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:'<span style="color:var(--mu)">No email</span>'}
+        <!-- Details grid -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:12px">
+          <span style="color:var(--mu)">Phone</span><span>${inv.phone?`<a href="tel:${inv.phone}" style="color:var(--tx);text-decoration:none">${inv.phone}</a>`:'<span style="color:var(--mu)">—</span>'}</span>
+          <span style="color:var(--mu)">Email</span><span>${inv.email?`<a href="mailto:${inv.email}" style="color:var(--tx);text-decoration:none">${inv.email}</a>`:'<span style="color:var(--mu)">—</span>'}</span>
+          <span style="color:var(--mu)">Added</span><span>${new Date(inv.createdAt).toLocaleDateString('en-GB')}</span>
         </div>
-        <div style="font-size:11px;color:var(--mu);margin-top:4px">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
-        <button onclick="showEditContact(${inv.investorId||inv.id})" class="btn" style="font-size:11px;margin-top:8px">✏ Edit contact</button>
       </div>
       <div id="invContactEdit" style="display:none">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
