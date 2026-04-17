@@ -140,6 +140,33 @@ tr:hover td{background:var(--bg2)}
 .sea-inland{background:#f3f4f6;color:#6b7280}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+/* ── AI Search ── */
+.ai-wrap{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:20px;margin-bottom:16px}
+.ai-input-row{display:flex;gap:8px;margin-bottom:10px}
+.ai-input{flex:1;height:42px;padding:0 14px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:13px}
+.ai-input:focus{outline:none;border-color:var(--tx);background:var(--bg)}
+.ai-go{height:42px;padding:0 20px;border-radius:var(--r);background:var(--tx);color:var(--bg);border:none;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.ai-go:hover{opacity:.85}
+.ai-ex{font-size:11px;padding:4px 10px;border:1px solid var(--bd);border-radius:99px;background:transparent;color:var(--mu);cursor:pointer;transition:all .12s}
+.ai-ex:hover{border-color:var(--tx);color:var(--tx)}
+.ai-crumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.ai-crumb{font-size:11px;padding:3px 10px;border-radius:99px;background:var(--tx);color:var(--bg);font-weight:500}
+.ai-area-pill{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:99px;background:var(--bg);color:var(--tx);cursor:pointer;transition:all .12s}
+.ai-area-pill:hover{border-color:var(--tx)}
+.ai-area-pill.on{background:var(--tx);color:var(--bg)}
+.ai-summary-line{font-size:12px;color:var(--mu);margin-bottom:14px}
+.ai-summary-line b{color:var(--tx)}
+.ai-dev-card{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .15s;margin-bottom:12px}
+.ai-dev-card:hover{border-color:rgba(0,0,0,.22)}
+@media(prefers-color-scheme:dark){.ai-dev-card:hover{border-color:rgba(255,255,255,.22)}}
+.ai-dev-title{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:2px}
+.ai-dev-sub{font-size:11px;color:var(--mu);margin-bottom:10px}
+.ai-price-badge{background:var(--bg2);border-radius:99px;padding:4px 12px;font-size:13px;font-weight:600;color:var(--tx);white-space:nowrap}
+.ai-dev-body{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ai-dev-stat{background:var(--bg2);border-radius:8px;padding:8px 10px}
+.ai-dev-stat-lbl{font-size:10px;color:var(--mu);margin-bottom:2px}
+.ai-dev-stat-val{font-size:13px;font-weight:600;color:var(--tx)}
+
 /* ── Map ── */
 #mapWrap{border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;height:580px;position:relative}
 #map{height:100%;width:100%}
@@ -299,6 +326,7 @@ tr:hover td{background:var(--bg2)}
   <div class="panel">
     <div class="tabs">
       <button class="tab on" onclick="gotoTab('listings',this)">Listings</button>
+      <button class="tab" onclick="gotoTab('aisearch',this)">AI Search</button>
       <button class="tab" onclick="gotoTab('map',this)">Map</button>
       <button class="tab" onclick="gotoTab('intelligence',this)">Intelligence</button>
       <button class="tab" onclick="gotoTab('clients',this)">Client Call</button>
@@ -521,6 +549,40 @@ tr:hover td{background:var(--bg2)}
 
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+    </div>
+
+    <!-- AI SEARCH -->
+    <div id="pAisearch" style="display:none">
+      <div class="ai-wrap">
+        <div style="font-size:13px;font-weight:500;margin-bottom:3px">AI Property Search</div>
+        <div style="font-size:11px;color:var(--mu);margin-bottom:12px">Describe what you're looking for in plain English</div>
+        <div class="ai-input-row">
+          <input type="text" id="aiQuery" class="ai-input" placeholder="e.g. villa in Paphos, 3 bedrooms, close to sea, max €600k" onkeydown="if(event.key==='Enter')runAISearch()">
+          <button class="ai-go" onclick="runAISearch()">Search</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--mu)">Try:</span>
+          <button class="ai-ex" onclick="aiExample(this)">Villa in Paphos, 3 beds, close to sea, max €600k</button>
+          <button class="ai-ex" onclick="aiExample(this)">2 bed apartment in Limassol under €300k</button>
+          <button class="ai-ex" onclick="aiExample(this)">Beachfront villa in Protaras, 4 bedrooms</button>
+          <button class="ai-ex" onclick="aiExample(this)">Studio or 1 bed in Larnaca under €150k</button>
+        </div>
+        <div id="aiCrumbs" class="ai-crumbs" style="display:none"></div>
+      </div>
+
+      <div id="aiResultsWrap" style="display:none">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="aiAreaPills"></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:11px;color:var(--mu)">
+          <span>Distance from sea:</span>
+          <span class="sea-badge sea-vclose">under 1 km</span>
+          <span class="sea-badge sea-close">1–3 km</span>
+          <span class="sea-badge sea-mid">3–5 km</span>
+          <span class="sea-badge sea-far">5 km+</span>
+        </div>
+        <div id="aiSummaryLine" class="ai-summary-line"></div>
+        <div id="aiDevCards"></div>
+        <div style="display:flex;justify-content:center;margin-top:4px" id="aiPagination"></div>
+      </div>
     </div>
 
     <!-- PORTFOLIO BUILDER -->
@@ -1641,7 +1703,7 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
@@ -3793,6 +3855,177 @@ function exportPropertyPDF(id){
   setTimeout(function(){win.print();},500);
 }
 
+
+// ── AI Search ─────────────────────────────────────────────────
+let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[] };
+let aiPage = 1, aiPS = 20;
+
+function aiExample(btn) {
+  document.getElementById('aiQuery').value = btn.textContent.trim();
+  runAISearch();
+}
+
+function parseAIQuery(text) {
+  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null };
+
+  if (/\bvilla\b/i.test(text)) s.types.push('Villa');
+  if (/\bapartment\b|\bapt\b/i.test(text)) s.types.push('Apartment');
+  if (/\bhouse\b|\bbungalow\b/i.test(text)) s.types.push('House');
+  if (/\bpenthouse\b/i.test(text)) s.types.push('Penthouse');
+
+  const cityMap = {
+    'Paphos':    /\bpaphos\b|coral\s*bay|geroskipou|kato\s*paphos|peyia|pegeia|chlorakas|konia|tala/i,
+    'Limassol':  /\blimassol\b|agios\s*tychonas|mouttagiaka|parekklisia|germasogeia/i,
+    'Larnaca':   /\blarnaca\b|mackenzie|dhekelia|oroklini|pervolia/i,
+    'Nicosia':   /\bnicosia\b|lefkosia\b|strovolos\b/i,
+    'Famagusta': /\bfamagusta\b|protaras\b|ayia\s*napa\b|paralimni\b/i,
+  };
+  for (const [city, rx] of Object.entries(cityMap)) {
+    if (rx.test(text)) s.cities.push(city);
+  }
+
+  if (/\bstudio\b/i.test(text)) s.beds.push('Studio');
+  const bedsM = text.match(/(\d)\s*(?:or\s*(\d)\s*)?(?:bed(?:room)?s?|br\b)/i);
+  if (bedsM) {
+    [bedsM[1], bedsM[2]].filter(Boolean).forEach(n => {
+      const v = +n >= 5 ? '5+' : n;
+      if (!s.beds.includes(v)) s.beds.push(v);
+    });
+  }
+
+  const priceM = text.match(/(?:max(?:imum)?|under|up\s*to|below|budget|no\s*more\s*than)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
+  if (priceM) {
+    let v = parseFloat(priceM[1].replace(/,/g, ''));
+    const suf = (priceM[2] || '').toLowerCase();
+    if (suf === 'k') v *= 1000;
+    else if (suf === 'm' || suf === 'million') v *= 1000000;
+    else if (v < 10000) v *= 1000;
+    if (v > 10000) s.maxPrice = v;
+  }
+
+  if (/beachfront|beach\s*front|on\s*the\s*beach/i.test(text)) s.maxSea = 0.3;
+  else if (/walking\s*distance|steps?\s*from\s*(the\s*)?sea|right\s*on\s*(the\s*)?sea/i.test(text)) s.maxSea = 0.5;
+  else if (/close\s*to\s*(the\s*)?sea|near\s*(the\s*)?sea|seaview|sea\s*view|seafront|sea\s*front/i.test(text)) s.maxSea = 1;
+  else { const kmM = text.match(/within\s*(\d+)\s*km/i); if (kmM) s.maxSea = +kmM[1]; }
+
+  return s;
+}
+
+function runAISearch() {
+  const text = document.getElementById('aiQuery').value.trim();
+  if (!text) return;
+  aiState = { ...parseAIQuery(text), districtFilter: [] };
+  aiPage = 1;
+
+  const labels = [
+    ...aiState.types,
+    ...aiState.cities,
+    aiState.beds.length ? (aiState.beds.join('/') + (aiState.beds.some(b=>b==='Studio')?'':' bed')) : null,
+    aiState.maxPrice ? 'max €' + (aiState.maxPrice >= 1000000 ? (aiState.maxPrice/1e6).toFixed(1)+'M' : Math.round(aiState.maxPrice/1000)+'k') : null,
+    aiState.maxSea != null ? (aiState.maxSea <= 0.3 ? 'Beachfront' : aiState.maxSea <= 0.5 ? 'Walking to sea' : aiState.maxSea <= 1 ? 'Close to sea (<1km)' : '<'+aiState.maxSea+'km from sea') : null,
+  ].filter(Boolean);
+
+  const crumbsEl = document.getElementById('aiCrumbs');
+  if (labels.length) {
+    crumbsEl.innerHTML = labels.map(c => `<span class="ai-crumb">${c}</span>`).join('');
+    crumbsEl.style.display = 'flex';
+  } else {
+    crumbsEl.style.display = 'none';
+  }
+  renderAIResults();
+}
+
+function getAIMatches() {
+  return all.filter(d => {
+    if (aiState.types.length && !aiState.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
+    if (aiState.cities.length && !aiState.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
+    if (aiState.districtFilter.length && !aiState.districtFilter.some(x => (d.district||'').toLowerCase() === x.toLowerCase())) return false;
+    if (aiState.beds.length) {
+      const has5p = aiState.beds.includes('5+');
+      const nums = aiState.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
+      const hasS = aiState.beds.includes('Studio');
+      if (hasS && d.bedrooms === 0) return true;
+      if (has5p && d.bedrooms >= 5) return true;
+      if (!hasS && !has5p && nums.length && !nums.includes(d.bedrooms)) return false;
+      if ((hasS || has5p) && !nums.includes(d.bedrooms) && !(hasS && d.bedrooms===0) && !(has5p && d.bedrooms>=5)) return false;
+    }
+    if (aiState.maxPrice != null && d.price != null && d.price > aiState.maxPrice) return false;
+    if (aiState.maxSea != null && aiState.maxSea < 999) {
+      if (d.seaDist == null || d.seaDist > aiState.maxSea) return false;
+    }
+    return true;
+  });
+}
+
+function renderAIResults() {
+  const results = getAIMatches();
+  document.getElementById('aiResultsWrap').style.display = 'block';
+
+  const districts = [...new Set(results.map(d => d.district).filter(Boolean))].sort();
+  document.getElementById('aiAreaPills').innerHTML = districts.map(dist => {
+    const on = aiState.districtFilter.includes(dist) ? ' on' : '';
+    return `<button class="ai-area-pill${on}" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
+  }).join('');
+
+  const parts = [
+    `<b>${results.length.toLocaleString()}</b> listing${results.length===1?'':'s'}`,
+    aiState.types.length===1 ? aiState.types[0].toLowerCase()+'s' : null,
+    aiState.beds.length===1 && aiState.beds[0]!=='Studio' ? aiState.beds[0]+' bedrooms' : null,
+    aiState.cities.length ? aiState.cities.join(' / ') : null,
+    aiState.maxPrice ? 'up to €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k') : null,
+  ].filter(Boolean);
+  document.getElementById('aiSummaryLine').innerHTML = parts.join(' · ');
+
+  if (!results.length) {
+    document.getElementById('aiDevCards').innerHTML = '<div class="empty">No listings match — try relaxing the criteria.</div>';
+    document.getElementById('aiPagination').innerHTML = '';
+    return;
+  }
+
+  const tot = Math.ceil(results.length / aiPS) || 1;
+  const page = results.slice((aiPage-1)*aiPS, aiPage*aiPS);
+
+  document.getElementById('aiDevCards').innerHTML = page.map(d => {
+    const seaHtml = d.seaDist != null
+      ? (d.seaDist < 0.3 ? '<span class="sea-badge sea-vclose">Beachfront</span>'
+        : d.seaDist < 1  ? `<span class="sea-badge sea-vclose">${Math.round(d.seaDist*1000)}m from sea</span>`
+        : d.seaDist < 3  ? `<span class="sea-badge sea-close">${d.seaDist.toFixed(1)}km from sea</span>`
+        : d.seaDist < 8  ? `<span class="sea-badge sea-mid">${d.seaDist.toFixed(1)}km from sea</span>`
+        : `<span class="sea-badge sea-far">${d.seaDist.toFixed(1)}km from sea</span>`)
+      : '<span style="color:var(--mu);font-size:11px">—</span>';
+    const col3lbl = d.plot ? 'Plot' : 'Beds';
+    const col3val = d.plot ? d.plot.toLocaleString()+' m²' : (d.bedrooms!=null?d.bedrooms:'—');
+    return `<div class="ai-dev-card" onclick="openModal(${d.id})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
+        <div class="ai-dev-title">${d.title||d.developer||'—'}</div>
+        <span class="ai-price-badge">${d.price?'€'+d.price.toLocaleString():'—'}</span>
+      </div>
+      <div class="ai-dev-sub">${d.developer||''}${d.developer&&d.district?' · ':''}${d.district||''}</div>
+      <div class="ai-dev-body">
+        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">From sea</div><div class="ai-dev-stat-val">${seaHtml}</div></div>
+        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">Size</div><div class="ai-dev-stat-val">${d.area?d.area.toLocaleString()+' m²':'—'}</div></div>
+        <div class="ai-dev-stat"><div class="ai-dev-stat-lbl">${col3lbl}</div><div class="ai-dev-stat-val">${col3val}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('aiPagination').innerHTML = tot <= 1 ? '' : `
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="aiPg(-1)" ${aiPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
+      <span style="font-size:11px;color:var(--mu)">Page ${aiPage} of ${tot} · ${results.length.toLocaleString()} listings</span>
+      <button onclick="aiPg(1)" ${aiPage>=tot?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Next →</button>
+    </div>`;
+}
+
+function toggleAIDistrict(dist) {
+  const idx = aiState.districtFilter.indexOf(dist);
+  if (idx === -1) aiState.districtFilter.push(dist);
+  else aiState.districtFilter.splice(idx, 1);
+  aiPage = 1;
+  renderAIResults();
+}
+
+function aiPg(d) { aiPage += d; renderAIResults(); }
 
 init();
 </script>
