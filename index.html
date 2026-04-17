@@ -2368,8 +2368,11 @@ function amendCriteria(name) {
 
 function syncViaJsonp(data) {
   if (!APPS_SCRIPT_URL) return;
-  var url = APPS_SCRIPT_URL + '?data=' + encodeURIComponent(JSON.stringify(data));
-  fetch(url, { method: 'GET', mode: 'no-cors' }).catch(function() {});
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: new URLSearchParams({data: JSON.stringify(data)})
+  }).catch(function() {});
 }
 
 async function syncInvestorToSheets(inv) {
