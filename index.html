@@ -904,6 +904,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Network">Network</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Referrals">Referrals</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="SEO">SEO</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Agents">Agents</button>
           </div>
         </div>
         <!-- Row 2: budget -->
@@ -2316,7 +2317,7 @@ function renderInvestorCard(inv) {
         </div>
         <div style="margin-bottom:8px">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Source</div>
-          <select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Outbound"${inv.source==='Outbound'?' selected':''}>Outbound</option><option value="Inbound"${inv.source==='Inbound'?' selected':''}>Inbound</option><option value="Network"${inv.source==='Network'?' selected':''}>Network</option><option value="Referrals"${inv.source==='Referrals'?' selected':''}>Referrals</option><option value="SEO"${inv.source==='SEO'?' selected':''}>SEO</option></select>
+          <select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Outbound"${inv.source==='Outbound'?' selected':''}>Outbound</option><option value="Inbound"${inv.source==='Inbound'?' selected':''}>Inbound</option><option value="Network"${inv.source==='Network'?' selected':''}>Network</option><option value="Referrals"${inv.source==='Referrals'?' selected':''}>Referrals</option><option value="SEO"${inv.source==='SEO'?' selected':''}>SEO</option><option value="Agents"${inv.source==='Agents'?' selected':''}>Agents</option></select>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="saveEditContact(${inv.investorId||inv.id})" class="btn primary" style="font-size:11px">Save</button>
