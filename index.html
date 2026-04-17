@@ -218,19 +218,6 @@ tr:hover td{background:var(--bg2)}
 .portfolio-mini-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;font-weight:500}
 .portfolio-mini-value{font-size:13px;font-weight:600;color:var(--tx)}
 
-/* ── Login ── */
-.login-wrap{position:fixed;inset:0;background:var(--bg2);display:flex;align-items:center;justify-content:center;z-index:99999}
-.login-box{background:var(--bg);border:1px solid var(--bd);border-radius:16px;padding:36px 40px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,.08)}
-.login-logo{font-size:24px;font-weight:600;letter-spacing:-.5px;margin-bottom:4px}
-.login-logo span{font-weight:300;color:var(--mu)}
-.login-sub{font-size:12px;color:var(--mu);margin-bottom:28px}
-.login-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px}
-.login-input{width:100%;height:38px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;margin-bottom:14px;outline:none}
-.login-input:focus{border-color:var(--tx)}
-.login-btn{width:100%;height:40px;background:var(--tx);color:var(--bg);border:none;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;margin-top:4px}
-.login-btn:hover{opacity:.85}
-.login-error{font-size:12px;color:var(--red);margin-top:10px;text-align:center;min-height:18px}
-.login-role{font-size:10px;color:var(--mu);text-align:center;margin-top:12px}
 
 /* ── Analytics ── */
 .analytics-wrap{display:flex;gap:0;min-height:600px}
@@ -286,26 +273,7 @@ tr:hover td{background:var(--bg2)}
   </div>
 </div>
 
-<!-- ── Login ── -->
-<div id="loginWrap" class="login-wrap">
-  <div class="login-box">
-    <div class="login-logo">Intel<span>Prop</span></div>
-    <div class="login-sub">Cyprus Property Intelligence — Secure Access</div>
-    <div class="login-label">Username</div>
-    <input type="text" id="loginUser" class="login-input" placeholder="Username" autocomplete="username"
-      onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-    <div class="login-label">Password</div>
-    <div style="position:relative">
-      <input type="password" id="loginPass" class="login-input" placeholder="Password" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:40px">
-      <button type="button" onclick="togglePassVis()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--mu);font-size:16px;padding:0;line-height:1" id="passEyeBtn">👁</button>
-    </div>
-    <button class="login-btn" onclick="doLogin()">Sign in →</button>
-    <div class="login-error" id="loginError"></div>
-    <div class="login-role" id="loginRole"></div>
-  </div>
-</div>
-<div class="shell" id="mainShell" style="display:none">
+<div class="shell" id="mainShell">
   <div class="topbar">
     <div>
       <div class="logo">Intel<span>Prop</span></div>
@@ -2467,52 +2435,6 @@ function pbRebuildOutput() {
     </div>`;
 }
 
-// ── Auth ─────────────────────────────────────────────────────
-const USERS = [
-  { username: 'Yaniv', password: 'Yh_Law20!4', role: 'Admin', active: true },
-  { username: 'Emma',  password: '3mm4!2026',  role: 'User',  active: true },
-];
-let currentUser = null;
-
-function togglePassVis() {
-  var input = document.getElementById('loginPass');
-  var btn = document.getElementById('passEyeBtn');
-  if (input.type === 'password') {
-    input.type = 'text';
-    btn.textContent = '🙈';
-  } else {
-    input.type = 'password';
-    btn.textContent = '👁';
-  }
-}
-
-
-function doLogin() {
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  const err = document.getElementById('loginError');
-  const user = USERS.find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p && x.active);
-  if (!user) { err.textContent = 'Invalid username or password.'; document.getElementById('loginPass').value = ''; return; }
-  currentUser = user;
-  document.getElementById('loginWrap').style.display = 'none';
-  document.getElementById('mainShell').style.display = '';
-  const topBtns = document.querySelector('.top-btns');
-  if (topBtns) {
-    const badge = document.createElement('div');
-    badge.style.cssText = 'font-size:11px;color:var(--mu);display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);height:34px;background:var(--bg)';
-    badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#15803d;display:inline-block"></span> ${user.username} <span style="color:var(--bd)">|</span> <span style="cursor:pointer;color:var(--mu)" onclick="doLogout()">Sign out</span>`;
-    topBtns.prepend(badge);
-  }
-}
-
-function doLogout() {
-  currentUser = null;
-  document.getElementById('mainShell').style.display = 'none';
-  document.getElementById('loginWrap').style.display = 'flex';
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginError').textContent = '';
-}
 
 // ── Analytics Engine (AirDNA methodology) ────────────────────
 let analyticsSection = 'overview';
@@ -3604,7 +3526,7 @@ function saveModalNote(id){
 function exportPropertyPDF(id){
   var d=all.find(function(x){return x.id===id;});
   if(!d)return;
-  var agentName=currentUser&&currentUser.username?currentUser.username:'Your Agent';
+  var agentName='IntelProp';
   var clientName=document.getElementById('cName')?document.getElementById('cName').value.trim():'';
   var clientNote=clientName?getInvestorNote(clientName,id):'';
   var rentRange=estimateRentRange(d,'Short-term rental');
