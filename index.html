@@ -4321,11 +4321,11 @@ function renderInvestorProfilesPanel(){
           var locs=(inv.locations&&inv.locations.length)?inv.locations:(cr.cities&&cr.cities.length?cr.cities:[]);
           var types=cr.types&&cr.types.length?cr.types:[];
           var pluralT=function(t){return{Apartment:'Apartments',Villa:'Villas',House:'Houses',Penthouse:'Penthouses',Hotel:'Hotels',Office:'Offices',Residential:'Residential Buildings',Commercial:'Commercial Buildings'}[t]||t;};
-          var parts=[];
-          if(budget)parts.push('\ud83d\udcb0 '+budget);
-          if(locs.length)parts.push('\ud83d\udccd '+locs.join(', '));
-          if(types.length)parts.push('\ud83c\udfe0 '+types.map(pluralT).join(', '));
-          return parts.length?'<div style="font-size:10px;color:var(--tx);margin-top:2px;opacity:.8">'+parts.join(' \u00b7 ')+'</div>':'';
+          var line='';
+          if(budget)line+='<span style="font-size:11px">\ud83d\udcb0 <b>'+budget+'</b></span> ';
+          if(locs.length)line+='<span style="font-size:11px">\ud83d\udccd <b>'+locs.join(', ')+'</b></span> ';
+          if(types.length)line+='<span style="font-size:11px">\ud83c\udfe0 <b>'+types.map(pluralT).join(', ')+'</b></span>';
+          return line?'<div style="margin-top:3px">'+line+'</div>':'';
         }())
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
       +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
