@@ -572,6 +572,7 @@ tr:hover td{background:var(--bg2)}
         <div class="ai-input-row">
           <input type="text" id="aiQuery" class="ai-input" placeholder="villa in Paphos, 3 bedrooms, close to sea, max €600k…" onkeydown="if(event.key==='Enter')runAISearch()">
           <button class="ai-go" onclick="runAISearch()">Search</button>
+          <button class="btn" onclick="resetAISearch()" style="height:46px;padding:0 16px;border-radius:10px;font-size:13px">Reset</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <span style="font-size:11px;color:var(--mu)">Quick examples:</span>
@@ -3883,6 +3884,16 @@ function exportPropertyPDF(id){
 // ── AI Search ─────────────────────────────────────────────────
 let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc', excluded:[] };
 let aiPage = 1, aiPS = 20;
+
+function resetAISearch() {
+  document.getElementById('aiQuery').value = '';
+  aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc', excluded:[] };
+  aiPage = 1;
+  const crumbsEl = document.getElementById('aiCrumbs');
+  crumbsEl.innerHTML = '';
+  crumbsEl.style.display = 'none';
+  document.getElementById('aiResultsWrap').style.display = 'none';
+}
 
 function aiExample(btn) {
   document.getElementById('aiQuery').value = btn.textContent.trim().replace(/\s*·\s*/g, ', ');
