@@ -176,6 +176,18 @@ tr:hover td{background:var(--bg2)}
 .modal-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
 .modal-map{height:220px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);margin-top:10px}
 
+/* ── Image Carousel ── */
+.carousel{position:relative;width:100%;height:260px;border-radius:16px 16px 0 0;overflow:hidden;background:var(--bg2)}
+.carousel-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .3s ease}
+.carousel-img.active{opacity:1}
+.carousel-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.4);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:20px;line-height:1;z-index:5;transition:background .15s;display:flex;align-items:center;justify-content:center}
+.carousel-btn:hover{background:rgba(0,0,0,.7)}
+.carousel-prev{left:10px}.carousel-next{right:10px}
+.carousel-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5}
+.carousel-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.45);cursor:pointer;transition:background .15s;border:none;padding:0}
+.carousel-dot.active{background:#fff}
+.carousel-counter{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.4);color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:99px;z-index:5}
+
 /* ── Pag / dev / shortlist ── */
 .pag{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px}
 .pag button{font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer}
@@ -995,6 +1007,7 @@ async function init() {
             return raw.split('T')[0] || raw;
           })(),
           complex: (()=>{const v=''+ g(12); return(v&&v.toLowerCase()!=='standalone'&&v!=='—'&&v!=='')?v:null;})(),
+          img1: g(13)||null, img2: g(14)||null, img3: g(15)||null, img4: g(16)||null,
           imageUrl: null,
           lat: null,
           lng: null,
@@ -1030,6 +1043,7 @@ async function init() {
           price: n(8), ppm: n(9),
           priceText: g(10), addedOn: (g(11)||'').split(' ')[0]||g(11),
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
+          img1: g(13)||null, img2: g(14)||null, img3: g(15)||null, img4: g(16)||null,
           imageUrl: null,
           lat: null, lng: null,
           projectUrl: null,
@@ -3267,20 +3281,66 @@ function renderAnalyticsComparison() {
 // ── On-demand property image search ─────────────────────────
 const imgCache = {};
 
+let _carIdx = 0, _carUrls = [];
+
+function carouselNav(dir) {
+  carouselGo((_carIdx + dir + _carUrls.length) % _carUrls.length);
+}
+
+function carouselGo(idx) {
+  const area = document.querySelector('.carousel');
+  if (!area) return;
+  const imgs = area.querySelectorAll('.carousel-img');
+  const dots = area.querySelectorAll('.carousel-dot');
+  if (imgs[_carIdx]) imgs[_carIdx].classList.remove('active');
+  if (dots[_carIdx]) dots[_carIdx].classList.remove('active');
+  _carIdx = idx;
+  if (imgs[_carIdx]) imgs[_carIdx].classList.add('active');
+  if (dots[_carIdx]) dots[_carIdx].classList.add('active');
+  const counter = document.getElementById('carouselCounter');
+  if (counter) counter.textContent = (_carIdx + 1) + ' / ' + _carUrls.length;
+}
+
+function renderModalCarousel(area, urls, d) {
+  _carIdx = 0;
+  _carUrls = urls;
+  const imgs = urls.map((u, i) =>
+    `<img class="carousel-img${i===0?' active':''}" src="${u}" alt="${d.title}" loading="${i===0?'eager':'lazy'}" onerror="this.style.display='none'">`
+  ).join('');
+  const multi = urls.length > 1;
+  const nav = multi
+    ? `<button class="carousel-btn carousel-prev" onclick="carouselNav(-1)">&#8249;</button><button class="carousel-btn carousel-next" onclick="carouselNav(1)">&#8250;</button>`
+    : '';
+  const dots = multi
+    ? `<div class="carousel-dots">${urls.map((_, i) => `<button class="carousel-dot${i===0?' active':''}" onclick="carouselGo(${i})"></button>`).join('')}</div>`
+    : '';
+  const counter = multi ? `<div class="carousel-counter" id="carouselCounter">1 / ${urls.length}</div>` : '';
+  area.className = 'carousel';
+  area.style.cssText = '';
+  area.innerHTML = imgs + nav + dots + counter;
+}
+
+function renderModalImgEmpty(area) {
+  area.className = '';
+  area.style.cssText = 'width:100%;height:200px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center';
+  area.innerHTML = '<div style="text-align:center;opacity:.35"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><div style="font-size:11px;margin-top:6px;color:var(--mu)">No image</div></div>';
+}
+
 async function loadModalImage(d) {
   const area = document.getElementById('modalImgArea');
   if (!area) return;
 
+  // Use sheet image columns if available
+  const sheetImgs = [d.img1, d.img2, d.img3, d.img4].filter(Boolean);
+  if (sheetImgs.length) { renderModalCarousel(area, sheetImgs, d); return; }
+
+  // Fall back to AI-fetched single image
   const cacheKey = (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + d.city;
   if (imgCache[cacheKey]) {
     if (imgCache[cacheKey] === 'none') { renderModalImgEmpty(area); return; }
-    renderModalImg(area, imgCache[cacheKey], d);
+    renderModalCarousel(area, [imgCache[cacheKey]], d);
     return;
   }
-
-  const query = d.complex && d.complex !== 'Standalone'
-    ? '"' + d.complex + '" Cyprus property site:' + (d.developer||'').toLowerCase().replace(/\s+/g,'') + '.com OR site:bazaraki.com OR site:spitogatos.cy'
-    : '"' + d.developer + '" Cyprus "' + d.city + '" property development';
 
   try {
     const res = await fetch('/api/proxy', {
@@ -3292,18 +3352,17 @@ async function loadModalImage(d) {
         tools: [{type: 'web_search_20250305', name: 'web_search'}],
         messages: [{
           role: 'user',
-          content: 'Find a property photo for: ' + (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + ' in ' + d.city + ' Cyprus. Search the developer website or property portals. Return ONLY one direct image URL ending in .jpg .jpeg .png or .webp. Nothing else. Just the URL on its own line.'
+          content: 'Find a property photo for: ' + (d.complex && d.complex !== 'Standalone' ? d.complex : d.developer) + ' in ' + d.city + ' Cyprus. Return ONLY one direct image URL ending in .jpg .jpeg .png or .webp. Nothing else.'
         }]
       })
     });
-
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
     const txt = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const urlMatch = txt.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|webp)(?:\?[^\s]*)?/i);
     if (urlMatch) {
       imgCache[cacheKey] = urlMatch[0];
-      renderModalImg(area, urlMatch[0], d);
+      renderModalCarousel(area, [urlMatch[0]], d);
     } else {
       imgCache[cacheKey] = 'none';
       renderModalImgEmpty(area);
@@ -3312,26 +3371,6 @@ async function loadModalImage(d) {
     imgCache[cacheKey] = 'none';
     renderModalImgEmpty(area);
   }
-}
-
-function renderModalImg(area, url, d) {
-  var img = document.createElement('img');
-  img.src = url;
-  img.alt = d.title;
-  img.style.cssText = 'width:100%;height:220px;object-fit:cover;border-radius:16px 16px 0 0;display:block';
-  img.onerror = function() { renderModalImgEmpty(area); };
-  area.innerHTML = '';
-  area.style.cssText = 'width:100%;border-radius:16px 16px 0 0;overflow:hidden';
-  area.appendChild(img);
-}
-
-function renderModalImgEmpty(area) {
-  area.style.cssText = 'width:100%;height:220px;background:var(--bg2);border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px';
-  area.innerHTML = '';
-  var div = document.createElement('div');
-  div.style.cssText = 'text-align:center;opacity:.4';
-  div.innerHTML = '<div style="font-size:11px;color:var(--mu);margin-top:8px">No image found</div>';
-  area.appendChild(div);
 }
 
 
