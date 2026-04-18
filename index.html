@@ -2182,15 +2182,16 @@ function heartFromModal(id) {
 
 function linkPropToClient(listingId, adding) {
   if (!currentClientCallId) return;
-  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; });
+  var cid = +currentClientCallId;
+  var inv = investorProfiles.find(function(i){ return +(i.investorId||i.id) === cid; });
   if (!inv) return;
   if (adding) {
-    if (clientProperties.find(function(p){ return p.investorId===currentClientCallId && p.listingId===listingId; })) return;
+    if (clientProperties.find(function(p){ return +p.investorId===cid && p.listingId===listingId; })) return;
     var listing = all.find(function(d){ return d.id===listingId; });
     if (!listing) return;
     var prop = {
       propertyId: nextPropertyId(),
-      investorId: currentClientCallId,
+      investorId: cid,
       listingId: listingId,
       developer: listing.developer||'',
       title: listing.title||'',
@@ -2210,7 +2211,7 @@ function linkPropToClient(listingId, adding) {
     syncPropertyToSheets(prop);
     logCommunication(inv.investorId||inv.id, inv.name, 'shortlist', 'Property selected: '+(listing.title||listing.developer||'#'+listingId), listingId, listing.title||listing.developer||null, '');
   } else {
-    clientProperties = clientProperties.filter(function(p){ return !(p.investorId===currentClientCallId && p.listingId===listingId); });
+    clientProperties = clientProperties.filter(function(p){ return !(+p.investorId===cid && p.listingId===listingId); });
     saveClientProperties();
   }
 }
@@ -5556,7 +5557,7 @@ function renderInvestorProfilesPanel(){
 function loadInvestorToClientCall(name){
   var inv=investorProfiles.find(function(i){return i.name===name;});
   if(!inv)return;
-  currentClientCallId=inv.investorId||inv.id;
+  currentClientCallId = +(inv.investorId||inv.id);
   // Reset all criteria first
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
   Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
