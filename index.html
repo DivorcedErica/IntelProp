@@ -8468,116 +8468,285 @@ function calcPropertyMetrics(d) {
 let anMap2 = null, anMarkers2 = [], anInfoWindow2 = null, anStatsVisible = false;
 
 // ══════════════════════════════════════════════════════════════════
-// MARKET SCORING ENGINE
-// Replaces yield-only ranking with multi-factor model:
-//   30% yield + 25% growth + 20% liquidity + 10% demand
-//   + 10% supply + 5% confidence
-// Sources: MARKET_BENCHMARKS (CBC RPPI / RICS / DLS)
+// DEFENSIBLE MARKET SCORING ENGINE v2
+// Formula:
+//   BaseScore = 0.25*yield + 0.25*growth + 0.25*liquidity
+//             + 0.10*demand + 0.10*supply + 0.05*confidence
+//   FinalScore = BaseScore * thinMarketMult * confidenceMult * proxyMult
+//
+// Sources: CBC RPPI Q4 2025 · RICS Cyprus · DLS contracts 2024
+// Absolute bands only — no relative "max=100" scaling
+// Hard safety rules prevent thin/low-confidence markets from ranking #1
 // ══════════════════════════════════════════════════════════════════
 
-// Yield score: uses district+type rent benchmarks, not synthetic ADR alone
-// Falls back to STR calcPropertyMetrics for STR mode; LTR rents for LTR mode
+// ── YIELD SCORE — absolute bands, hard cap 85 ────────────────────
+// Source: LTR benchmarks (RICS/DoL) or STR estimate (calcPropertyMetrics)
 function computeMarketYieldScore(city, bedrooms, type, price, purpose) {
-  const MB = window.MARKET_BENCHMARKS;
+  const MB        = window.MARKET_BENCHMARKS;
   const rentBench = MB?.rents?.[city];
-  const isProxy = rentBench?.isProxy ?? true;
-  let annualRent = 0;
-  let yieldPct   = 0;
+  const isProxy   = rentBench?.isProxy ?? true;
+  let annualRent  = 0;
+  let yieldPct    = 0;
   let yieldSource = 'proxy';
+  let isEstimate  = true;
 
   if (purpose === 'str' || !rentBench) {
-    // STR mode: use existing calcPropertyMetrics as base
-    const mock = { city, bedrooms, type: type||'Apartment', seaDist: 2, price };
-    const m = calcPropertyMetrics(mock);
+    // STR mode: derive from calcPropertyMetrics (ADR × occupancy)
+    const mock  = { city, bedrooms, type: type || 'Apartment', seaDist: 2, price };
+    const m     = calcPropertyMetrics(mock);
     annualRent  = m.annualRevenue;
     yieldPct    = price ? (annualRent / price) * 100 : 0;
     yieldSource = 'STR-estimate';
+    isEstimate  = true;
   } else {
-    // LTR mode: use benchmark rents
-    const bedKey = bedrooms >= 4 ? 'villa' : bedrooms === 3 ? '3bed' : bedrooms === 2 ? '2bed' : '1bed';
-    const monthlyRent = rentBench[bedKey] || rentBench['2bed'] || 0;
-    annualRent  = monthlyRent * 12;
-    yieldPct    = price ? (annualRent / price) * 100 : 0;
-    yieldSource = rentBench.confidence || 'proxy';
+    // LTR mode: benchmark rents (RICS/DoL)
+    const bedKey    = bedrooms >= 4 ? 'villa' : bedrooms === 3 ? '3bed' : bedrooms === 2 ? '2bed' : '1bed';
+    const monthly   = rentBench[bedKey] || rentBench['2bed'] || 0;
+    annualRent      = monthly * 12;
+    yieldPct        = price ? (annualRent / price) * 100 : 0;
+    yieldSource     = rentBench.confidence || 'proxy';
+    isEstimate      = isProxy || yieldSource === 'proxy';
   }
 
-  // Normalise yield to 0–100 score (6% = 75, 8% = 100, 4% = 50 baseline)
-  const yieldScore = Math.min(100, Math.max(0, (yieldPct - 2) * 16.7));
-  return { yieldScore, yieldPct, annualRent, yieldSource, isProxy };
+  // Absolute bands — hard cap 85, no relative scaling
+  let yieldScore;
+  if      (yieldPct <  2.0) yieldScore = 20;
+  else if (yieldPct <  3.0) yieldScore = 35;
+  else if (yieldPct <  4.0) yieldScore = 50;
+  else if (yieldPct <  5.0) yieldScore = 62;
+  else if (yieldPct <  6.0) yieldScore = 74;
+  else if (yieldPct <  7.0) yieldScore = 82;
+  else                       yieldScore = 85;  // cap at 85
+
+  return { yieldScore, yieldPct, annualRent, yieldSource, isProxy, isEstimate };
 }
 
-// Full market score for a city using MARKET_BENCHMARKS
+// ── GROWTH SCORE — absolute bands, cap 95, momentum adjust ──────
+function _growthScore(pct, momentum) {
+  // momentum: 'accelerating' | 'decelerating' | 'stable' | null
+  let base;
+  if      (pct <  0)   base = 20;
+  else if (pct <  2)   base = 35;
+  else if (pct <  4)   base = 50;
+  else if (pct <  6)   base = 65;
+  else if (pct <  8)   base = 78;
+  else if (pct < 10)   base = 88;
+  else                 base = 92;
+  const adj = momentum === 'accelerating' ? 3 : momentum === 'decelerating' ? -3 : 0;
+  return Math.min(95, Math.max(0, base + adj));
+}
+
+// ── LIQUIDITY SCORE — log-shaped scaling from contract count ─────
+// liquidityScore = min(95, 20 * ln(transactions))
+// Ensures thin markets score materially lower
+function _liquidityScore(contracts) {
+  if (!contracts || contracts <= 0) return 15; // no data = very thin
+  const raw = Math.min(95, 20 * Math.log(contracts));
+  // Clamp to practical bands for interpretability
+  if (contracts >= 4000) return Math.min(95, raw); // deep market
+  if (contracts >= 1500) return Math.min(78, raw);
+  if (contracts >= 500)  return Math.min(62, raw);
+  if (contracts >= 100)  return Math.min(45, raw);
+  return Math.min(35, raw);                          // <100 contracts
+}
+
+// ── DEMAND SCORE — capped at 80 ──────────────────────────────────
+function _demandScore(rawScore) {
+  if (rawScore == null) return 50;
+  // Clamp to 30–80 range per spec
+  return Math.min(80, Math.max(30, rawScore));
+}
+
+// ── SUPPLY BALANCE SCORE — capped at 75 ─────────────────────────
+function _supplyScore(rawScore) {
+  if (rawScore == null) return 55;
+  return Math.min(75, Math.max(35, rawScore));
+}
+
+// ── CONFIDENCE SCORE — fixed values per tier ─────────────────────
+function _confScore(tier) {
+  if (tier === 'CBC+RICS') return 85;
+  if (tier === 'CBC+proxy') return 65;
+  return 45; // proxy only
+}
+
+// ── THIN MARKET MULTIPLIER ────────────────────────────────────────
+function _thinMarketMult(contracts) {
+  if (contracts >= 800)  return 1.00;
+  if (contracts >= 500)  return 0.95;
+  if (contracts >= 250)  return 0.88;
+  if (contracts >= 100)  return 0.78;
+  return 0.68;
+}
+
+// ── CONFIDENCE MULTIPLIER ─────────────────────────────────────────
+function _confMult(tier) {
+  if (tier === 'CBC+RICS')  return 1.00;
+  if (tier === 'CBC+proxy') return 0.92;
+  return 0.80; // proxy only
+}
+
+// ── PROXY MULTIPLIER ─────────────────────────────────────────────
+// Caps proxy-heavy markets at 65 unless stronger evidence present
+function _proxyMult(isYieldProxy, confTier) {
+  if (!isYieldProxy && confTier === 'CBC+RICS')  return 1.00;  // mostly verified
+  if (!isYieldProxy || confTier === 'CBC+proxy') return 0.94;  // mixed
+  return 0.85;                                                  // proxy-heavy
+}
+
+// ── SAFETY RULE LABELS ────────────────────────────────────────────
+// Returns null (clean) or a warning label string
+function _safetyLabel(yieldPct, liqScore, confTier, contracts, finalScore, rank) {
+  const isLowConf  = confTier === 'proxy';
+  const isThin     = (contracts || 0) < 500;
+  const isHighYield = yieldPct >= 7.0;
+
+  // Rule 1: Low confidence + thin market cannot rank top 2
+  if (isLowConf && isThin && rank <= 2) return 'Insufficient data depth for this ranking';
+
+  // Rule 2: High yield + low liquidity = Opportunistic label
+  if (isHighYield && liqScore < 40) return 'Opportunistic / thin market — not recommended as primary';
+
+  // Rule 3: Proxy-heavy yield cap enforced (already via proxyMult, but label it)
+  if (isYieldProxy && finalScore > 65 && confTier === 'proxy') return 'Proxy-assisted — treat as indicative';
+
+  return null;
+}
+
+// ── SCORE INTERPRETATION BAND ────────────────────────────────────
+function _scoreBand(finalScore) {
+  if (finalScore >= 80) return { label:'Strong market',           cls:'high' };
+  if (finalScore >= 70) return { label:'Attractive / investable', cls:'mid-high' };
+  if (finalScore >= 60) return { label:'Selective / situational', cls:'mid' };
+  if (finalScore >= 50) return { label:'Opportunistic only',      cls:'low-mid' };
+  return                       { label:'Weak / caution',          cls:'low' };
+}
+
+// ── MAIN SCORING FUNCTION ────────────────────────────────────────
 // purpose: 'str' | 'ltr' | 'mixed'
 function computeCityMarketScore(city, bedrooms, type, price, purpose) {
   const MB = window.MARKET_BENCHMARKS;
   if (!MB) return null;
 
-  const { yieldScore, yieldPct, annualRent, yieldSource, isProxy: yieldIsProxy } = computeMarketYieldScore(city, bedrooms, type, price, purpose || 'mixed');
+  // Yield
+  const { yieldScore, yieldPct, annualRent, yieldSource, isProxy: yieldIsProxy, isEstimate } =
+    computeMarketYieldScore(city, bedrooms, type, price, purpose || 'mixed');
 
-  // Growth score: normalise CBC RPPI to 0–100 (10% growth = 100, 4% = 30)
+  // Growth — use type-specific RPPI where available
   const growthData  = MB.growth?.[city];
-  const growthPct   = growthData?.overall || 5.5;
-  const growthScore = Math.min(100, Math.max(0, (growthPct - 3) * 14.3));
+  const typeStr     = (type || '').toLowerCase();
+  const growthPct   = typeStr.includes('villa') ? (growthData?.villas  ?? growthData?.overall ?? 5.5)
+                    : typeStr.includes('house')  ? (growthData?.houses  ?? growthData?.overall ?? 5.5)
+                    : (growthData?.apartments ?? growthData?.overall ?? 5.5);
+  const growthMomentum = growthData?.momentum ?? null;
+  const growthScore    = _growthScore(growthPct, growthMomentum);
 
-  // Liquidity score: direct from benchmarks (0–100)
-  const liqData    = MB.liquidity?.[city];
-  const liqScore   = liqData?.score ?? 50;
-  // Liquidity PENALTY: if <35 points, drag down overall score
-  const liqPenalty = liqScore < 35 ? (35 - liqScore) * 0.4 : 0;
+  // Liquidity — log-shaped from actual contract count
+  const liqData     = MB.liquidity?.[city];
+  const contracts   = liqData?.contracts2024 ?? 0;
+  const liqScore    = _liquidityScore(contracts);
 
-  // Demand score (0–100)
-  const demandScore = MB.demand?.[city]?.score ?? 55;
+  // Demand — capped 30–80
+  const rawDemand   = MB.demand?.[city]?.score;
+  const demandScore = _demandScore(rawDemand);
 
-  // Supply score (0–100, 100 = tight supply = positive)
-  const supplyScore = MB.supply?.[city]?.score ?? 60;
+  // Supply balance — capped 35–75
+  const rawSupply   = MB.supply?.[city]?.score;
+  const supplyScore = _supplyScore(rawSupply);
 
-  // Confidence score (0–100)
-  const confData  = MB.confidence?.[city];
-  const confScore = confData?.score ?? 50;
-  const confLabel = confData?.label ?? 'Low';
-  const confTier  = confData?.tier  ?? 'proxy';
+  // Confidence — fixed per tier
+  const confData    = MB.confidence?.[city];
+  const confTier    = confData?.tier  ?? 'proxy';
+  const confLabel   = confData?.label ?? 'Low';
+  const confScore   = _confScore(confTier);
   const confIsProxy = confTier === 'proxy';
 
-  // Blended market score (weighted formula)
-  const blended = Math.round(
-    yieldScore  * 0.30 +
+  // Base score (weighted sum)
+  const baseScore = Math.round(
+    yieldScore  * 0.25 +
     growthScore * 0.25 +
-    liqScore    * 0.20 +
+    liqScore    * 0.25 +
     demandScore * 0.10 +
     supplyScore * 0.10 +
-    confScore   * 0.05 -
-    liqPenalty
+    confScore   * 0.05
   );
 
+  // Multipliers
+  const thinMult  = _thinMarketMult(contracts);
+  const confMultV = _confMult(confTier);
+  const proxyMultV = _proxyMult(yieldIsProxy, confTier);
+
+  // Final score — proxy-heavy cap: max 65 unless confidence supports higher
+  let finalScore = Math.round(baseScore * thinMult * confMultV * proxyMultV);
+  if (yieldIsProxy && confTier === 'proxy') finalScore = Math.min(65, finalScore);
+  finalScore = Math.max(0, Math.min(100, finalScore));
+
+  // Score band interpretation
+  const band = _scoreBand(finalScore);
+
   return {
-    blendedScore: Math.max(0, Math.min(100, blended)),
+    // Core scores (all absolute-banded)
+    blendedScore: finalScore,
+    baseScore,
     yieldScore:   Math.round(yieldScore),
     growthScore:  Math.round(growthScore),
     liqScore:     Math.round(liqScore),
     demandScore:  Math.round(demandScore),
     supplyScore:  Math.round(supplyScore),
     confScore:    Math.round(confScore),
+
+    // Raw source values
     yieldPct, growthPct, annualRent,
-    yieldSource, yieldIsProxy,
+    yieldSource, yieldIsProxy, isEstimate,
+
+    // Multipliers (for transparency)
+    thinMult, confMult: confMultV, proxyMult: proxyMultV,
+    contracts,
+
+    // Confidence / source
     confLabel, confTier, confIsProxy,
-    liqPenalty: Math.round(liqPenalty),
-    liqTrend:   liqData?.trend ?? 'stable',
-    liqNote:    liqData?.note ?? '',
-    demandNote: MB.demand?.[city]?.primary ?? '',
-    supplyNote: MB.supply?.[city]?.note ?? '',
+
+    // Context / labels
+    band,
+    liqTrend:    liqData?.trend    ?? 'stable',
+    liqNote:     liqData?.note     ?? '',
+    demandNote:  MB.demand?.[city]?.primary ?? '',
+    supplyNote:  MB.supply?.[city]?.note    ?? '',
     growthSource: growthData?.source ?? 'proxy estimate',
+    _safetyWarning: null, // set after ranking
   };
 }
 
-// Colour helpers for metric displays
+// ── POST-RANKING SAFETY PASS ─────────────────────────────────────
+// Call after sorting city scores by finalScore to apply Rule 1
+function applyRankingSafetyRules(rankedCityScores) {
+  rankedCityScores.forEach((item, idx) => {
+    const ms   = item.ms;
+    if (!ms) return;
+    ms._safetyWarning = _safetyLabel(
+      ms.yieldPct, ms.liqScore, ms.confTier,
+      ms.contracts, ms.blendedScore, idx + 1
+    );
+    // Hard Rule 1: demote low-conf + thin markets out of top 2
+    if (idx < 2 && ms.confTier === 'proxy' && ms.contracts < 500) {
+      ms.blendedScore = Math.min(ms.blendedScore, 58); // push out of Attractive band
+      ms.band = _scoreBand(ms.blendedScore);
+      ms._safetyWarning = 'Demoted — insufficient data depth for top ranking';
+    }
+  });
+  // Re-sort after potential demotion
+  rankedCityScores.sort((a, b) => (b.ms?.blendedScore || 0) - (a.ms?.blendedScore || 0));
+}
+
+// Colour helpers — updated bands match spec thresholds
 function _mScore(v) {
-  return v >= 75 ? '#15803d' : v >= 55 ? '#b45309' : '#991b1b';
+  return v >= 70 ? '#15803d' : v >= 55 ? '#b45309' : '#991b1b';
 }
 function _mBg(v) {
-  return v >= 75 ? '#dcfce7' : v >= 55 ? '#fef3c7' : '#fee2e2';
+  return v >= 70 ? '#dcfce7' : v >= 55 ? '#fef3c7' : '#fee2e2';
 }
 function _confStyle(tier) {
-  if (tier === 'CBC+RICS') return 'background:#dcfce7;color:#15803d';
+  if (tier === 'CBC+RICS')  return 'background:#dcfce7;color:#15803d';
   if (tier === 'CBC+proxy') return 'background:#dbeafe;color:#1e40af';
   return 'background:#fef3c7;color:#92400e';
 }
@@ -8807,7 +8976,7 @@ function renderAnalyticsOverview(pool) {
   const avgGrossYield = (metrics.reduce((s,m)=>s+m.grossYield,0)/metrics.length).toFixed(1);
   const avgNetYield   = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
 
-  // City market scores using multi-factor model
+  // City market scores using defensible absolute-band model
   const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
   const cityData = cities.map(city => {
     const cp = pool.filter(d=>d.city===city);
@@ -8817,15 +8986,20 @@ function renderAnalyticsOverview(pool) {
     const ms = computeCityMarketScore(city, avgBeds, 'Apartment', avgPrice||300000, 'mixed');
     return {
       city,
-      count:      cp.length,
-      avgADR:     Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
-      avgOcc:     (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
-      avgRevPAR:  Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
-      avgAnnRev:  Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
-      avgYield:   (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
+      count:     cp.length,
+      avgADR:    Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
+      avgOcc:    (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
+      avgRevPAR: Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
+      avgAnnRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
+      avgYield:  (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
       ms,
     };
   }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
+
+  // Apply safety rules AFTER initial sort (rank-aware)
+  applyRankingSafetyRules(cityData.map((c,i) => ({ ...c, ms: c.ms })));
+  // Re-sort after potential demotion
+  cityData.sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
 
   // Type breakdown
   const types = [...new Set(pool.map(d=>d.type).filter(Boolean))];
@@ -8835,23 +9009,34 @@ function renderAnalyticsOverview(pool) {
     return { type, count: tp.length, avgYield:(tm.reduce((s,m)=>s+m.grossYield,0)/tm.length).toFixed(1), avgADR:Math.round(tm.reduce((s,m)=>s+m.ADR,0)/tm.length) };
   }).sort((a,b) => +b.avgYield - +a.avgYield);
 
-  // Build city rows with 4-metric breakdown
-  const cityRows = cityData.map(c => {
+  // Build city rows with band, safety labels, estimated badges
+  const cityRows = cityData.map((c, idx) => {
     const ms = c.ms;
     if (!ms) return `<tr><td style="font-weight:500">${c.city}</td><td>${c.count}</td><td colspan="6" style="color:var(--mu)">—</td></tr>`;
-    const confStyle = _confStyle(ms.confTier);
-    const proxyNote = ms.yieldIsProxy ? '<span class="trust-proxy" style="margin-left:3px">est</span>' : '';
-    const liqIcon   = ms.liqTrend === 'growing' ? ' ↑' : ms.liqTrend === 'declining' ? ' ↓' : '';
+    const confStyle  = _confStyle(ms.confTier);
+    const estBadge   = ms.isEstimate ? '<span class="trust-proxy" style="margin-left:3px;font-size:8px">est</span>' : '';
+    const liqIcon    = ms.liqTrend === 'growing' ? ' ↑' : ms.liqTrend === 'declining' ? ' ↓' : '';
+    const bandClr    = ms.blendedScore >= 70 ? '#15803d' : ms.blendedScore >= 60 ? '#b45309' : '#991b1b';
+    const bandBg     = ms.blendedScore >= 70 ? '#dcfce7' : ms.blendedScore >= 60 ? '#fef3c7' : '#fee2e2';
+    const safetyNote = ms._safetyWarning ? `<div style="font-size:9px;color:#991b1b;margin-top:2px">${ms._safetyWarning}</div>` : '';
+    const multNote   = (ms.thinMult < 1 || ms.confMult < 1 || ms.proxyMult < 1)
+      ? `<span style="font-size:9px;color:var(--mu);margin-left:4px" title="Thin×${ms.thinMult} Conf×${ms.confMult} Proxy×${ms.proxyMult}">× adj</span>` : '';
+
     return `<tr>
-      <td style="font-weight:600;color:var(--tx)">${c.city}</td>
+      <td style="font-weight:600;color:var(--tx)">
+        <div>${c.city}</div>
+        <div style="font-size:9px;color:var(--mu);margin-top:1px">${ms.band?.label||''}</div>
+        ${safetyNote}
+      </td>
       <td>${c.count.toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:5px">
           <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
             <div style="height:100%;width:${ms.yieldScore}%;background:${_mScore(ms.yieldScore)};border-radius:99px"></div>
           </div>
-          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${proxyNote}</span>
+          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${estBadge}</span>
         </div>
+        <div style="font-size:9px;color:var(--mu)">score ${ms.yieldScore}/85</div>
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:5px">
@@ -8860,6 +9045,7 @@ function renderAnalyticsOverview(pool) {
           </div>
           <span style="font-size:11px;font-weight:600;color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span>
         </div>
+        <div style="font-size:9px;color:var(--mu)">score ${ms.growthScore}/95</div>
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:5px">
@@ -8868,14 +9054,15 @@ function renderAnalyticsOverview(pool) {
           </div>
           <span style="font-size:11px;color:${_mScore(ms.liqScore)}">${ms.liqScore}${liqIcon}</span>
         </div>
+        <div style="font-size:9px;color:var(--mu)">${(ms.contracts||0).toLocaleString()} contracts</div>
       </td>
       <td><span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confLabel}</span></td>
       <td>
         <div style="display:flex;align-items:center;gap:5px">
           <div style="width:48px;height:7px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${ms.blendedScore}%;background:${_mScore(ms.blendedScore)};border-radius:99px"></div>
+            <div style="height:100%;width:${ms.blendedScore}%;background:${bandClr};border-radius:99px"></div>
           </div>
-          <span style="font-size:13px;font-weight:700;color:${_mScore(ms.blendedScore)}">${ms.blendedScore}</span>
+          <span style="font-size:13px;font-weight:700;color:${bandClr}">${ms.blendedScore}${multNote}</span>
         </div>
       </td>
     </tr>`;
@@ -8893,10 +9080,12 @@ function renderAnalyticsOverview(pool) {
     </div>
 
     <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--mu);line-height:1.6">
-      <b style="color:var(--tx)">Market Score methodology:</b>
-      Blended score = 30% Yield Potential + 25% Growth Momentum + 20% Liquidity + 10% Demand Quality + 10% Supply Pressure + 5% Confidence.
-      <b style="color:var(--tx)">Sources:</b> CBC RPPI Q4 2025 · RICS Cyprus Q4 2025 · DLS contract data 2024.
-      Cities with low transaction volume receive a liquidity penalty that reduces their ranking even if yield appears high.
+      <b style="color:var(--tx)">Scoring model v2 — defensible absolute-band methodology:</b>
+      Final Score = BaseScore × thin-market × confidence × proxy multipliers.
+      BaseScore = 25% Yield + 25% Growth + 25% Liquidity + 10% Demand + 10% Supply + 5% Confidence.
+      <b style="color:var(--tx)">Sources:</b> CBC RPPI Q4 2025 · RICS Cyprus · DLS contracts 2024.
+      Yield uses absolute bands (cap 85). Growth uses CBC RPPI bands (cap 95). Liquidity uses log-scale from DLS contract count — thin markets are structurally penalised. Low-confidence + thin markets cannot rank in the top 2.
+      <b style="color:#991b1b">This model provides directional guidance over 3–6 months. It is not a forecast.</b>
     </div>
 
     <div class="analytics-charts">
@@ -8929,8 +9118,9 @@ function renderAnalyticsOverview(pool) {
       </table>
       </div>
       <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
-        Blended Score: 30% yield + 25% growth (CBC RPPI) + 20% liquidity (DLS) + 10% demand + 10% supply + 5% confidence.
-        Low-volume markets (Famagusta) receive a liquidity penalty. Yield marked "est" uses district-level proxy data.
+        Final Score = 25% yield + 25% growth (CBC RPPI) + 25% liquidity (DLS log-scale) + 10% demand + 10% supply + 5% confidence × thin-market × confidence × proxy multipliers.
+        Yield capped at 85. Growth capped at 95. Markets with &lt;500 contracts receive thin-market penalty. "est" = benchmark-based or proxy-assisted yield figure.
+        Scores provide directional guidance only — not a forecast.
       </div>
     </div>`;
 
@@ -9344,68 +9534,84 @@ function runRentalizer() {
 }
 
 function renderAnalyticsComparison() {
-  const MB   = window.MARKET_BENCHMARKS;
+  const MB    = window.MARKET_BENCHMARKS;
   const cities = Object.keys(CITY_ADR);
   const beds   = [1, 2, 3];
-  const purposes = ['ltr', 'str', 'mixed'];
 
-  // Build full scored data: one row per city × bed combo, plus market scores
+  // Build full scored data: one row per city × bed combo
   const tableData = cities.map(city => {
     return beds.map(b => {
       const mockListing = { city, type:'Apartment', bedrooms:b, seaDist:2, price:null };
-      const m  = calcPropertyMetrics(mockListing);
-      // Get avg price from actual listings for yield calc
+      const m         = calcPropertyMetrics(mockListing);
       const realPrices = all.filter(d=>d.city===city&&d.bedrooms===b&&d.price).map(d=>d.price);
       const avgPrice   = realPrices.length ? Math.round(realPrices.reduce((a,c)=>a+c,0)/realPrices.length) : null;
-      const ms = computeCityMarketScore(city, b, 'Apartment', avgPrice || 300000, 'mixed');
+      const ms         = computeCityMarketScore(city, b, 'Apartment', avgPrice || 300000, 'mixed');
       return { city, beds:b, avgPrice, ...m, ms };
     });
   }).flat();
 
-  // Per-city summary for the score cards
-  const cityScores = cities.map(city => {
-    const ms2bed = computeCityMarketScore(city, 2, 'Apartment', 300000, 'mixed');
-    return { city, ms: ms2bed };
+  // Per-city 2-bed summary for score cards
+  let cityScores = cities.map(city => {
+    const realPrices = all.filter(d=>d.city===city&&d.bedrooms===2&&d.price).map(d=>d.price);
+    const avgPrice   = realPrices.length ? Math.round(realPrices.reduce((a,c)=>a+c,0)/realPrices.length) : 300000;
+    const ms         = computeCityMarketScore(city, 2, 'Apartment', avgPrice, 'mixed');
+    return { city, ms };
   }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
 
-  // Score cards HTML
+  // Apply safety rules AFTER initial sort
+  applyRankingSafetyRules(cityScores);
+
+  // Score cards
   const scoreCards = cityScores.map((c, i) => {
     const ms = c.ms;
     if (!ms) return '';
-    const rank     = i+1;
-    const rankClr  = rank===1?'#b8860b':rank===2?'#6b7280':rank===3?'#92400e':'var(--mu)';
+    const rank      = i + 1;
+    const rankClr   = rank===1?'#b8860b':rank===2?'#6b7280':rank===3?'#92400e':'var(--mu)';
+    const bandClr   = ms.blendedScore>=70?'#15803d':ms.blendedScore>=60?'#b45309':'#991b1b';
     const confStyle = _confStyle(ms.confTier);
-    const metrics = [
-      { label:'Yield potential', score:ms.yieldScore, val:`${ms.yieldPct.toFixed(1)}%`, isProxy:ms.yieldIsProxy },
-      { label:'Growth momentum', score:ms.growthScore, val:`${ms.growthPct.toFixed(1)}% p.a.`, isProxy:false },
-      { label:'Liquidity',       score:ms.liqScore,    val:`${ms.liqScore}/100${ms.liqTrend==='growing'?' ↑':''}`, isProxy:false },
-      { label:'Confidence',      score:ms.confScore,   val:ms.confLabel, isProxy:ms.confIsProxy },
+    const safety    = ms._safetyWarning;
+
+    const metricRows = [
+      { label:'Yield',      score:ms.yieldScore,  val:`${ms.yieldPct.toFixed(1)}%`,       cap:'cap 85', isEst:ms.isEstimate },
+      { label:'Growth',     score:ms.growthScore, val:`${ms.growthPct.toFixed(1)}% p.a.`, cap:'cap 95', isEst:false },
+      { label:'Liquidity',  score:ms.liqScore,    val:`${(ms.contracts||0).toLocaleString()} sales`, cap:'log-scale', isEst:false },
+      { label:'Confidence', score:ms.confScore,   val:ms.confLabel,  cap:'×conf mult',   isEst:ms.confIsProxy },
     ];
-    return `<div class="portfolio-card" style="border-top:3px solid ${_mScore(ms.blendedScore)}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+
+    return `<div class="portfolio-card" style="border-top:3px solid ${bandClr}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
         <div>
-          <div style="font-size:9px;font-weight:700;color:${rankClr};margin-bottom:2px">#${rank} Market Score</div>
+          <div style="font-size:9px;font-weight:700;color:${rankClr};margin-bottom:2px">#${rank}</div>
           <div style="font-size:15px;font-weight:700;color:var(--tx)">${c.city}</div>
           <span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confTier}</span>
         </div>
         <div style="text-align:right">
-          <div style="font-size:28px;font-weight:700;color:${_mScore(ms.blendedScore)};line-height:1">${ms.blendedScore}</div>
-          <div style="font-size:9px;color:var(--mu)">blended score</div>
+          <div style="font-size:28px;font-weight:700;color:${bandClr};line-height:1">${ms.blendedScore}</div>
+          <div style="font-size:9px;color:var(--mu)">final score</div>
+          <div style="font-size:9px;font-weight:600;color:${bandClr}">${ms.band?.label||''}</div>
         </div>
       </div>
-      ${metrics.map(mt=>`
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-          <div style="font-size:10px;color:var(--mu);width:110px;flex-shrink:0">${mt.label}</div>
+      ${safety ? `<div style="font-size:9px;color:#991b1b;background:#fee2e2;padding:3px 7px;border-radius:4px;margin-bottom:7px">${safety}</div>` : ''}
+      ${metricRows.map(mt=>`
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+          <div style="font-size:9px;color:var(--mu);width:68px;flex-shrink:0">${mt.label}</div>
           <div style="flex:1;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
             <div style="height:100%;width:${mt.score}%;background:${_mScore(mt.score)};border-radius:99px"></div>
           </div>
-          <div style="font-size:10px;font-weight:600;color:${_mScore(mt.score)};min-width:48px;text-align:right">
-            ${mt.val}${mt.isProxy?'<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>':''}
+          <div style="font-size:10px;font-weight:600;color:${_mScore(mt.score)};min-width:58px;text-align:right">
+            ${mt.val}${mt.isEst?'<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>':''}
           </div>
         </div>`).join('')}
-      <div style="font-size:10px;color:var(--mu);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);line-height:1.5">
+      <div style="display:flex;gap:4px;margin-top:6px;font-size:9px;color:var(--mu)">
+        <span>×thin ${ms.thinMult}</span>
+        <span>×conf ${ms.confMult}</span>
+        <span>×proxy ${ms.proxyMult}</span>
+        <span style="margin-left:auto">base ${ms.baseScore}</span>
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);line-height:1.5">
         ${ms.demandNote ? `<div>👥 ${ms.demandNote}</div>` : ''}
-        ${ms.liqNote    ? `<div>🔄 ${ms.liqNote}</div>`    : ''}
+        ${ms.liqNote    ? `<div>🔄 ${ms.liqNote}</div>` : ''}
+        ${ms.liqTrend === 'growing' ? '<div style="color:#15803d">↑ Liquidity trend improving</div>' : ''}
       </div>
       <div style="font-size:9px;color:var(--mu);margin-top:4px;opacity:.7">${ms.growthSource}</div>
     </div>`;
@@ -9413,7 +9619,18 @@ function renderAnalyticsComparison() {
 
   document.getElementById('analyticsContent').innerHTML = `
     <div style="font-size:13px;font-weight:600;margin-bottom:4px">City market comparison</div>
-    <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Blended market score = 30% yield + 25% growth + 20% liquidity + 10% demand + 10% supply + 5% confidence · Sources: CBC RPPI Q4 2025 · RICS · DLS</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:6px">
+      Final Score = BaseScore × thin-market × confidence × proxy multipliers.
+      BaseScore = 25% yield + 25% growth + 25% liquidity + 10% demand + 10% supply + 5% confidence.
+      Sources: CBC RPPI Q4 2025 · RICS · DLS 2024. Directional guidance only — not a forecast.
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:11px">
+      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:500">80+ Strong market</span>
+      <span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-weight:500">70–79 Attractive</span>
+      <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:500">60–69 Selective</span>
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-weight:500">50–59 Opportunistic</span>
+      <span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:4px;font-weight:500">&lt;50 Weak / caution</span>
+    </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px">
       ${scoreCards}
@@ -9421,53 +9638,60 @@ function renderAnalyticsComparison() {
 
     <div class="analytics-charts">
       <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Score breakdown by city <span>Multi-factor — not yield-only</span></div>
+        <div class="analytics-chart-title">Score components by city <span>Absolute bands — not relative scaling</span></div>
         <div class="analytics-chart-wrap" style="height:240px"><canvas id="chartCompare"></canvas></div>
       </div>
     </div>
 
     <div class="analytics-table-card">
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City × bedroom yield comparison</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City × bedroom detail</div>
       <div style="overflow-x:auto">
       <table>
         <thead>
           <tr>
             <th>City</th><th>Beds</th><th>ADR</th><th>Occupancy</th>
-            <th>Annual revenue</th><th>Yield score</th><th>Growth</th>
-            <th>Liquidity</th><th>Blended</th>
+            <th>Annual revenue</th><th>Yield (abs band)</th><th>Growth</th>
+            <th>Liquidity</th><th>Final score</th><th>Interpretation</th>
           </tr>
         </thead>
         <tbody>${tableData.map(r=>{
           const ms = r.ms;
           if (!ms) return '';
-          const proxyMark = ms.yieldIsProxy ? '<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>' : '';
+          const estMark = ms.isEstimate ? '<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>' : '';
+          const bandClr = ms.blendedScore>=70?'#15803d':ms.blendedScore>=60?'#b45309':'#991b1b';
+          const safetyTd = ms._safetyWarning ? `<span style="font-size:9px;color:#991b1b">${ms._safetyWarning}</span>` : `<span style="font-size:9px;color:${bandClr}">${ms.band?.label||''}</span>`;
           return `<tr>
             <td style="font-weight:500">${r.city}</td>
             <td>${r.beds} bed</td>
             <td>€${r.ADR}</td>
             <td>${(r.occupancy*100).toFixed(1)}%</td>
             <td>€${r.annualRevenue.toLocaleString()}</td>
-            <td><span style="font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%</span>${proxyMark}</td>
-            <td><span style="color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span></td>
+            <td><span style="font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${estMark}</span>
+              <span style="font-size:9px;color:var(--mu);margin-left:3px">score ${ms.yieldScore}/85</span></td>
+            <td><span style="color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span>
+              <span style="font-size:9px;color:var(--mu);margin-left:3px">/${ms.growthScore}</span></td>
             <td>
               <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${_mBg(ms.liqScore)};color:${_mScore(ms.liqScore)}">${ms.liqScore}</span>
+              <span style="font-size:9px;color:var(--mu);margin-left:3px">×${ms.thinMult}</span>
             </td>
             <td>
               <div style="display:flex;align-items:center;gap:4px">
                 <div style="width:36px;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
-                  <div style="height:100%;width:${ms.blendedScore}%;background:${_mScore(ms.blendedScore)};border-radius:99px"></div>
+                  <div style="height:100%;width:${ms.blendedScore}%;background:${bandClr};border-radius:99px"></div>
                 </div>
-                <b style="color:${_mScore(ms.blendedScore)}">${ms.blendedScore}</b>
+                <b style="color:${bandClr}">${ms.blendedScore}</b>
               </div>
             </td>
+            <td>${safetyTd}</td>
           </tr>`;
         }).join('')}
         </tbody>
       </table>
       </div>
       <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
-        Yield marked "est" uses district-level proxy rents. Blended score penalises low-liquidity markets (e.g. Famagusta).
-        Growth % = CBC RPPI annual Q4 2025. Liquidity = relative DLS contract volume (Limassol = 100).
+        Yield bands: &lt;2%=20, 2–3%=35, 3–4%=50, 4–5%=62, 5–6%=74, 6–7%=82, ≥7%=85 (hard cap).
+        Liquidity: log-scale from DLS contract count — &lt;100 contracts scores ≤35; &lt;500 receives thin-market multiplier ≤0.95.
+        "est" = benchmark-based or proxy-assisted. Scores are directional, not forecasts.
       </div>
     </div>`;
 
@@ -9481,19 +9705,19 @@ function renderAnalyticsComparison() {
       data: {
         labels: cityScores.map(c=>c.city),
         datasets: [
-          { label:'Blended score', data:cityScores.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4 },
-          { label:'Yield',         data:cityScores.map(c=>c.ms?.yieldScore||0),   backgroundColor:'rgba(184,134,11,.45)', borderRadius:4 },
-          { label:'Growth',        data:cityScores.map(c=>c.ms?.growthScore||0),  backgroundColor:'rgba(21,128,61,.4)',   borderRadius:4 },
-          { label:'Liquidity',     data:cityScores.map(c=>c.ms?.liqScore||0),     backgroundColor:'rgba(29,78,216,.3)',   borderRadius:4 },
-          { label:'Confidence',    data:cityScores.map(c=>c.ms?.confScore||0),    backgroundColor:'rgba(109,40,217,.25)', borderRadius:4 },
+          { label:'Final score',  data:cityScores.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4 },
+          { label:'Yield',        data:cityScores.map(c=>c.ms?.yieldScore||0),   backgroundColor:'rgba(184,134,11,.45)', borderRadius:4 },
+          { label:'Growth',       data:cityScores.map(c=>c.ms?.growthScore||0),  backgroundColor:'rgba(21,128,61,.4)',   borderRadius:4 },
+          { label:'Liquidity',    data:cityScores.map(c=>c.ms?.liqScore||0),     backgroundColor:'rgba(29,78,216,.3)',   borderRadius:4 },
+          { label:'Base (pre-mult)',data:cityScores.map(c=>c.ms?.baseScore||0),  backgroundColor:'rgba(107,114,128,.2)', borderRadius:4, type:'line', fill:false, pointRadius:4, borderColor:'rgba(107,114,128,.5)', borderWidth:1.5 },
         ]
       },
       options: {
         responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'top', labels:{ font:{size:10}, color:textColor } } },
         scales:{
-          x:{ grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}} },
-          y:{ grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}}, max:100, min:0 },
+          x:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}} },
+          y:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}}, max:100, min:0 },
         }
       }
     });
