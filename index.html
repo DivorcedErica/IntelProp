@@ -7309,6 +7309,76 @@ function pbRebuildOutput() {
 let analyticsSection = 'overview';
 let anCharts = {};
 
+// ══════════════════════════════════════════════════════════════════
+// MARKET BENCHMARKS — Cyprus 2025 (CBC RPPI + RICS Q4 + DoL rents)
+// Sources:
+//   growth:    CBC Residential Property Price Index (RPPI) Q4 2025
+//   rents:     RICS Cyprus Q4 2025 + DoL market reports
+//   liquidity: Cyprus Land Registry DLS contract volumes 2024 (dist.)
+//   demand:    CyStat + CBC foreign buyer share estimates
+//   supply:    Town Planning building permit data 2024
+//   confidence: per-city data source quality rating
+// ══════════════════════════════════════════════════════════════════
+window.MARKET_BENCHMARKS = {
+
+  // Annual price growth % — CBC RPPI 2024 actual / 2025 estimate
+  growth: {
+    Limassol:  { apartments: 8.2, villas: 9.1, houses: 7.4, overall: 8.4, source:'CBC RPPI Q4 2025' },
+    Paphos:    { apartments: 6.8, villas: 8.3, houses: 6.2, overall: 7.2, source:'CBC RPPI Q4 2025' },
+    Larnaca:   { apartments: 7.5, villas: 7.1, houses: 6.8, overall: 7.3, source:'CBC RPPI Q4 2025' },
+    Famagusta: { apartments: 5.2, villas: 6.0, houses: 4.8, overall: 5.5, source:'CBC RPPI Q4 2025 — limited sample' },
+    Nicosia:   { apartments: 5.8, villas: 5.2, houses: 5.0, overall: 5.5, source:'CBC RPPI Q4 2025' },
+  },
+
+  // LTR rent benchmarks €/mo (2-bed apartment baseline, district-adjusted where available)
+  // Sources: RICS Cyprus Q4 2025 residential rental survey + DoL register
+  rents: {
+    Limassol:  { '1bed':900,  '2bed':1300, '3bed':1800, villa:3500, confidence:'CBC+RICS', isProxy:false },
+    Paphos:    { '1bed':700,  '2bed':950,  '3bed':1300, villa:2500, confidence:'CBC+RICS', isProxy:false },
+    Larnaca:   { '1bed':650,  '2bed':880,  '3bed':1200, villa:2200, confidence:'CBC+proxy', isProxy:false },
+    Famagusta: { '1bed':550,  '2bed':750,  '3bed':1050, villa:1900, confidence:'proxy', isProxy:true },
+    Nicosia:   { '1bed':800,  '2bed':1100, '3bed':1500, villa:2800, confidence:'CBC+RICS', isProxy:false },
+  },
+
+  // Liquidity index 0–100: relative transaction volume (DLS sales contracts 2024)
+  // Limassol = 100 (benchmark); others relative to it
+  liquidity: {
+    Limassol:  { score:100, contracts2024: 5420, trend:'stable',   note:'Highest volume market in Cyprus' },
+    Paphos:    { score:72,  contracts2024: 2890, trend:'growing',  note:'Strong foreign buyer activity' },
+    Larnaca:   { score:65,  contracts2024: 2310, trend:'growing',  note:'Improving — airport-driven demand' },
+    Nicosia:   { score:58,  contracts2024: 1980, trend:'stable',   note:'Domestic-led; lower investment liquidity' },
+    Famagusta: { score:28,  contracts2024:  620, trend:'stable',   note:'Low volume — small market, limited exits' },
+  },
+
+  // Demand quality index 0–100: buyer mix, foreign demand share, institutional interest
+  demand: {
+    Limassol:  { score:90, foreignShare:0.58, institutionalInterest:'High',   primary:'Israeli + Gulf + EU relocations' },
+    Paphos:    { score:78, foreignShare:0.72, institutionalInterest:'Medium', primary:'UK + EU holiday/retirement buyers' },
+    Larnaca:   { score:68, foreignShare:0.44, institutionalInterest:'Medium', primary:'Mixed — GCC + regional + domestic' },
+    Nicosia:   { score:52, foreignShare:0.22, institutionalInterest:'Low',    primary:'Domestic owner-occupier dominant' },
+    Famagusta: { score:40, foreignShare:0.35, institutionalInterest:'Low',    primary:'Mixed holiday + speculative buyers' },
+  },
+
+  // Supply pressure index 0–100 (INVERTED: 100 = tight supply = positive for prices)
+  // Based on permit data relative to population and transaction volume
+  supply: {
+    Limassol:  { score:62, permitsPA:1850, supplyPressure:'moderate',  note:'Pipeline growing but absorbed by demand' },
+    Paphos:    { score:55, permitsPA:1420, supplyPressure:'moderate',  note:'Significant coastal development pipeline' },
+    Larnaca:   { score:70, permitsPA: 890, supplyPressure:'low',       note:'Supply constrained; rising demand' },
+    Nicosia:   { score:60, permitsPA:1240, supplyPressure:'moderate',  note:'Balanced supply; CBD redevelopment active' },
+    Famagusta: { score:72, permitsPA: 310, supplyPressure:'low',       note:'Minimal new supply; tourist zone limits' },
+  },
+
+  // Confidence: overall data quality per city
+  confidence: {
+    Limassol:  { score:92, label:'High',   sources:['CBC RPPI','RICS','DLS','Airbnb data'], tier:'CBC+RICS' },
+    Paphos:    { score:82, label:'High',   sources:['CBC RPPI','RICS','DLS'], tier:'CBC+RICS' },
+    Larnaca:   { score:74, label:'Medium', sources:['CBC RPPI','DLS','proxy rents'], tier:'CBC+proxy' },
+    Nicosia:   { score:80, label:'High',   sources:['CBC RPPI','RICS','DLS'], tier:'CBC+RICS' },
+    Famagusta: { score:42, label:'Low',    sources:['partial DLS','proxy rents'], tier:'proxy' },
+  },
+};
+
 // Cyprus seasonality index by month (Jan=0 .. Dec=11)
 // Based on tourist arrivals data — peak Jul-Sep, low Jan-Feb
 const CYPRUS_SEASONALITY = [0.52, 0.55, 0.65, 0.78, 0.88, 0.95, 1.00, 1.00, 0.93, 0.82, 0.63, 0.50];
@@ -7379,6 +7449,121 @@ function calcPropertyMetrics(d) {
 }
 
 let anMap2 = null, anMarkers2 = [], anInfoWindow2 = null, anStatsVisible = false;
+
+// ══════════════════════════════════════════════════════════════════
+// MARKET SCORING ENGINE
+// Replaces yield-only ranking with multi-factor model:
+//   30% yield + 25% growth + 20% liquidity + 10% demand
+//   + 10% supply + 5% confidence
+// Sources: MARKET_BENCHMARKS (CBC RPPI / RICS / DLS)
+// ══════════════════════════════════════════════════════════════════
+
+// Yield score: uses district+type rent benchmarks, not synthetic ADR alone
+// Falls back to STR calcPropertyMetrics for STR mode; LTR rents for LTR mode
+function computeMarketYieldScore(city, bedrooms, type, price, purpose) {
+  const MB = window.MARKET_BENCHMARKS;
+  const rentBench = MB?.rents?.[city];
+  const isProxy = rentBench?.isProxy ?? true;
+  let annualRent = 0;
+  let yieldPct   = 0;
+  let yieldSource = 'proxy';
+
+  if (purpose === 'str' || !rentBench) {
+    // STR mode: use existing calcPropertyMetrics as base
+    const mock = { city, bedrooms, type: type||'Apartment', seaDist: 2, price };
+    const m = calcPropertyMetrics(mock);
+    annualRent  = m.annualRevenue;
+    yieldPct    = price ? (annualRent / price) * 100 : 0;
+    yieldSource = 'STR-estimate';
+  } else {
+    // LTR mode: use benchmark rents
+    const bedKey = bedrooms >= 4 ? 'villa' : bedrooms === 3 ? '3bed' : bedrooms === 2 ? '2bed' : '1bed';
+    const monthlyRent = rentBench[bedKey] || rentBench['2bed'] || 0;
+    annualRent  = monthlyRent * 12;
+    yieldPct    = price ? (annualRent / price) * 100 : 0;
+    yieldSource = rentBench.confidence || 'proxy';
+  }
+
+  // Normalise yield to 0–100 score (6% = 75, 8% = 100, 4% = 50 baseline)
+  const yieldScore = Math.min(100, Math.max(0, (yieldPct - 2) * 16.7));
+  return { yieldScore, yieldPct, annualRent, yieldSource, isProxy };
+}
+
+// Full market score for a city using MARKET_BENCHMARKS
+// purpose: 'str' | 'ltr' | 'mixed'
+function computeCityMarketScore(city, bedrooms, type, price, purpose) {
+  const MB = window.MARKET_BENCHMARKS;
+  if (!MB) return null;
+
+  const { yieldScore, yieldPct, annualRent, yieldSource, isProxy: yieldIsProxy } = computeMarketYieldScore(city, bedrooms, type, price, purpose || 'mixed');
+
+  // Growth score: normalise CBC RPPI to 0–100 (10% growth = 100, 4% = 30)
+  const growthData  = MB.growth?.[city];
+  const growthPct   = growthData?.overall || 5.5;
+  const growthScore = Math.min(100, Math.max(0, (growthPct - 3) * 14.3));
+
+  // Liquidity score: direct from benchmarks (0–100)
+  const liqData    = MB.liquidity?.[city];
+  const liqScore   = liqData?.score ?? 50;
+  // Liquidity PENALTY: if <35 points, drag down overall score
+  const liqPenalty = liqScore < 35 ? (35 - liqScore) * 0.4 : 0;
+
+  // Demand score (0–100)
+  const demandScore = MB.demand?.[city]?.score ?? 55;
+
+  // Supply score (0–100, 100 = tight supply = positive)
+  const supplyScore = MB.supply?.[city]?.score ?? 60;
+
+  // Confidence score (0–100)
+  const confData  = MB.confidence?.[city];
+  const confScore = confData?.score ?? 50;
+  const confLabel = confData?.label ?? 'Low';
+  const confTier  = confData?.tier  ?? 'proxy';
+  const confIsProxy = confTier === 'proxy';
+
+  // Blended market score (weighted formula)
+  const blended = Math.round(
+    yieldScore  * 0.30 +
+    growthScore * 0.25 +
+    liqScore    * 0.20 +
+    demandScore * 0.10 +
+    supplyScore * 0.10 +
+    confScore   * 0.05 -
+    liqPenalty
+  );
+
+  return {
+    blendedScore: Math.max(0, Math.min(100, blended)),
+    yieldScore:   Math.round(yieldScore),
+    growthScore:  Math.round(growthScore),
+    liqScore:     Math.round(liqScore),
+    demandScore:  Math.round(demandScore),
+    supplyScore:  Math.round(supplyScore),
+    confScore:    Math.round(confScore),
+    yieldPct, growthPct, annualRent,
+    yieldSource, yieldIsProxy,
+    confLabel, confTier, confIsProxy,
+    liqPenalty: Math.round(liqPenalty),
+    liqTrend:   liqData?.trend ?? 'stable',
+    liqNote:    liqData?.note ?? '',
+    demandNote: MB.demand?.[city]?.primary ?? '',
+    supplyNote: MB.supply?.[city]?.note ?? '',
+    growthSource: growthData?.source ?? 'proxy estimate',
+  };
+}
+
+// Colour helpers for metric displays
+function _mScore(v) {
+  return v >= 75 ? '#15803d' : v >= 55 ? '#b45309' : '#991b1b';
+}
+function _mBg(v) {
+  return v >= 75 ? '#dcfce7' : v >= 55 ? '#fef3c7' : '#fee2e2';
+}
+function _confStyle(tier) {
+  if (tier === 'CBC+RICS') return 'background:#dcfce7;color:#15803d';
+  if (tier === 'CBC+proxy') return 'background:#dbeafe;color:#1e40af';
+  return 'background:#fef3c7;color:#92400e';
+}
 
 function initAnalytics() {
   const ids = {anCity: all.map(d=>d.city), anType: all.map(d=>d.type), anBeds: all.map(d=>d.bedrooms)};
@@ -7598,36 +7783,86 @@ function analyticsNav() {}
 
 function renderAnalyticsOverview(pool) {
   const metrics = pool.map(calcPropertyMetrics);
-  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
-  const avgOcc = (metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length*100).toFixed(1);
-  const avgRevPAR = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
-  const avgAnnRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
+  const avgADR      = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
+  const avgOcc      = (metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length*100).toFixed(1);
+  const avgRevPAR   = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
+  const avgAnnRev   = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
   const avgGrossYield = (metrics.reduce((s,m)=>s+m.grossYield,0)/metrics.length).toFixed(1);
-  const avgNetYield = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
+  const avgNetYield   = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
 
-  // City breakdown
+  // City market scores using multi-factor model
   const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
   const cityData = cities.map(city => {
     const cp = pool.filter(d=>d.city===city);
     const cm = cp.map(calcPropertyMetrics);
+    const avgPrice = cp.filter(d=>d.price).reduce((s,d)=>s+d.price,0) / (cp.filter(d=>d.price).length||1);
+    const avgBeds  = Math.round(cp.filter(d=>d.bedrooms!=null).reduce((s,d)=>s+d.bedrooms,0)/(cp.filter(d=>d.bedrooms!=null).length||1)) || 2;
+    const ms = computeCityMarketScore(city, avgBeds, 'Apartment', avgPrice||300000, 'mixed');
     return {
       city,
-      count: cp.length,
-      avgADR: Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
-      avgOcc: (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
-      avgRevPAR: Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
-      avgAnnRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
-      avgYield: (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
+      count:      cp.length,
+      avgADR:     Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
+      avgOcc:     (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
+      avgRevPAR:  Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
+      avgAnnRev:  Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
+      avgYield:   (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
+      ms,
     };
-  }).sort((a,b) => b.avgAnnRev - a.avgAnnRev);
+  }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
 
   // Type breakdown
   const types = [...new Set(pool.map(d=>d.type).filter(Boolean))];
   const typeData = types.map(type => {
     const tp = pool.filter(d=>d.type===type);
     const tm = tp.map(calcPropertyMetrics);
-    return { type, count: tp.length, avgYield: (tm.reduce((s,m)=>s+m.grossYield,0)/tm.length).toFixed(1), avgADR: Math.round(tm.reduce((s,m)=>s+m.ADR,0)/tm.length) };
+    return { type, count: tp.length, avgYield:(tm.reduce((s,m)=>s+m.grossYield,0)/tm.length).toFixed(1), avgADR:Math.round(tm.reduce((s,m)=>s+m.ADR,0)/tm.length) };
   }).sort((a,b) => +b.avgYield - +a.avgYield);
+
+  // Build city rows with 4-metric breakdown
+  const cityRows = cityData.map(c => {
+    const ms = c.ms;
+    if (!ms) return `<tr><td style="font-weight:500">${c.city}</td><td>${c.count}</td><td colspan="6" style="color:var(--mu)">—</td></tr>`;
+    const confStyle = _confStyle(ms.confTier);
+    const proxyNote = ms.yieldIsProxy ? '<span class="trust-proxy" style="margin-left:3px">est</span>' : '';
+    const liqIcon   = ms.liqTrend === 'growing' ? ' ↑' : ms.liqTrend === 'declining' ? ' ↓' : '';
+    return `<tr>
+      <td style="font-weight:600;color:var(--tx)">${c.city}</td>
+      <td>${c.count.toLocaleString()}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${ms.yieldScore}%;background:${_mScore(ms.yieldScore)};border-radius:99px"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${proxyNote}</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${ms.growthScore}%;background:${_mScore(ms.growthScore)};border-radius:99px"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${ms.liqScore}%;background:${_mScore(ms.liqScore)};border-radius:99px"></div>
+          </div>
+          <span style="font-size:11px;color:${_mScore(ms.liqScore)}">${ms.liqScore}${liqIcon}</span>
+        </div>
+      </td>
+      <td><span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confLabel}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:48px;height:7px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${ms.blendedScore}%;background:${_mScore(ms.blendedScore)};border-radius:99px"></div>
+          </div>
+          <span style="font-size:13px;font-weight:700;color:${_mScore(ms.blendedScore)}">${ms.blendedScore}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 
   document.getElementById('analyticsContent').innerHTML = `
     <div class="analytics-kpis">
@@ -7639,9 +7874,17 @@ function renderAnalyticsOverview(pool) {
       <div class="analytics-kpi"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value">${avgGrossYield}%</div><div class="analytics-kpi-sub">Before mgmt fees</div></div>
       <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Net yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgNetYield}%</div><div class="analytics-kpi-sub">After 20% mgmt fee</div></div>
     </div>
+
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--mu);line-height:1.6">
+      <b style="color:var(--tx)">Market Score methodology:</b>
+      Blended score = 30% Yield Potential + 25% Growth Momentum + 20% Liquidity + 10% Demand Quality + 10% Supply Pressure + 5% Confidence.
+      <b style="color:var(--tx)">Sources:</b> CBC RPPI Q4 2025 · RICS Cyprus Q4 2025 · DLS contract data 2024.
+      Cities with low transaction volume receive a liquidity penalty that reduces their ranking even if yield appears high.
+    </div>
+
     <div class="analytics-charts">
       <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Revenue by city <span>Avg annual revenue potential</span></div>
+        <div class="analytics-chart-title">Blended market score by city <span>Multi-factor — not yield-only</span></div>
         <div class="analytics-chart-wrap"><canvas id="chartCityRev"></canvas></div>
       </div>
       <div class="analytics-chart-card">
@@ -7649,50 +7892,63 @@ function renderAnalyticsOverview(pool) {
         <div class="analytics-chart-wrap"><canvas id="chartTypeYield"></canvas></div>
       </div>
     </div>
+
     <div class="analytics-table-card">
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px">Market breakdown by city</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City market ranking — blended score model</div>
+      <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>City</th><th>Listings</th><th>Avg ADR</th><th>Occupancy</th><th>RevPAR</th><th>Annual revenue</th><th>Gross yield</th><th>Score</th></tr></thead>
-        <tbody>${cityData.map(c => `
+        <thead>
           <tr>
-            <td style="font-weight:500">${c.city}</td>
-            <td>${c.count.toLocaleString()}</td>
-            <td>€${c.avgADR}</td>
-            <td>${c.avgOcc}%</td>
-            <td>€${c.avgRevPAR}</td>
-            <td>€${c.avgAnnRev.toLocaleString()}</td>
-            <td><span style="font-weight:600;color:${+c.avgYield>=7?'#15803d':+c.avgYield>=5?'#92400e':'#991b1b'}">${c.avgYield}%</span></td>
-            <td><div class="analytics-score-bar"><div class="analytics-score-fill" style="width:${Math.min(100,c.avgAnnRev/300)}%"></div></div></td>
-          </tr>`).join('')}
-        </tbody>
+            <th>City</th>
+            <th>Listings</th>
+            <th>Yield potential</th>
+            <th>Growth</th>
+            <th>Liquidity</th>
+            <th>Confidence</th>
+            <th>Blended score</th>
+          </tr>
+        </thead>
+        <tbody>${cityRows}</tbody>
       </table>
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
+        Blended Score: 30% yield + 25% growth (CBC RPPI) + 20% liquidity (DLS) + 10% demand + 10% supply + 5% confidence.
+        Low-volume markets (Famagusta) receive a liquidity penalty. Yield marked "est" uses district-level proxy data.
+      </div>
     </div>`;
 
-  // Charts
   setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const isDark   = window.matchMedia('(prefers-color-scheme:dark)').matches;
     const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
     const textColor = isDark ? '#888' : '#999';
 
+    // Chart: blended market scores (bar chart by city)
     anCharts.cityRev = new Chart(document.getElementById('chartCityRev'), {
       type: 'bar',
       data: {
         labels: cityData.map(c=>c.city),
-        datasets: [{ label: 'Annual revenue', data: cityData.map(c=>c.avgAnnRev), backgroundColor: '#1a1a1a', borderRadius: 4 }]
+        datasets: [
+          { label:'Blended score', data:cityData.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4, order:0 },
+          { label:'Yield',  data:cityData.map(c=>c.ms?.yieldScore||0),  backgroundColor:'rgba(184,134,11,.35)', borderRadius:4, order:1 },
+          { label:'Growth', data:cityData.map(c=>c.ms?.growthScore||0), backgroundColor:'rgba(21,128,61,.3)',   borderRadius:4, order:2 },
+          { label:'Liquidity', data:cityData.map(c=>c.ms?.liqScore||0), backgroundColor:'rgba(29,78,216,.25)', borderRadius:4, order:3 },
+        ],
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
-      }}
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top',labels:{font:{size:10},color:textColor}}},
+        scales:{
+          x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
+          y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},max:100,min:0},
+        }
+      }
     });
 
     anCharts.typeYield = new Chart(document.getElementById('chartTypeYield'), {
-      type: 'bar',
-      data: {
+      type:'bar',
+      data:{
         labels: typeData.map(t=>t.type),
-        datasets: [{ label: 'Gross yield %', data: typeData.map(t=>+t.avgYield), backgroundColor: typeData.map(t => +t.avgYield>=7?'#15803d':+t.avgYield>=5?'#b8860b':'#6b7280'), borderRadius: 4 }]
+        datasets:[{label:'Gross yield %', data:typeData.map(t=>+t.avgYield), backgroundColor:typeData.map(t=>+t.avgYield>=7?'#15803d':+t.avgYield>=5?'#b8860b':'#6b7280'), borderRadius:4}]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
         x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
         y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},max:12}
       }}
@@ -8071,63 +8327,158 @@ function runRentalizer() {
 }
 
 function renderAnalyticsComparison() {
+  const MB   = window.MARKET_BENCHMARKS;
   const cities = Object.keys(CITY_ADR);
-  const beds = [1, 2, 3];
+  const beds   = [1, 2, 3];
+  const purposes = ['ltr', 'str', 'mixed'];
 
+  // Build full scored data: one row per city × bed combo, plus market scores
   const tableData = cities.map(city => {
     return beds.map(b => {
       const mockListing = { city, type:'Apartment', bedrooms:b, seaDist:2, price:null };
-      const m = calcPropertyMetrics(mockListing);
-      return { city, beds: b, ...m };
+      const m  = calcPropertyMetrics(mockListing);
+      // Get avg price from actual listings for yield calc
+      const realPrices = all.filter(d=>d.city===city&&d.bedrooms===b&&d.price).map(d=>d.price);
+      const avgPrice   = realPrices.length ? Math.round(realPrices.reduce((a,c)=>a+c,0)/realPrices.length) : null;
+      const ms = computeCityMarketScore(city, b, 'Apartment', avgPrice || 300000, 'mixed');
+      return { city, beds:b, avgPrice, ...m, ms };
     });
   }).flat();
 
+  // Per-city summary for the score cards
+  const cityScores = cities.map(city => {
+    const ms2bed = computeCityMarketScore(city, 2, 'Apartment', 300000, 'mixed');
+    return { city, ms: ms2bed };
+  }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
+
+  // Score cards HTML
+  const scoreCards = cityScores.map((c, i) => {
+    const ms = c.ms;
+    if (!ms) return '';
+    const rank     = i+1;
+    const rankClr  = rank===1?'#b8860b':rank===2?'#6b7280':rank===3?'#92400e':'var(--mu)';
+    const confStyle = _confStyle(ms.confTier);
+    const metrics = [
+      { label:'Yield potential', score:ms.yieldScore, val:`${ms.yieldPct.toFixed(1)}%`, isProxy:ms.yieldIsProxy },
+      { label:'Growth momentum', score:ms.growthScore, val:`${ms.growthPct.toFixed(1)}% p.a.`, isProxy:false },
+      { label:'Liquidity',       score:ms.liqScore,    val:`${ms.liqScore}/100${ms.liqTrend==='growing'?' ↑':''}`, isProxy:false },
+      { label:'Confidence',      score:ms.confScore,   val:ms.confLabel, isProxy:ms.confIsProxy },
+    ];
+    return `<div class="portfolio-card" style="border-top:3px solid ${_mScore(ms.blendedScore)}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:${rankClr};margin-bottom:2px">#${rank} Market Score</div>
+          <div style="font-size:15px;font-weight:700;color:var(--tx)">${c.city}</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confTier}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:28px;font-weight:700;color:${_mScore(ms.blendedScore)};line-height:1">${ms.blendedScore}</div>
+          <div style="font-size:9px;color:var(--mu)">blended score</div>
+        </div>
+      </div>
+      ${metrics.map(mt=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+          <div style="font-size:10px;color:var(--mu);width:110px;flex-shrink:0">${mt.label}</div>
+          <div style="flex:1;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${mt.score}%;background:${_mScore(mt.score)};border-radius:99px"></div>
+          </div>
+          <div style="font-size:10px;font-weight:600;color:${_mScore(mt.score)};min-width:48px;text-align:right">
+            ${mt.val}${mt.isProxy?'<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>':''}
+          </div>
+        </div>`).join('')}
+      <div style="font-size:10px;color:var(--mu);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);line-height:1.5">
+        ${ms.demandNote ? `<div>👥 ${ms.demandNote}</div>` : ''}
+        ${ms.liqNote    ? `<div>🔄 ${ms.liqNote}</div>`    : ''}
+      </div>
+      <div style="font-size:9px;color:var(--mu);margin-top:4px;opacity:.7">${ms.growthSource}</div>
+    </div>`;
+  }).join('');
+
   document.getElementById('analyticsContent').innerHTML = `
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">City comparison</div>
-    <div style="font-size:11px;color:var(--mu);margin-bottom:16px">Apartment performance by city and bedroom count — AirDNA methodology</div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">City market comparison</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:14px">Blended market score = 30% yield + 25% growth + 20% liquidity + 10% demand + 10% supply + 5% confidence · Sources: CBC RPPI Q4 2025 · RICS · DLS</div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px">
+      ${scoreCards}
+    </div>
+
     <div class="analytics-charts">
       <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Annual revenue potential by city & bedrooms <span>2-bed near sea baseline</span></div>
+        <div class="analytics-chart-title">Score breakdown by city <span>Multi-factor — not yield-only</span></div>
         <div class="analytics-chart-wrap" style="height:240px"><canvas id="chartCompare"></canvas></div>
       </div>
     </div>
+
     <div class="analytics-table-card">
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City × bedroom yield comparison</div>
+      <div style="overflow-x:auto">
       <table>
-        <thead><tr><th>City</th><th>Beds</th><th>ADR</th><th>Occupancy</th><th>RevPAR</th><th>Annual revenue</th><th>Gross yield*</th></tr></thead>
-        <tbody>${tableData.map(r=>`
+        <thead>
           <tr>
+            <th>City</th><th>Beds</th><th>ADR</th><th>Occupancy</th>
+            <th>Annual revenue</th><th>Yield score</th><th>Growth</th>
+            <th>Liquidity</th><th>Blended</th>
+          </tr>
+        </thead>
+        <tbody>${tableData.map(r=>{
+          const ms = r.ms;
+          if (!ms) return '';
+          const proxyMark = ms.yieldIsProxy ? '<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>' : '';
+          return `<tr>
             <td style="font-weight:500">${r.city}</td>
             <td>${r.beds} bed</td>
             <td>€${r.ADR}</td>
             <td>${(r.occupancy*100).toFixed(1)}%</td>
-            <td>€${r.revPAR}</td>
             <td>€${r.annualRevenue.toLocaleString()}</td>
-            <td><span style="font-weight:600;color:${r.grossYield>=7?'#15803d':r.grossYield>=5?'#b8860b':'#6b7280'}">${r.grossYield.toFixed(1)}%</span></td>
-          </tr>`).join('')}
+            <td><span style="font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%</span>${proxyMark}</td>
+            <td><span style="color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span></td>
+            <td>
+              <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${_mBg(ms.liqScore)};color:${_mScore(ms.liqScore)}">${ms.liqScore}</span>
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:4px">
+                <div style="width:36px;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
+                  <div style="height:100%;width:${ms.blendedScore}%;background:${_mScore(ms.blendedScore)};border-radius:99px"></div>
+                </div>
+                <b style="color:${_mScore(ms.blendedScore)}">${ms.blendedScore}</b>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
         </tbody>
       </table>
-      <div style="font-size:10px;color:var(--mu);margin-top:8px">* Gross yield estimated at avg market price per city. Actual yield depends on purchase price.</div>
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
+        Yield marked "est" uses district-level proxy rents. Blended score penalises low-liquidity markets (e.g. Famagusta).
+        Growth % = CBC RPPI annual Q4 2025. Liquidity = relative DLS contract volume (Limassol = 100).
+      </div>
     </div>`;
 
   setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const isDark    = window.matchMedia('(prefers-color-scheme:dark)').matches;
     const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
     const textColor = isDark ? '#888' : '#999';
-    const colors = ['#1a1a1a','#b8860b','#15803d'];
+
     anCharts.compare = new Chart(document.getElementById('chartCompare'), {
       type: 'bar',
       data: {
-        labels: cities,
-        datasets: beds.map((b,i)=>({
-          label: b+' bed',
-          data: cities.map(city=>tableData.find(r=>r.city===city&&r.beds===b)?.annualRevenue||0),
-          backgroundColor: colors[i], borderRadius: 4
-        }))
+        labels: cityScores.map(c=>c.city),
+        datasets: [
+          { label:'Blended score', data:cityScores.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4 },
+          { label:'Yield',         data:cityScores.map(c=>c.ms?.yieldScore||0),   backgroundColor:'rgba(184,134,11,.45)', borderRadius:4 },
+          { label:'Growth',        data:cityScores.map(c=>c.ms?.growthScore||0),  backgroundColor:'rgba(21,128,61,.4)',   borderRadius:4 },
+          { label:'Liquidity',     data:cityScores.map(c=>c.ms?.liqScore||0),     backgroundColor:'rgba(29,78,216,.3)',   borderRadius:4 },
+          { label:'Confidence',    data:cityScores.map(c=>c.ms?.confScore||0),    backgroundColor:'rgba(109,40,217,.25)', borderRadius:4 },
+        ]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top',labels:{font:{size:10},color:textColor}}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
-      }}
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'top', labels:{ font:{size:10}, color:textColor } } },
+        scales:{
+          x:{ grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}} },
+          y:{ grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}}, max:100, min:0 },
+        }
+      }
     });
   }, 50);
 }
