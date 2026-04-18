@@ -428,6 +428,22 @@ tr:hover td{background:var(--bg2)}
 /* ── Smooth transitions ── */
 .panel,.ai-card,.prop-card,.ip-tile,.ip-kpi{transition:box-shadow .15s,border-color .15s}
 
+/* ── Agent Portal ── */
+.ap-dropzone{border:1.5px dashed var(--bd);border-radius:var(--r);padding:22px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;background:var(--bg2)}
+.ap-dropzone:hover,.ap-dz-hover{border-color:var(--tx);background:var(--bg)}
+.ap-row-new td{background:rgba(21,128,61,.04)}
+.ap-row-dup td{background:rgba(184,134,11,.05)}
+.ap-row-warn td{background:rgba(231,76,60,.04)}
+.ap-cell-uncertain{color:#92400e;font-style:italic}
+.ap-conf-high{background:#dcfce7;color:#15803d;font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.ap-conf-med{background:#dbeafe;color:#1e40af;font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.ap-conf-low{background:#fef3c7;color:#92400e;font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.ap-conf-proxy{background:#fee2e2;color:#991b1b;font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.ap-bench-card{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px 16px}
+.ap-bench-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:10px}
+.ap-bench-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:11px}
+.ap-bench-row:last-child{border-bottom:none}
+
 </style>
 </head>
 <body>
@@ -463,6 +479,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
       <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
       <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
+      <button class="tab" onclick="gotoTab('agentportal',this)">⬆ Agent Portal</button>
 
     </div>
 
@@ -1394,6 +1411,229 @@ tr:hover td{background:var(--bg2)}
       </div>
       <div class="twrap" id="slView"><div class="empty">Click ♡ on any listing to add it here.</div></div>
     </div>
+
+    <!-- AGENT PORTAL -->
+    <div id="pAgentportal" style="display:none">
+
+      <!-- Mode selector -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--tx)">Agent Portal</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Ingest, extract, review and approve — nothing writes to Sheets without your sign-off</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button id="apMode1Btn" class="btn primary" onclick="apSetMode('property')">🏠 Property ingestion</button>
+          <button id="apMode2Btn" class="btn" onclick="apSetMode('research')">📊 Market research</button>
+        </div>
+      </div>
+
+      <!-- ── PROPERTY INGESTION ─────────────────────────── -->
+      <div id="apPropertyMode">
+        <div class="panel" style="margin-bottom:14px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:14px">Input — choose one or combine</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <div class="form-label">Upload PDF / brochure / unit schedule</div>
+              <div id="apPropDropzone" class="ap-dropzone" onclick="document.getElementById('apPropFile').click()" ondragover="event.preventDefault();this.classList.add('ap-dz-hover')" ondragleave="this.classList.remove('ap-dz-hover')" ondrop="apHandleDrop(event,'property')">
+                <div style="font-size:20px;margin-bottom:6px">📄</div>
+                <div style="font-size:12px;font-weight:500;color:var(--tx)">Drop PDF or CSV here</div>
+                <div style="font-size:10px;color:var(--mu);margin-top:3px">or click to browse</div>
+                <div id="apPropFileName" style="font-size:10px;color:var(--gold);margin-top:5px;font-weight:500"></div>
+              </div>
+              <input type="file" id="apPropFile" accept=".pdf,.csv,.txt,.xls,.xlsx" style="display:none" onchange="apHandleFile(this,'property')">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div class="form-label">Paste raw text / brochure content</div>
+                <textarea id="apPropText" placeholder="Paste any text: unit schedules, brochure copy, developer notes…" style="width:100%;height:90px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea>
+              </div>
+              <div>
+                <div class="form-label">Developer website / listing URL (optional)</div>
+                <input id="apPropUrl" type="url" placeholder="https://developer-site.com/project" class="form-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Context hints -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <div class="form-label">Developer name (hint)</div>
+              <input id="apPropDeveloperHint" placeholder="e.g. Pafilia" class="form-input">
+            </div>
+            <div>
+              <div class="form-label">City (hint)</div>
+              <select id="apPropCityHint" class="form-input">
+                <option value="">— Any —</option>
+                <option>Limassol</option><option>Paphos</option><option>Larnaca</option>
+                <option>Nicosia</option><option>Famagusta</option>
+              </select>
+            </div>
+            <div>
+              <div class="form-label">Property type (hint)</div>
+              <select id="apPropTypeHint" class="form-input">
+                <option value="">— Any —</option>
+                <option>Apartment</option><option>Villa</option>
+                <option>House</option><option>Penthouse</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn primary" onclick="apExtractProperties()" id="apPropExtractBtn" style="height:38px;padding:0 20px;font-size:13px">✦ Extract listings</button>
+            <button class="btn" onclick="apClearProperty()">✕ Clear</button>
+            <div id="apPropStatus" style="font-size:11px;color:var(--mu)"></div>
+          </div>
+        </div>
+
+        <!-- Review table -->
+        <div id="apPropReviewArea" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--tx)">Extracted listings — review before importing</div>
+              <div style="font-size:11px;color:var(--mu)" id="apPropReviewSub"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn primary" onclick="apApproveProperties()" id="apPropApproveBtn">✓ Approve selected</button>
+              <button class="btn" onclick="apRejectAllProperties()">✕ Reject all</button>
+            </div>
+          </div>
+          <div class="proxy-strip" style="margin-bottom:10px" id="apPropWarnings"></div>
+          <div style="overflow-x:auto;border:1px solid var(--bd);border-radius:var(--r)">
+            <table id="apPropTable" style="width:100%;border-collapse:collapse;font-size:11px;min-width:900px">
+              <thead>
+                <tr style="background:var(--bg2)">
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd);width:32px"><input type="checkbox" id="apPropSelectAll" onchange="apToggleAllProps(this.checked)"></th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Status</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Developer</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Title / Unit</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Type</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">City</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Beds</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Area m²</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Price €</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Delivery</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Confidence</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)">Notes / Flags</th>
+                </tr>
+              </thead>
+              <tbody id="apPropTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Import result -->
+        <div id="apPropResult" style="display:none;margin-top:14px"></div>
+      </div>
+
+      <!-- ── MARKET RESEARCH INGESTION ─────────────────────────── -->
+      <div id="apResearchMode" style="display:none">
+        <div class="panel" style="margin-bottom:14px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:14px">Input — choose one or combine</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <div class="form-label">Upload market report / PDF / CSV</div>
+              <div id="apResDropzone" class="ap-dropzone" onclick="document.getElementById('apResFile').click()" ondragover="event.preventDefault();this.classList.add('ap-dz-hover')" ondragleave="this.classList.remove('ap-dz-hover')" ondrop="apHandleDrop(event,'research')">
+                <div style="font-size:20px;margin-bottom:6px">📊</div>
+                <div style="font-size:12px;font-weight:500;color:var(--tx)">Drop report PDF or CSV here</div>
+                <div style="font-size:10px;color:var(--mu);margin-top:3px">CBC / RICS / rental guide / internal notes</div>
+                <div id="apResFileName" style="font-size:10px;color:var(--gold);margin-top:5px;font-weight:500"></div>
+              </div>
+              <input type="file" id="apResFile" accept=".pdf,.csv,.txt,.xls,.xlsx" style="display:none" onchange="apHandleFile(this,'research')">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div class="form-label">Paste article / report text</div>
+                <textarea id="apResText" placeholder="Paste CBC RPPI data, RICS findings, rental guide data, or internal agent notes…" style="width:100%;height:90px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea>
+              </div>
+              <div>
+                <div class="form-label">Source URL (optional)</div>
+                <input id="apResUrl" type="url" placeholder="https://centralbank.cy/..." class="form-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Source classification -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <div class="form-label">Source type (hint — AI will verify)</div>
+              <select id="apResSourceType" class="form-input">
+                <option value="">— Let AI classify —</option>
+                <option value="cbc_rppi">CBC RPPI (price index)</option>
+                <option value="rics_kpmg">RICS / KPMG report</option>
+                <option value="rental_guide">Rental guide / asking rents</option>
+                <option value="developer_note">Developer market note</option>
+                <option value="agent_research">Internal agent research</option>
+                <option value="general_article">General market article</option>
+              </select>
+            </div>
+            <div>
+              <div class="form-label">Report date (hint)</div>
+              <input id="apResDate" type="month" class="form-input">
+            </div>
+            <div>
+              <div class="form-label">City scope</div>
+              <select id="apResCityScope" class="form-input">
+                <option value="all">All Cyprus</option>
+                <option value="Limassol">Limassol</option>
+                <option value="Paphos">Paphos</option>
+                <option value="Larnaca">Larnaca</option>
+                <option value="Nicosia">Nicosia</option>
+                <option value="Famagusta">Famagusta</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn primary" onclick="apExtractResearch()" id="apResExtractBtn" style="height:38px;padding:0 20px;font-size:13px">✦ Extract benchmarks</button>
+            <button class="btn" onclick="apClearResearch()">✕ Clear</button>
+            <div id="apResStatus" style="font-size:11px;color:var(--mu)"></div>
+          </div>
+        </div>
+
+        <!-- Research review table -->
+        <div id="apResReviewArea" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--tx)">Extracted benchmarks — review before applying</div>
+              <div style="font-size:11px;color:var(--mu)" id="apResReviewSub"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn primary" onclick="apApproveResearch()" id="apResApproveBtn">✓ Approve &amp; apply</button>
+              <button class="btn" onclick="apRejectResearch()">✕ Reject</button>
+            </div>
+          </div>
+          <div class="proxy-strip" style="margin-bottom:10px" id="apResWarnings"></div>
+
+          <!-- Source classification result -->
+          <div id="apResClassification" style="margin-bottom:12px"></div>
+
+          <!-- Benchmark cards -->
+          <div id="apResBenchmarkCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:14px"></div>
+
+          <!-- Raw extracted table -->
+          <div style="overflow-x:auto;border:1px solid var(--bd);border-radius:var(--r)">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead>
+                <tr style="background:var(--bg2)">
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Category</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">City / District</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Metric</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Value</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Period</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Confidence</th>
+                  <th style="padding:8px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Action</th>
+                </tr>
+              </thead>
+              <tbody id="apResTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Research result -->
+        <div id="apResResult" style="display:none;margin-top:14px"></div>
+      </div>
+
+    </div><!-- /pAgentportal -->
   </div>
 </div>
 
@@ -4638,7 +4878,7 @@ function clearFilters(){
 
 function gotoTab(t,el){
   tab=t;
-  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist','agentportal'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
@@ -4648,6 +4888,7 @@ function gotoTab(t,el){
   if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();initAgentField();}
   if(t==='agents'){renderAgentsTab();readAgentsFromSheets().then(()=>renderAgentsTab());}
   if(t==='clients'||t==='portfolio'){populateClientSelectors();populateAgentSelector();}
+  if(t==='agentportal'){apInitPortal();}
 }
 
 function renderDev(filterDev) {
@@ -7304,6 +7545,782 @@ function pbRebuildOutput() {
   </div>`;
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// AGENT PORTAL — dual-mode ingestion and review system
+// Mode 1: Property ingestion (PDF/CSV/text → listings schema → Sheets)
+// Mode 2: Market research (reports → benchmark data → analytics refresh)
+// Nothing writes to Google Sheets without explicit agent approval.
+// ══════════════════════════════════════════════════════════════════
+
+// ── State ────────────────────────────────────────────────────────
+const _ap = {
+  mode: 'property',           // 'property' | 'research'
+  propFileData: null,         // base64 PDF or parsed CSV text
+  propFileType: null,         // 'pdf' | 'csv' | 'text'
+  propFileName: '',
+  resFileData: null,
+  resFileType: null,
+  resFileName: '',
+  extractedProps: [],         // [{...fields, _status, _confidence, _flags, _selected}]
+  extractedBenchmarks: [],    // [{category, city, metric, value, period, confidence, approved}]
+  resClassification: null,    // AI source classification result
+};
+
+// ── Init / mode switch ───────────────────────────────────────────
+function apInitPortal() {
+  apSetMode('property');
+}
+
+function apSetMode(mode) {
+  _ap.mode = mode;
+  document.getElementById('apPropertyMode').style.display = mode === 'property' ? '' : 'none';
+  document.getElementById('apResearchMode').style.display = mode === 'research'  ? '' : 'none';
+  document.getElementById('apMode1Btn').className = 'btn' + (mode === 'property' ? ' primary' : '');
+  document.getElementById('apMode2Btn').className = 'btn' + (mode === 'research'  ? ' primary' : '');
+}
+
+// ── File handling ─────────────────────────────────────────────────
+function apHandleDrop(event, mode) {
+  event.preventDefault();
+  const dz = event.currentTarget;
+  dz.classList.remove('ap-dz-hover');
+  const file = event.dataTransfer?.files?.[0];
+  if (file) apProcessFile(file, mode);
+}
+
+function apHandleFile(input, mode) {
+  const file = input.files?.[0];
+  if (file) apProcessFile(file, mode);
+  input.value = ''; // allow re-select same file
+}
+
+function apProcessFile(file, mode) {
+  const isMode = s => mode === s;
+  const nameEl = document.getElementById(isMode('property') ? 'apPropFileName' : 'apResFileName');
+  const ext    = file.name.split('.').pop().toLowerCase();
+  nameEl.textContent = `📎 ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+
+  if (ext === 'pdf') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const b64 = e.target.result.split(',')[1];
+      if (isMode('property')) { _ap.propFileData = b64; _ap.propFileType = 'pdf'; _ap.propFileName = file.name; }
+      else                    { _ap.resFileData  = b64; _ap.resFileType  = 'pdf'; _ap.resFileName  = file.name; }
+    };
+    reader.readAsDataURL(file);
+  } else {
+    // CSV / TXT / XLSX — read as text
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      if (isMode('property')) { _ap.propFileData = text; _ap.propFileType = ext === 'csv' ? 'csv' : 'text'; _ap.propFileName = file.name; }
+      else                    { _ap.resFileData  = text; _ap.resFileType  = ext === 'csv' ? 'csv' : 'text'; _ap.resFileName  = file.name; }
+    };
+    reader.readAsText(file);
+  }
+}
+
+// ── AI call helper ────────────────────────────────────────────────
+async function apCallClaude(systemPrompt, userContent, maxTokens) {
+  // Build messages array — include file if present
+  const messages = [{ role: 'user', content: userContent }];
+  try {
+    const res = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens || 4000,
+        system: systemPrompt,
+        messages,
+      })
+    });
+    if (!res.ok) throw new Error('Proxy returned ' + res.status);
+    const data = await res.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+    return text;
+  } catch(e) {
+    throw new Error('AI extraction failed: ' + e.message);
+  }
+}
+
+// ── Duplicate detection against existing listings ─────────────────
+function apCheckDuplicate(row) {
+  if (!all || !all.length) return null;
+  const devL   = (row.developer || '').toLowerCase().trim();
+  const titleL = (row.title || '').toLowerCase().trim();
+  const cityL  = (row.city || '').toLowerCase().trim();
+  const beds   = row.bedrooms != null ? +row.bedrooms : null;
+  const price  = row.price ? +row.price : null;
+
+  // Exact: same developer + title
+  const exact = all.find(d =>
+    d.developer && d.title &&
+    d.developer.toLowerCase().trim() === devL &&
+    d.title.toLowerCase().trim() === titleL
+  );
+  if (exact) return { type: 'exact', match: exact };
+
+  // Fuzzy: same city + beds + price within 5%
+  if (price && beds !== null && cityL) {
+    const fuzzy = all.find(d =>
+      (d.city||'').toLowerCase() === cityL &&
+      d.bedrooms === beds &&
+      d.price && Math.abs(d.price - price)/price < 0.05
+    );
+    if (fuzzy) return { type: 'fuzzy', match: fuzzy };
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PROPERTY INGESTION
+// ══════════════════════════════════════════════════════════════════
+
+async function apExtractProperties() {
+  const btn    = document.getElementById('apPropExtractBtn');
+  const status = document.getElementById('apPropStatus');
+  const text   = document.getElementById('apPropText').value.trim();
+  const url    = document.getElementById('apPropUrl').value.trim();
+  const devHint  = document.getElementById('apPropDeveloperHint').value.trim();
+  const cityHint = document.getElementById('apPropCityHint').value.trim();
+  const typeHint = document.getElementById('apPropTypeHint').value.trim();
+
+  const hasInput = _ap.propFileData || text || url;
+  if (!hasInput) { status.textContent = '⚠ Provide a file, text, or URL first.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '⟳ Extracting…';
+  status.textContent = 'Sending to AI…';
+  document.getElementById('apPropReviewArea').style.display = 'none';
+  document.getElementById('apPropResult').style.display = 'none';
+
+  try {
+    // Build user content — may include PDF as document block
+    let userContent;
+    if (_ap.propFileType === 'pdf' && _ap.propFileData) {
+      userContent = [
+        {
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: _ap.propFileData }
+        },
+        { type: 'text', text: apBuildPropPrompt(text, url, devHint, cityHint, typeHint) }
+      ];
+    } else {
+      const fileText = (_ap.propFileType && _ap.propFileType !== 'pdf' && _ap.propFileData)
+        ? '\n\nFILE CONTENT:\n' + _ap.propFileData.slice(0, 12000)
+        : '';
+      userContent = apBuildPropPrompt(text, url, devHint, cityHint, typeHint) + fileText;
+    }
+
+    const system = `You are a Cyprus real estate data extraction specialist for a professional advisory firm.
+Your task: extract individual property/unit listings from the provided content and return structured JSON.
+
+CRITICAL RULES:
+- Do NOT invent or guess data. If a field is not stated, use null.
+- Mark uncertain inferences with a "?" prefix in the value, e.g. "?2026" for inferred delivery.
+- Extract as many individual units as possible from unit schedules.
+- Distinguish project-level data (developer, project name, location) from unit-level data (bedrooms, area, price).
+- If you see a price schedule/table, extract each row as a separate listing.
+- Do NOT combine different unit types into one row.
+- Confidence: "high" = directly stated, "medium" = inferred from context, "low" = guessed/proxy.
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+{
+  "project": {
+    "developer": string|null,
+    "project_name": string|null,
+    "city": string|null,
+    "district": string|null,
+    "delivery": string|null,
+    "sea_distance": string|null,
+    "notes": string|null
+  },
+  "units": [
+    {
+      "title": string,
+      "type": "Apartment"|"Villa"|"House"|"Penthouse"|"Studio"|null,
+      "bedrooms": number|null,
+      "bathrooms": number|null,
+      "covered_area_m2": number|null,
+      "plot_size_m2": number|null,
+      "price_eur": number|null,
+      "floor": string|null,
+      "parking": boolean|null,
+      "pool": boolean|null,
+      "delivery": string|null,
+      "furnished": boolean|null,
+      "sea_distance_km": number|null,
+      "notes": string|null,
+      "confidence": "high"|"medium"|"low",
+      "uncertain_fields": [array of field names that are uncertain]
+    }
+  ],
+  "extraction_notes": string,
+  "source_quality": "high"|"medium"|"low"
+}`;
+
+    const rawJson = await apCallClaude(system, userContent, 4000);
+    const parsed  = apParseJSON(rawJson);
+    if (!parsed || !parsed.units) throw new Error('AI returned no unit data');
+
+    // Merge project data into each unit, check duplicates
+    const proj = parsed.project || {};
+    _ap.extractedProps = (parsed.units || []).map((u, i) => {
+      const row = {
+        developer:       u.developer || proj.developer || devHint || null,
+        title:           u.title || (proj.project_name ? `${proj.project_name} Unit ${i+1}` : `Unit ${i+1}`),
+        complex:         proj.project_name || null,
+        type:            u.type || typeHint || null,
+        city:            u.city || proj.city || cityHint || null,
+        district:        u.district || proj.district || null,
+        bedrooms:        u.bedrooms,
+        bathrooms:       u.bathrooms,
+        area:            u.covered_area_m2,
+        plot:            u.plot_size_m2,
+        price:           u.price_eur,
+        ppm:             u.covered_area_m2 && u.price_eur ? Math.round(u.price_eur / u.covered_area_m2) : null,
+        delivery:        u.delivery || proj.delivery || null,
+        seaDist:         u.sea_distance_km ?? null,
+        parking:         u.parking,
+        pool:            u.pool,
+        furnished:       u.furnished,
+        notes:           [u.notes, proj.notes].filter(Boolean).join(' | ') || null,
+        _confidence:     u.confidence || 'medium',
+        _uncertain:      u.uncertain_fields || [],
+        _notes:          parsed.extraction_notes || '',
+        _sourceQuality:  parsed.source_quality || 'medium',
+        _selected:       true,
+      };
+      const dup = apCheckDuplicate(row);
+      row._duplicate   = dup;
+      row._status      = dup ? (dup.type === 'exact' ? 'duplicate' : 'possible_dup') : 'new';
+      return row;
+    });
+
+    apRenderPropertyTable(_ap.extractedProps, parsed.extraction_notes);
+
+  } catch(e) {
+    status.textContent = '⚠ ' + e.message;
+    console.error('[AgentPortal] Property extraction error:', e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✦ Extract listings';
+  }
+}
+
+function apBuildPropPrompt(text, url, devHint, cityHint, typeHint) {
+  const hints = [
+    devHint   ? `Developer hint: ${devHint}` : '',
+    cityHint  ? `City hint: ${cityHint}` : '',
+    typeHint  ? `Property type hint: ${typeHint}` : '',
+    url       ? `Source URL: ${url}` : '',
+  ].filter(Boolean).join('\n');
+  return `Extract all property listings / units from the content below.\n${hints}\n\nCONTENT:\n${text || '(See attached file)'}`;
+}
+
+function apRenderPropertyTable(rows, extractionNotes) {
+  const area    = document.getElementById('apPropReviewArea');
+  const sub     = document.getElementById('apPropReviewSub');
+  const warn    = document.getElementById('apPropWarnings');
+  const tbody   = document.getElementById('apPropTbody');
+  const status  = document.getElementById('apPropStatus');
+
+  const dups    = rows.filter(r => r._status !== 'new').length;
+  const lowConf = rows.filter(r => r._confidence === 'low').length;
+
+  sub.textContent = `${rows.length} unit${rows.length !== 1 ? 's' : ''} extracted · ${dups} possible duplicate${dups !== 1 ? 's' : ''} · ${rows.filter(r=>r._selected).length} selected`;
+
+  const warnings = [];
+  if (dups)    warnings.push(`${dups} listing${dups>1?'s':''} flagged as possible duplicates — review before importing`);
+  if (lowConf) warnings.push(`${lowConf} unit${lowConf>1?'s':''} have low extraction confidence — verify manually`);
+  if (extractionNotes) warnings.push(extractionNotes);
+  warn.style.display = warnings.length ? '' : 'none';
+  warn.textContent   = warnings.join(' · ');
+
+  tbody.innerHTML = rows.map((row, i) => {
+    const rowCls = row._status === 'duplicate' ? 'ap-row-dup' : row._status === 'possible_dup' ? 'ap-row-warn' : 'ap-row-new';
+    const confBadge = `<span class="ap-conf-${row._confidence === 'high' ? 'high' : row._confidence === 'medium' ? 'med' : 'low'}">${row._confidence}</span>`;
+    const dupNote  = row._duplicate ? `<span class="trust-proxy" style="margin-left:3px">${row._duplicate.type === 'exact' ? 'Exact dup' : 'Possible dup'}</span>` : '';
+    const uncCells = row._uncertain || [];
+
+    const cell = (val, field) => {
+      const isUnc = uncCells.includes(field);
+      const disp  = val != null ? String(val) : '—';
+      return `<td style="padding:6px 10px;border-bottom:1px solid var(--bd)${isUnc?';color:#92400e;font-style:italic':''}" ${isUnc?'title="Uncertain — verify"':''}>${isUnc?'?':''} ${safeHTML(disp)}</td>`;
+    };
+
+    return `<tr class="${rowCls}" data-idx="${i}">
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)"><input type="checkbox" ${row._selected?'checked':''} onchange="_ap.extractedProps[${i}]._selected=this.checked;apUpdatePropCount()"></td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)">
+        <span style="font-size:9px;font-weight:600;padding:1px 6px;border-radius:3px;background:${row._status==='new'?'#dcfce7':row._status==='duplicate'?'#fef3c7':'#fee2e2'};color:${row._status==='new'?'#15803d':row._status==='duplicate'?'#92400e':'#991b1b'}">
+          ${row._status === 'new' ? 'New' : row._status === 'duplicate' ? 'Duplicate' : 'Check'}
+        </span>${dupNote}
+      </td>
+      ${cell(row.developer, 'developer')}
+      ${cell(row.title, 'title')}
+      ${cell(row.type, 'type')}
+      ${cell(row.city, 'city')}
+      ${cell(row.bedrooms, 'bedrooms')}
+      ${cell(row.area ? row.area + ' m²' : null, 'area')}
+      ${cell(row.price ? '€' + Number(row.price).toLocaleString() : null, 'price')}
+      ${cell(row.delivery, 'delivery')}
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)">${confBadge}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd);font-size:10px;color:var(--mu);max-width:180px;overflow:hidden;text-overflow:ellipsis">${safeHTML(row.notes||'—')}</td>
+    </tr>`;
+  }).join('');
+
+  area.style.display = '';
+  status.textContent = '';
+  document.getElementById('apPropSelectAll').checked = true;
+}
+
+function apToggleAllProps(checked) {
+  _ap.extractedProps.forEach(r => { r._selected = checked; });
+  document.querySelectorAll('#apPropTbody input[type=checkbox]').forEach(cb => { cb.checked = checked; });
+  apUpdatePropCount();
+}
+
+function apUpdatePropCount() {
+  const sub = document.getElementById('apPropReviewSub');
+  const total    = _ap.extractedProps.length;
+  const selected = _ap.extractedProps.filter(r => r._selected).length;
+  const dups     = _ap.extractedProps.filter(r => r._status !== 'new').length;
+  sub.textContent = `${total} units extracted · ${dups} possible duplicates · ${selected} selected for import`;
+}
+
+async function apApproveProperties() {
+  const toImport = _ap.extractedProps.filter(r => r._selected);
+  if (!toImport.length) { alert('No listings selected.'); return; }
+
+  const btn = document.getElementById('apPropApproveBtn');
+  btn.disabled = true;
+  btn.textContent = '⟳ Importing…';
+
+  let imported = 0, failed = 0;
+  const now = new Date().toISOString().slice(0,10);
+
+  for (const row of toImport) {
+    try {
+      // Write to Sheets via JSONP
+      const sheetRow = [
+        '',                                         // A: ID (auto)
+        safeHTML(row.developer||''),                // B: Developer
+        safeHTML(row.title||''),                    // C: Title
+        safeHTML(row.complex||''),                  // D: Complex
+        safeHTML(row.type||''),                     // E: Type
+        safeHTML(row.city||''),                     // F: City
+        safeHTML(row.district||''),                 // G: District
+        row.bedrooms != null ? row.bedrooms : '',   // H: Bedrooms
+        row.area     != null ? row.area     : '',   // I: Area m²
+        row.plot     != null ? row.plot     : '',   // J: Plot m²
+        row.price    != null ? row.price    : '',   // K: Price
+        row.ppm      != null ? row.ppm      : '',   // L: €/m²
+        safeHTML(row.delivery||''),                 // M: Delivery
+        row.seaDist  != null ? row.seaDist  : '',   // N: Sea dist km
+        '',                                         // O: Image URL
+        '',                                         // P: URL
+        safeHTML(row.notes||''),                    // Q: Notes
+        now,                                        // R: Added on
+        `AP:${row._confidence}`,                    // S: Source tag
+      ];
+      syncViaJsonp({ type:'listing', sheet:'Listings', row: sheetRow });
+      imported++;
+    } catch(e) { failed++; console.error('[AgentPortal] Import row failed:', e); }
+  }
+
+  // Refresh local all[] array — add imported rows as pending entries
+  const newListings = toImport.map((row, i) => ({
+    id:         Date.now() + i,
+    developer:  row.developer || '',
+    title:      row.title     || '',
+    complex:    row.complex   || '',
+    type:       row.type      || '',
+    city:       row.city      || '',
+    district:   row.district  || '',
+    bedrooms:   row.bedrooms  != null ? +row.bedrooms : null,
+    area:       row.area      != null ? +row.area      : null,
+    plot:       row.plot      != null ? +row.plot      : null,
+    price:      row.price     != null ? +row.price     : null,
+    ppm:        row.ppm       != null ? +row.ppm       : null,
+    delivery:   row.delivery  || '',
+    seaDist:    row.seaDist   != null ? +row.seaDist   : null,
+    addedOn:    now,
+    priceText:  row.price ? '€' + Number(row.price).toLocaleString() : '',
+    _apImported: true,
+  }));
+  all.push(...newListings);
+  buildCityBenchmarks();
+  buildNormalizedDataset();
+  populate();
+  doFilter();
+
+  const result = document.getElementById('apPropResult');
+  result.style.display = '';
+  result.innerHTML = `<div style="background:rgba(21,128,61,.05);border:1px solid rgba(21,128,61,.2);border-radius:10px;padding:14px 16px">
+    <div style="font-size:12px;font-weight:600;color:#15803d;margin-bottom:4px">✓ Import complete</div>
+    <div style="font-size:11px;color:var(--tx)">${imported} listing${imported!==1?'s':''} submitted to Google Sheets${failed?' · '+failed+' failed':''}</div>
+    <div style="font-size:10px;color:var(--mu);margin-top:4px">Listings are now visible in the Listings tab. Google Sheets will reflect the new rows within a few seconds.</div>
+  </div>`;
+
+  btn.disabled = false;
+  btn.textContent = '✓ Approve selected';
+  document.getElementById('apPropReviewArea').style.display = 'none';
+  _ap.extractedProps = [];
+}
+
+function apRejectAllProperties() {
+  document.getElementById('apPropReviewArea').style.display = 'none';
+  _ap.extractedProps = [];
+  document.getElementById('apPropStatus').textContent = 'All rows rejected.';
+}
+
+function apClearProperty() {
+  _ap.propFileData = null; _ap.propFileType = null; _ap.propFileName = '';
+  document.getElementById('apPropText').value = '';
+  document.getElementById('apPropUrl').value = '';
+  document.getElementById('apPropFileName').textContent = '';
+  document.getElementById('apPropDeveloperHint').value = '';
+  document.getElementById('apPropCityHint').value = '';
+  document.getElementById('apPropTypeHint').value = '';
+  document.getElementById('apPropStatus').textContent = '';
+  document.getElementById('apPropReviewArea').style.display = 'none';
+  document.getElementById('apPropResult').style.display = 'none';
+  _ap.extractedProps = [];
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MARKET RESEARCH INGESTION
+// ══════════════════════════════════════════════════════════════════
+
+async function apExtractResearch() {
+  const btn    = document.getElementById('apResExtractBtn');
+  const status = document.getElementById('apResStatus');
+  const text   = document.getElementById('apResText').value.trim();
+  const url    = document.getElementById('apResUrl').value.trim();
+  const sourceHint = document.getElementById('apResSourceType').value;
+  const dateHint   = document.getElementById('apResDate').value;
+  const cityScope  = document.getElementById('apResCityScope').value;
+
+  const hasInput = _ap.resFileData || text || url;
+  if (!hasInput) { status.textContent = '⚠ Provide a file, text, or URL first.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '⟳ Extracting…';
+  status.textContent = 'Sending to AI…';
+  document.getElementById('apResReviewArea').style.display = 'none';
+  document.getElementById('apResResult').style.display = 'none';
+
+  try {
+    let userContent;
+    if (_ap.resFileType === 'pdf' && _ap.resFileData) {
+      userContent = [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ap.resFileData } },
+        { type: 'text', text: apBuildResPrompt(text, url, sourceHint, dateHint, cityScope) }
+      ];
+    } else {
+      const fileText = (_ap.resFileType && _ap.resFileType !== 'pdf' && _ap.resFileData)
+        ? '\n\nFILE CONTENT:\n' + _ap.resFileData.slice(0, 12000) : '';
+      userContent = apBuildResPrompt(text, url, sourceHint, dateHint, cityScope) + fileText;
+    }
+
+    const system = `You are a Cyprus real estate market data specialist for a professional advisory firm.
+Your task: classify the source and extract structured benchmark data from the provided content.
+
+SOURCE CLASSIFICATION:
+- cbc_rppi: Central Bank of Cyprus Residential Property Price Index
+- rics_kpmg: RICS or KPMG Cyprus market report
+- rental_guide: Rental asking-price guide or DoL data
+- developer_note: Developer or agent market commentary
+- agent_research: Internal agent research or notes
+- general_article: General press / secondary source
+
+CRITICAL RULES:
+- Do NOT invent values. If a figure is not explicitly stated, use null.
+- Mark inferred values with "?" prefix.
+- Primary sources (CBC, RICS) have higher confidence than secondary.
+- If a range is given (e.g. "€800–€1200"), use the midpoint and note the range.
+- For price growth figures, use annual % change only.
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "source_classification": {
+    "type": "cbc_rppi"|"rics_kpmg"|"rental_guide"|"developer_note"|"agent_research"|"general_article",
+    "source_name": string,
+    "period": string,
+    "confidence_tier": "High"|"Medium"|"Low",
+    "primary_source": boolean,
+    "notes": string|null
+  },
+  "benchmarks": [
+    {
+      "category": "growth"|"rents"|"liquidity"|"supply"|"demand"|"yields"|"agent_verified",
+      "city": string|null,
+      "district": string|null,
+      "property_type": "apartment"|"villa"|"house"|"all"|null,
+      "bedrooms": number|null,
+      "metric": string,
+      "value": number|string|null,
+      "unit": "%"|"€/mo"|"€/m²"|"contracts"|"permits"|"index"|"text"|null,
+      "period": string|null,
+      "confidence": "high"|"medium"|"low",
+      "notes": string|null
+    }
+  ],
+  "market_commentary": string|null,
+  "data_gaps": [string],
+  "extraction_quality": "high"|"medium"|"low"
+}`;
+
+    const rawJson = await apCallClaude(system, userContent, 4000);
+    const parsed  = apParseJSON(rawJson);
+    if (!parsed) throw new Error('AI returned no data');
+
+    _ap.resClassification  = parsed.source_classification || {};
+    _ap.extractedBenchmarks = (parsed.benchmarks || []).map(b => ({...b, approved: true}));
+
+    apRenderResearchReview(parsed);
+  } catch(e) {
+    status.textContent = '⚠ ' + e.message;
+    console.error('[AgentPortal] Research extraction error:', e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✦ Extract benchmarks';
+  }
+}
+
+function apBuildResPrompt(text, url, sourceHint, dateHint, cityScope) {
+  const hints = [
+    sourceHint ? `Source type hint: ${sourceHint}` : '',
+    dateHint   ? `Report period hint: ${dateHint}` : '',
+    cityScope && cityScope !== 'all' ? `City scope: ${cityScope}` : '',
+    url        ? `Source URL: ${url}` : '',
+  ].filter(Boolean).join('\n');
+  return `Extract all market benchmark data from the content below.\n${hints}\n\nCONTENT:\n${text || '(See attached file)'}`;
+}
+
+function apRenderResearchReview(parsed) {
+  const area     = document.getElementById('apResReviewArea');
+  const classEl  = document.getElementById('apResClassification');
+  const cards    = document.getElementById('apResBenchmarkCards');
+  const tbody    = document.getElementById('apResTbody');
+  const sub      = document.getElementById('apResReviewSub');
+  const warn     = document.getElementById('apResWarnings');
+  const status   = document.getElementById('apResStatus');
+
+  const src  = parsed.source_classification || {};
+  const bms  = parsed.benchmarks || [];
+  const gaps = parsed.data_gaps || [];
+  const lowConf = bms.filter(b => b.confidence === 'low').length;
+
+  // Source classification card
+  const confStyle = src.confidence_tier === 'High' ? 'background:#dcfce7;color:#15803d' :
+                    src.confidence_tier === 'Medium' ? 'background:#dbeafe;color:#1e40af' :
+                    'background:#fef3c7;color:#92400e';
+  const primBadge = src.primary_source
+    ? '<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:#dcfce7;color:#15803d">Primary source</span>'
+    : '<span class="trust-proxy">Secondary source</span>';
+  classEl.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px 16px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu)">Source classified as</div>
+        <span style="font-size:11px;font-weight:600;color:var(--tx)">${safeHTML(src.source_name || src.type || '—')}</span>
+        <span style="font-size:10px;padding:2px 8px;border-radius:4px;${confStyle}">${src.confidence_tier||'—'} confidence</span>
+        ${primBadge}
+        ${src.period ? `<span style="font-size:10px;color:var(--mu)">· ${safeHTML(src.period)}</span>` : ''}
+      </div>
+      ${src.notes ? `<div style="font-size:10px;color:var(--mu);margin-top:4px">${safeHTML(src.notes)}</div>` : ''}
+      ${parsed.market_commentary ? `<div style="font-size:11px;color:var(--tx);margin-top:6px;line-height:1.6;border-top:1px solid var(--bd);padding-top:6px">${safeHTML(parsed.market_commentary)}</div>` : ''}
+    </div>`;
+
+  // Warnings
+  const warnings = [];
+  if (!src.primary_source) warnings.push('Secondary source — data may not reflect verified official figures');
+  if (lowConf)             warnings.push(`${lowConf} benchmark${lowConf>1?'s':''} have low confidence — treat as indicative`);
+  if (gaps.length)         warnings.push('Data gaps identified: ' + gaps.slice(0,3).join(', '));
+  warn.style.display = warnings.length ? '' : 'none';
+  warn.textContent   = warnings.join(' · ');
+
+  // Benchmark cards by category
+  const byCat = {};
+  bms.forEach(b => { (byCat[b.category] = byCat[b.category]||[]).push(b); });
+  const catLabels = { growth:'Price Growth', rents:'Rent Benchmarks', liquidity:'Liquidity/Transactions', supply:'Supply/Permits', demand:'Demand/Buyers', yields:'Yields', agent_verified:'Agent Verified' };
+  cards.innerHTML = Object.entries(byCat).map(([cat, items]) => `
+    <div class="ap-bench-card">
+      <div class="ap-bench-title">${catLabels[cat] || cat}</div>
+      ${items.slice(0,6).map(b => {
+        const confCls = b.confidence==='high'?'ap-conf-high':b.confidence==='medium'?'ap-conf-med':'ap-conf-low';
+        const val = b.value != null ? String(b.value) + (b.unit ? ' ' + b.unit : '') : '—';
+        return `<div class="ap-bench-row">
+          <span style="color:var(--tx)">${safeHTML(b.city||'Cyprus')}${b.district?' · '+safeHTML(b.district):''}${b.property_type&&b.property_type!=='all'?' · '+b.property_type:''}</span>
+          <span style="display:flex;align-items:center;gap:5px">
+            <b style="color:var(--tx)">${safeHTML(val)}</b>
+            <span class="${confCls}">${b.confidence}</span>
+          </span>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  // Full row table
+  tbody.innerHTML = bms.map((b, i) => {
+    const confCls  = b.confidence==='high'?'ap-conf-high':b.confidence==='medium'?'ap-conf-med':'ap-conf-low';
+    const val      = b.value != null ? String(b.value) + (b.unit ? ' ' + b.unit : '') : '—';
+    const actionLabels = { growth:'→ MARKET_BENCHMARKS.growth', rents:'→ MARKET_BENCHMARKS.rents', liquidity:'→ MARKET_BENCHMARKS.liquidity', supply:'→ MARKET_BENCHMARKS.supply', demand:'→ MARKET_BENCHMARKS.demand', yields:'→ analytics', agent_verified:'→ agent_verified_data' };
+    return `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)">${safeHTML(catLabels[b.category]||b.category)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)">${safeHTML([b.city,b.district].filter(Boolean).join(' / ')||'—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)">${safeHTML(b.metric||'—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd);font-weight:600">${safeHTML(val)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd);color:var(--mu)">${safeHTML(b.period||src.period||'—')}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd)"><span class="${confCls}">${b.confidence}</span></td>
+      <td style="padding:6px 10px;border-bottom:1px solid var(--bd);font-size:10px;color:var(--mu)">${actionLabels[b.category]||'→ benchmarks'}
+        <input type="checkbox" checked style="margin-left:6px" onchange="_ap.extractedBenchmarks[${i}].approved=this.checked" title="Include in approval">
+      </td>
+    </tr>`;
+  }).join('');
+
+  sub.textContent = `${bms.length} benchmark${bms.length!==1?'s':''} extracted · ${lowConf} low confidence`;
+  area.style.display = '';
+  status.textContent = '';
+}
+
+function apApproveResearch() {
+  const toApply = _ap.extractedBenchmarks.filter(b => b.approved);
+  if (!toApply.length) { alert('No benchmarks selected.'); return; }
+
+  const btn = document.getElementById('apResApproveBtn');
+  btn.disabled = true;
+
+  const src  = _ap.resClassification || {};
+  const now  = new Date().toISOString().slice(0,10);
+  let applied = 0;
+
+  // 1. Update MARKET_BENCHMARKS in memory
+  if (!window.MARKET_BENCHMARKS) window.MARKET_BENCHMARKS = {};
+  const MB = window.MARKET_BENCHMARKS;
+
+  toApply.forEach(b => {
+    const city = b.city;
+    if (!city || b.value == null) return;
+    const v = parseFloat(String(b.value).replace(/[^0-9.-]/g,'')) || b.value;
+
+    if (b.category === 'growth' && MB.growth) {
+      if (!MB.growth[city]) MB.growth[city] = {};
+      const ptype = b.property_type;
+      if (ptype === 'apartment')  MB.growth[city].apartments = v;
+      else if (ptype === 'villa') MB.growth[city].villas     = v;
+      else if (ptype === 'house') MB.growth[city].houses     = v;
+      else                        MB.growth[city].overall    = v;
+      MB.growth[city].source = `${src.source_name||'Agent update'} ${now}`;
+    }
+    else if (b.category === 'rents' && MB.rents) {
+      if (!MB.rents[city]) MB.rents[city] = { isProxy: !src.primary_source };
+      const beds = b.bedrooms;
+      if (beds === 1)      MB.rents[city]['1bed'] = v;
+      else if (beds === 2) MB.rents[city]['2bed'] = v;
+      else if (beds === 3) MB.rents[city]['3bed'] = v;
+      MB.rents[city].confidence = src.confidence_tier === 'High' ? 'CBC+RICS' : src.primary_source ? 'CBC+proxy' : 'proxy';
+      MB.rents[city].isProxy    = !src.primary_source;
+    }
+    else if (b.category === 'liquidity' && MB.liquidity) {
+      if (!MB.liquidity[city]) MB.liquidity[city] = {};
+      if (b.metric?.toLowerCase().includes('contract')) MB.liquidity[city].contracts2024 = v;
+      else MB.liquidity[city].score = Math.min(100, v);
+    }
+    else if (b.category === 'supply' && MB.supply) {
+      if (!MB.supply[city]) MB.supply[city] = {};
+      if (b.metric?.toLowerCase().includes('permit')) MB.supply[city].permitsPA = v;
+      else MB.supply[city].score = Math.min(100, v);
+    }
+    applied++;
+  });
+
+  // 2. Update confidence layer
+  if (MB.confidence && src.confidence_tier && toApply[0]?.city) {
+    const cities = [...new Set(toApply.map(b=>b.city).filter(Boolean))];
+    cities.forEach(city => {
+      if (!MB.confidence[city]) MB.confidence[city] = {};
+      MB.confidence[city].last_updated = now;
+      if (src.confidence_tier === 'High' && (!MB.confidence[city].score || MB.confidence[city].score < 80)) {
+        MB.confidence[city].score = Math.min(100, (MB.confidence[city].score||50) + 5);
+      }
+    });
+  }
+
+  // 3. Sync to Sheets
+  toApply.forEach(b => {
+    syncViaJsonp({
+      type: 'benchmark',
+      sheet: _apBenchmarkSheet(b.category),
+      row: [
+        b.category, b.city||'', b.district||'', b.property_type||'', b.metric||'',
+        b.value||'', b.unit||'', b.period||'', b.confidence,
+        src.source_name||'', src.confidence_tier||'', now, b.notes||''
+      ]
+    });
+  });
+
+  // 4. Refresh analytics if open
+  if (tab === 'analytics') {
+    setTimeout(() => initAnalytics(), 300);
+  }
+  // 5. Invalidate score cache so listings re-score with new benchmarks
+  if (typeof invalidateScoreCache === 'function') invalidateScoreCache();
+
+  const result = document.getElementById('apResResult');
+  result.style.display = '';
+  result.innerHTML = `<div style="background:rgba(21,128,61,.05);border:1px solid rgba(21,128,61,.2);border-radius:10px;padding:14px 16px">
+    <div style="font-size:12px;font-weight:600;color:#15803d;margin-bottom:4px">✓ Benchmarks applied</div>
+    <div style="font-size:11px;color:var(--tx)">${applied} benchmark${applied!==1?'s':''} applied to analytics model · historical data preserved</div>
+    <div style="font-size:10px;color:var(--mu);margin-top:4px">Approved rows submitted to Google Sheets. Analytics will reflect updated values on next render.</div>
+  </div>`;
+
+  btn.disabled = false;
+  document.getElementById('apResReviewArea').style.display = 'none';
+  _ap.extractedBenchmarks = [];
+}
+
+function _apBenchmarkSheet(category) {
+  const map = { growth:'market_benchmarks', rents:'rent_benchmarks', liquidity:'liquidity_benchmarks', supply:'supply_benchmarks', demand:'supply_benchmarks', yields:'market_benchmarks', agent_verified:'agent_verified_data' };
+  return map[category] || 'market_benchmarks';
+}
+
+function apRejectResearch() {
+  document.getElementById('apResReviewArea').style.display = 'none';
+  _ap.extractedBenchmarks = [];
+  _ap.resClassification = null;
+  document.getElementById('apResStatus').textContent = 'Rejected — no data applied.';
+}
+
+function apClearResearch() {
+  _ap.resFileData = null; _ap.resFileType = null; _ap.resFileName = '';
+  document.getElementById('apResText').value = '';
+  document.getElementById('apResUrl').value = '';
+  document.getElementById('apResFileName').textContent = '';
+  document.getElementById('apResSourceType').value = '';
+  document.getElementById('apResDate').value = '';
+  document.getElementById('apResStatus').textContent = '';
+  document.getElementById('apResReviewArea').style.display = 'none';
+  document.getElementById('apResResult').style.display = 'none';
+  _ap.extractedBenchmarks = [];
+  _ap.resClassification = null;
+}
+
+// ── JSON parse helper (strips markdown fences) ────────────────────
+function apParseJSON(text) {
+  if (!text) return null;
+  try {
+    const clean = text.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'').trim();
+    return JSON.parse(clean);
+  } catch(e) {
+    // Try extracting first {...} block
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) try { return JSON.parse(m[0]); } catch(e2) {}
+    console.warn('[AgentPortal] JSON parse failed:', e.message, '\nRaw:', text.slice(0,200));
+    return null;
+  }
+}
 
 // ── Analytics Engine (AirDNA methodology) ────────────────────
 let analyticsSection = 'overview';
