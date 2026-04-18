@@ -1103,6 +1103,7 @@ const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
 const AGENTS_GID = '';
 const CLIENTS_GID = '';
+const COMMS_GID = '614194656';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
@@ -2810,22 +2811,32 @@ async function readClientsFromSheets() {
   } catch(e) { /* clients CRM sheet not set up yet */ }
 }
 
+function parseGvizDate(val) {
+  if (!val) return '';
+  var s = String(val).trim();
+  var m = s.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+  if (m) return new Date(+m[1], +m[2], +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)).toISOString();
+  return s;
+}
+
 async function readCommsFromSheets() {
   // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
+  const sheetParam = COMMS_GID ? `gid=${COMMS_GID}` : 'sheet=Client+Communications';
   try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Client+Communications`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&${sheetParam}`);
     const t = await r.text(); const m = t.match(/setResponse\(([\s\S]*)\)/); if (!m) return;
     const json = JSON.parse(m[1]); if (!json.table || !json.table.rows) return;
     const existingIds = new Set(communicationLog.map(c => c.commId));
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
-      const commId = +g(0); const investorId = +g(1); const date = g(2);
-      if (!commId || !date || date.toLowerCase() === 'date') return;
+      const commId = +g(0); const investorId = +g(1);
+      const date = parseGvizDate(g(2));
+      if (!commId || !date || !investorId) return;
       if (existingIds.has(commId)) return;
       communicationLog.push({ commId, investorId, date, investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
     });
     saveCommLog();
-  } catch(e) { /* sheet not set up yet */ }
+  } catch(e) { console.error('[comms] readCommsFromSheets error:', e); }
 }
 
 function resetClient() {
@@ -5628,6 +5639,7 @@ function aiPg(d) { aiPage += d; renderAIResults(); }
 init();
 readInvestorsFromSheets();
 readAgentsFromSheets();
+readCommsFromSheets();
 </script>
 </body>
 </html>
