@@ -2754,7 +2754,19 @@ function renderInvestorCard(inv) {
       + assignedProps.map(function(p){
           var dateStr = p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—';
           var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥</span>' : '';
-          var rowClick = p.listingId ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+p.listingId+')"' : 'style="color:var(--color-text-secondary)"';
+          var resolvedId = p.listingId;
+          if (!resolvedId && p.developer && p.city) {
+            var match = all.find(function(d){
+              var devMatch = (d.developer||'').toLowerCase().includes(p.developer.toLowerCase().substring(0,8));
+              var cityMatch = (d.city||'').toLowerCase() === (p.city||'').toLowerCase();
+              var priceMatch = !p.price || Math.abs((d.price||0) - (+p.price)) < 2000;
+              return devMatch && cityMatch && priceMatch;
+            });
+            if (match) resolvedId = match.id;
+          }
+          var rowClick = resolvedId
+            ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+resolvedId+')"'
+            : '';
           return '<tr '+rowClick+'>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
