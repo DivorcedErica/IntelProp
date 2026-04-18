@@ -541,6 +541,18 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Own use</button>
             <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Short-term rental</button>
             <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Long-term rental</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Mixed</button>
+            <button class="crit-btn" onclick="toggleCrit(this,'purpose');applyClientFilter()">Investment</button>
+          </div>
+          <div style="margin-top:10px">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Objective</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cObjectiveGroup">
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Max yield</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Capital Growth</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Balanced</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Diversified</button>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -1122,6 +1134,7 @@ const COMMS_GID = '614194656';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
+let CITY_BENCHMARKS = {};
 const rentalCache = {};
 const geocodeCache = {};
 
@@ -1316,6 +1329,295 @@ function createPin(color) {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════
+// UNIFIED SCORING ENGINE
+// ══════════════════════════════════════════════════════════════════
+
+function buildCityBenchmarks() {
+  CITY_BENCHMARKS = {};
+  const cities = [...new Set(all.map(d => d.city).filter(Boolean))];
+  cities.forEach(city => {
+    const listings = all.filter(d => d.city === city);
+    const ppms   = listings.map(d => d.ppm).filter(v => v != null).sort((a,b) => a-b);
+    const prices = listings.map(d => d.price).filter(v => v != null).sort((a,b) => a-b);
+    const mid = arr => arr.length ? arr[Math.floor(arr.length/2)] : null;
+    const avg = arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : null;
+    const byType = {};
+    [...new Set(listings.map(d=>d.type).filter(Boolean))].forEach(type => {
+      const tl = listings.filter(d=>d.type===type);
+      const tp = tl.map(d=>d.ppm).filter(v=>v!=null).sort((a,b)=>a-b);
+      byType[type] = { medianPpm: mid(tp), count: tl.length };
+    });
+    const byBeds = {};
+    [...new Set(listings.map(d=>d.bedrooms).filter(v=>v!=null))].forEach(b => {
+      const bl = listings.filter(d=>d.bedrooms===b);
+      const bp = bl.map(d=>d.ppm).filter(v=>v!=null).sort((a,b)=>a-b);
+      const bpr = bl.map(d=>d.price).filter(v=>v!=null).sort((a,b)=>a-b);
+      const ba = bl.map(d=>d.area).filter(v=>v!=null).sort((a,b)=>a-b);
+      byBeds[b] = { medianPpm: mid(bp), medianPrice: mid(bpr), medianArea: mid(ba), count: bl.length };
+    });
+    CITY_BENCHMARKS[city] = { medianPpm: mid(ppms), avgPpm: avg(ppms), medianPrice: mid(prices), listingCount: listings.length, byType, byBeds };
+  });
+  console.log('[Benchmarks] Built for', Object.keys(CITY_BENCHMARKS).length, 'cities');
+}
+
+function scoreProperty(listing, profile) {
+  const d = listing;
+  const p = profile || {};
+  const purpose   = p.purpose   || 'mixed';
+  const objective = p.objective || 'balanced';
+  const risk      = p.risk      || 'moderate';
+
+  const bench = CITY_BENCHMARKS[d.city] || {};
+  const cityMedianPpm = bench.medianPpm || null;
+
+  // ── LOCATION (0–100) ──────────────────────────────────────────
+  let locationScore = 50;
+  if (p.cities && p.cities.length > 0) {
+    locationScore = p.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase()) ? 85 : 25;
+  }
+
+  // ── VALUE (0–100) ─────────────────────────────────────────────
+  let valueScore = 50;
+  if (d.ppm != null && cityMedianPpm) {
+    const ratio = d.ppm / cityMedianPpm;
+    valueScore = ratio<0.65?100:ratio<0.75?90:ratio<0.85?78:ratio<0.95?65:ratio<1.05?52:ratio<1.20?38:ratio<1.40?22:10;
+  }
+
+  // ── SEA (0–100) ───────────────────────────────────────────────
+  let seaScore = 40;
+  if (d.seaDist != null) {
+    const sd = d.seaDist;
+    const stC = sd<0.3?100:sd<0.5?97:sd<1?90:sd<2?78:sd<5?55:sd<10?30:12;
+    const ltC = sd<0.3?80:sd<1?70:sd<3?60:sd<8?50:sd<20?38:25;
+    if      (purpose==='short_term')               seaScore = stC;
+    else if (purpose==='long_term'||purpose==='investment') seaScore = ltC;
+    else if (purpose==='own_use') {
+      const w = (p.weights&&p.weights.sea!=null?p.weights.sea:5)/10;
+      seaScore = Math.round(ltC + (stC-ltC)*w);
+    } else seaScore = Math.round(stC*0.6+ltC*0.4);
+  }
+
+  // ── YIELD ─────────────────────────────────────────────────────
+  let yieldScore = 0;
+  let yieldData = { purpose, grossYieldPct:0, netYieldPct:0, monthlyRentLow:0, monthlyRentHigh:0, annualRevenue:0, ADR:0, occupancyPct:0, mgmtFeePct:0, confidence:'estimated' };
+
+  if (purpose !== 'own_use') {
+    const tk  = (d.type||'').toLowerCase();
+    const city = d.city || 'Limassol';
+
+    // LTR
+    const ltrBase = {Limassol:5.8,Larnaca:5.5,Paphos:5.2,Famagusta:5.8,Nicosia:5.0};
+    let ltrGross = ltrBase[city]||5.5;
+    if (tk.includes('apartment')||tk.includes('flat')) ltrGross+=0.6;
+    else if (tk.includes('penthouse')) ltrGross-=0.2;
+    else if (tk.includes('villa'))     ltrGross-=0.5;
+    else if (tk.includes('house'))     ltrGross-=0.3;
+    if (!d.bedrooms||d.bedrooms===0) ltrGross+=0.3;
+    else if (d.bedrooms===1) ltrGross+=0.5;
+    else if (d.bedrooms===2) ltrGross+=0.3;
+    else if ((d.bedrooms||0)>=4) ltrGross-=0.4;
+    if (d.seaDist!=null){if(d.seaDist<1)ltrGross+=0.2;else if(d.seaDist<3)ltrGross+=0.1;else if(d.seaDist>15)ltrGross-=0.2;}
+    if (cityMedianPpm&&d.ppm!=null){if(d.ppm<cityMedianPpm*0.85)ltrGross+=0.5;else if(d.ppm>cityMedianPpm*1.20)ltrGross-=0.4;}
+    ltrGross = Math.max(3.0, Math.min(11.0, ltrGross));
+
+    // STR via calcPropertyMetrics
+    const strM = calcPropertyMetrics(d);
+    const strGross = d.price?(strM.annualRevenue/d.price)*100:0;
+    const strGrossC = Math.max(3.0, Math.min(11.0, strGross));
+
+    let grossYieldPct, mgmtFee, monthlyRentLow, monthlyRentHigh, annualRevenue, ADR=0, occupancyPct=0;
+
+    if (purpose==='long_term'||purpose==='investment') {
+      if (purpose==='investment'&&cityMedianPpm&&d.ppm!=null&&d.ppm<cityMedianPpm*0.85) ltrGross = Math.min(11.0, ltrGross+0.8);
+      grossYieldPct = ltrGross; mgmtFee = 0.08;
+      const mr = d.price?d.price*(grossYieldPct/100)/12:0;
+      monthlyRentLow=Math.round(mr*0.88/50)*50; monthlyRentHigh=Math.round(mr*1.12/50)*50; annualRevenue=Math.round(mr*12);
+    } else if (purpose==='short_term') {
+      grossYieldPct=strGrossC; mgmtFee=0.20; ADR=strM.ADR; occupancyPct=Math.round(strM.occupancy*100);
+      annualRevenue=strM.annualRevenue;
+      const mr=annualRevenue/12; monthlyRentLow=Math.round(mr*0.88/50)*50; monthlyRentHigh=Math.round(mr*1.12/50)*50;
+    } else {
+      grossYieldPct=Math.max(3.0,Math.min(11.0,strGrossC*0.6+ltrGross*0.4)); mgmtFee=0.18;
+      annualRevenue=strM.annualRevenue;
+      const mr=annualRevenue/12; monthlyRentLow=Math.round(mr*0.88/50)*50; monthlyRentHigh=Math.round(mr*1.12/50)*50;
+    }
+    grossYieldPct = Math.max(3.0, Math.min(11.0, grossYieldPct));
+    const netYieldPct = Math.round(grossYieldPct*(1-mgmtFee)*10)/10;
+    yieldScore = Math.min(100, (grossYieldPct/10)*100);
+    yieldData = { purpose, grossYieldPct:Math.round(grossYieldPct*10)/10, netYieldPct, monthlyRentLow, monthlyRentHigh, annualRevenue, ADR, occupancyPct, mgmtFeePct:Math.round(mgmtFee*100), confidence:'estimated' };
+  }
+
+  // ── GROWTH (0–100) ────────────────────────────────────────────
+  const cityGrowth = {Limassol:92,Paphos:82,Larnaca:68,Famagusta:65,Nicosia:52};
+  const tk2 = (d.type||'').toLowerCase();
+  const tgm = tk2.includes('villa')?1.10:tk2.includes('penthouse')?1.05:tk2.includes('house')?0.96:tk2.includes('flat')?0.94:1.00;
+  let growthScore = (cityGrowth[d.city]||55)*tgm;
+  if (cityMedianPpm&&d.ppm!=null){if(d.ppm<cityMedianPpm*0.85)growthScore+=8;else if(d.ppm>cityMedianPpm*1.30)growthScore-=8;}
+  growthScore = Math.max(0, Math.min(100, growthScore));
+
+  // ── LIFESTYLE (0–100) ─────────────────────────────────────────
+  let sizeScore=50, plotScore=50, deliveryScore=60, typeScore=60;
+  if (d.area!=null) {
+    const bm = bench.byBeds&&d.bedrooms!=null?bench.byBeds[d.bedrooms]:null;
+    const medA = bm?bm.medianArea:null;
+    if (medA) sizeScore=d.area>medA*1.2?90:d.area>medA*1.0?70:d.area<medA*0.8?40:55;
+    else sizeScore=d.area>120?82:d.area>80?65:d.area>50?50:38;
+  }
+  if (d.plot!=null) plotScore=d.plot>500?90:d.plot>300?75:d.plot>150?60:45;
+  if (d.addedOn) { const yr=parseInt((d.addedOn||'').slice(-4)); const cy=new Date().getFullYear(); deliveryScore=yr<=cy?90:yr===cy+1?75:yr===cy+2?55:35; }
+  if (p.types&&p.types.length>0) { const tm=(d.type||'').toLowerCase(); typeScore=p.types.some(t=>tm.includes(t.toLowerCase()))?85:30; }
+  const lifestyleScore = sizeScore*0.35+plotScore*0.20+deliveryScore*0.25+typeScore*0.20;
+
+  // ── WEIGHTS ───────────────────────────────────────────────────
+  const DW = {
+    own_use:                  {location:0.30,value:0.25,sea:0.12,yield:0.00,growth:0.15,lifestyle:0.18},
+    short_term_max_yield:     {location:0.12,value:0.10,sea:0.30,yield:0.38,growth:0.05,lifestyle:0.05},
+    short_term_appreciation:  {location:0.14,value:0.10,sea:0.22,yield:0.16,growth:0.30,lifestyle:0.08},
+    short_term_balanced:      {location:0.14,value:0.12,sea:0.26,yield:0.28,growth:0.12,lifestyle:0.08},
+    short_term_diversified:   {location:0.14,value:0.12,sea:0.20,yield:0.24,growth:0.12,lifestyle:0.18},
+    long_term_max_yield:      {location:0.18,value:0.20,sea:0.05,yield:0.44,growth:0.08,lifestyle:0.05},
+    long_term_appreciation:   {location:0.18,value:0.16,sea:0.05,yield:0.18,growth:0.35,lifestyle:0.08},
+    long_term_balanced:       {location:0.18,value:0.18,sea:0.07,yield:0.32,growth:0.17,lifestyle:0.08},
+    long_term_diversified:    {location:0.16,value:0.16,sea:0.07,yield:0.28,growth:0.18,lifestyle:0.15},
+    mixed_max_yield:          {location:0.14,value:0.12,sea:0.22,yield:0.36,growth:0.10,lifestyle:0.06},
+    mixed_balanced:           {location:0.16,value:0.14,sea:0.20,yield:0.28,growth:0.14,lifestyle:0.08},
+    mixed_appreciation:       {location:0.14,value:0.14,sea:0.18,yield:0.18,growth:0.28,lifestyle:0.08},
+    mixed_diversified:        {location:0.14,value:0.14,sea:0.18,yield:0.22,growth:0.18,lifestyle:0.14},
+    investment_appreciation:  {location:0.14,value:0.22,sea:0.04,yield:0.14,growth:0.40,lifestyle:0.06},
+    investment_max_yield:     {location:0.14,value:0.20,sea:0.06,yield:0.40,growth:0.14,lifestyle:0.06},
+    investment_diversified:   {location:0.14,value:0.18,sea:0.10,yield:0.24,growth:0.22,lifestyle:0.12},
+    investment_balanced:      {location:0.16,value:0.20,sea:0.06,yield:0.30,growth:0.22,lifestyle:0.06},
+  };
+  const wKey = purpose==='own_use'?'own_use':`${purpose}_${objective}`;
+  let w = JSON.parse(JSON.stringify(DW[wKey]||DW['mixed_balanced']));
+
+  if (p.weights && Object.values(p.weights).some(v=>v!==5)) {
+    const sw = p.weights;
+    const sliderTotal=(sw.sea||0)+(sw.space||0)+(sw.value||0)+(sw.yield||0)+(sw.growth||0);
+    if (sliderTotal>0) {
+      const nls = 1-w.location;
+      w = { location:w.location, sea:(sw.sea||0)/sliderTotal*nls, lifestyle:(sw.space||0)/sliderTotal*nls, value:(sw.value||0)/sliderTotal*nls, yield:(sw.yield||0)/sliderTotal*nls, growth:(sw.growth||0)/sliderTotal*nls };
+    }
+  }
+  if (purpose==='own_use') w.yield=0;
+
+  // ── RAW SCORE ─────────────────────────────────────────────────
+  let rawScore = w.location*locationScore+w.value*valueScore+w.sea*seaScore+w.yield*yieldScore+w.growth*growthScore+w.lifestyle*lifestyleScore;
+
+  // ── MODIFIERS ─────────────────────────────────────────────────
+  let mod = 1.0;
+  mod *= {Limassol:1.08,Paphos:1.00,Larnaca:1.00,Nicosia:0.96,Famagusta:0.86}[d.city]||1.0;
+  if ((d.price||0)>=300000) mod*=1.04;
+  const tk3=(d.type||'').toLowerCase();
+  if (risk==='conservative'){if((d.price||0)>600000)mod*=0.88;if(tk3.match(/villa|penthouse/))mod*=0.92;if(d.city==='Famagusta')mod*=0.91;}
+  else if(risk==='aggressive'){if(d.city==='Limassol'||d.city==='Paphos')mod*=1.08;if(tk3.match(/villa|penthouse/))mod*=1.04;}
+  if (p.portfolio&&p.portfolio.length>0) {
+    const cc=p.portfolio.filter(x=>x.city===d.city).length;
+    const cv=p.portfolio.filter(x=>x.city===d.city).reduce((s,x)=>s+(x.price||0),0);
+    if(cc>=3)mod*=0.68;else if(cc>=2)mod*=0.82;
+    if(p.budget&&p.budget>0&&(cv+(d.price||0))/p.budget>0.5)mod*=0.82;
+  }
+
+  const total = Math.max(0, Math.min(100, rawScore*mod));
+
+  // ── FLAGS ─────────────────────────────────────────────────────
+  const flags = {
+    prEligible:  (d.price||0)>=300000,
+    beachfront:  d.seaDist!=null&&d.seaDist<0.3,
+    belowMarket: !!(cityMedianPpm&&d.ppm!=null&&d.ppm<cityMedianPpm*0.85),
+    aboveMarket: !!(cityMedianPpm&&d.ppm!=null&&d.ppm>cityMedianPpm*1.20),
+    readyNow:    (()=>{const yr=parseInt((d.addedOn||'').slice(-4));return yr<=new Date().getFullYear();})(),
+    highYield:   yieldData.grossYieldPct>=7,
+    sweetSpot:   false,
+  };
+  flags.sweetSpot = flags.belowMarket&&(flags.highYield||flags.prEligible);
+
+  return { total, breakdown:{location:Math.round(locationScore),value:Math.round(valueScore),sea:Math.round(seaScore),yield:Math.round(yieldScore),growth:Math.round(growthScore),lifestyle:Math.round(lifestyleScore)}, yieldData, flags };
+}
+
+function currentClientProfile() {
+  const purposeMap = {'Own use':'own_use','Short-term rental':'short_term','Long-term rental':'long_term','Mixed':'mixed','Investment':'investment'};
+  const objectiveMap = {'Max yield':'max_yield','Capital Growth':'appreciation','Balanced':'balanced','Diversified':'diversified','Max appreciation':'appreciation'};
+  const beds = cCriteria.beds||[];
+  const numBeds = beds.filter(b=>b!=='Studio'&&b!=='5+').map(Number);
+  return {
+    purpose:   purposeMap[cCriteria.purpose]  || 'mixed',
+    objective: objectiveMap[cCriteria.objective] || 'balanced',
+    risk: 'moderate',
+    budgetMin: cCriteria.budgetMin,
+    budgetMax: cCriteria.budgetMax,
+    bedsMin: numBeds.length?Math.min(...numBeds):null,
+    bedsMax: numBeds.length?Math.max(...numBeds):null,
+    cities: cCriteria.cities||[],
+    types:  cCriteria.types||[],
+    seaMaxKm: cCriteria.maxSea,
+    weights: { sea:5, space:5, value:5, yield:5, growth:5, lifestyle:5 }
+  };
+}
+
+function buildProfileFromStrategy(strategy, risk, portfolio, budget) {
+  const purposeMap = {'Short-term — Airbnb':'short_term','Long-term — steady income':'long_term','Mixed — ST + LT blend':'mixed'};
+  const objectiveMap = {'Max yield':'max_yield','Max appreciation':'appreciation','Balanced — yield + growth':'balanced','Diversified — spread risk':'diversified'};
+  const parts = strategy.split(' | ');
+  const sw = pbCustomWeights;
+  let weights = { sea:5, space:5, value:5, yield:5, growth:5, lifestyle:5 };
+  if (sw) {
+    const tot = Object.values(sw).reduce((s,v)=>s+v,0)||100;
+    weights = { sea:(sw.sea||5)/tot*10, space:(sw.diversity||5)/tot*10, value:(sw.efficiency||5)/tot*10, yield:(sw.yield||5)/tot*10, growth:(sw.appreciation||5)/tot*10, lifestyle:(sw.diversity||5)/tot*10 };
+  }
+  return { purpose:purposeMap[parts[0]]||'mixed', objective:objectiveMap[parts[1]]||'balanced', risk:(risk||'Moderate').toLowerCase(), portfolio:portfolio||[], budget:budget||0, weights };
+}
+
+function renderScoreBreakdown(scoreResult, compact) {
+  if (!scoreResult) return '';
+  const { total, breakdown, yieldData, flags } = scoreResult;
+  const color = total>=75?'#15803d':total>=55?'#b45309':'#991b1b';
+  const bar = (val,clr) => `<div style="height:5px;border-radius:99px;background:var(--bd);margin-top:3px"><div style="width:${Math.min(100,val)}%;height:100%;border-radius:99px;background:${clr||'#1a1a1a'}"></div></div>`;
+  const flagBadges = [
+    flags.prEligible ?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#dcfce7;color:#15803d;border:1px solid #bbf7d0">PR Eligible</span>':'',
+    flags.beachfront ?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe">Beachfront</span>':'',
+    flags.belowMarket?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;border:1px solid #fde68a">Below Market</span>':'',
+    flags.highYield  ?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff">High Yield</span>':'',
+    flags.sweetSpot  ?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#fce7f3;color:#9d174d;border:1px solid #fbcfe8">★ Sweet Spot</span>':'',
+  ].filter(Boolean).join(' ');
+
+  if (compact) {
+    return `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px">
+      <span style="font-weight:700;color:${color};min-width:22px">${Math.round(total)}</span>
+      <div style="width:50px;height:4px;border-radius:99px;background:var(--bd)"><div style="width:${Math.min(100,total)}%;height:100%;border-radius:99px;background:${color}"></div></div>
+      ${yieldData.grossYieldPct>0?`<span style="color:var(--mu);font-size:10px">${yieldData.grossYieldPct.toFixed(1)}%</span>`:''}
+      ${flags.beachfront?'<span style="font-size:10px">🌊</span>':''}${flags.sweetSpot?'<span style="font-size:10px">★</span>':''}
+    </div>`;
+  }
+
+  const rows = [
+    ['Location',       breakdown.location,  '#1d4ed8', ''],
+    ['Value vs Market',breakdown.value,     '#15803d', flags.belowMarket?'Below market — good entry price':flags.aboveMarket?'Above market — premium pricing':'At market rate'],
+    ['Sea Access',     breakdown.sea,       '#0369a1', ''],
+    ['Yield Potential',breakdown.yield,     '#6b21a8', yieldData.grossYieldPct>0?`${yieldData.grossYieldPct.toFixed(1)}% gross · ${yieldData.netYieldPct.toFixed(1)}% net · €${yieldData.monthlyRentLow.toLocaleString()}–€${yieldData.monthlyRentHigh.toLocaleString()}/mo est.`:'Own use — yield not applicable'],
+    ['Capital Growth', breakdown.growth,    '#92400e', ''],
+    ['Lifestyle',      breakdown.lifestyle, '#6b7280', ''],
+  ];
+
+  return `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Property Score</div>
+      <div style="font-size:28px;font-weight:700;color:${color}">${Math.round(total)}<span style="font-size:12px;color:var(--mu);font-weight:400"> / 100</span></div>
+    </div>
+    ${rows.map(([label,val,clr,note])=>`
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px">
+          <span style="color:var(--mu)">${label}</span>
+          <span style="font-weight:600">${val}</span>
+        </div>
+        ${bar(val,clr)}
+        ${note?`<div style="font-size:10px;color:var(--mu);margin-top:2px">${note}</div>`:''}
+      </div>`).join('')}
+    ${flagBadges?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:10px">${flagBadges}</div>`:''}
+  </div>`;
+}
+
 async function init() {
   try {
     // Try gviz first, fall back to CSV export
@@ -1435,6 +1737,7 @@ async function init() {
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
     doFilter(); renderDev();
+    buildCityBenchmarks();
     runBulkEnrichment();
     runBulkGeocode();
 
@@ -1790,6 +2093,7 @@ function openModal(id, e) {
           <div id="modalRICS"></div>
         </div>
       </div>
+      <div id="modalScoreBreakdown"></div>
       <div class="modal-section-title">Rental Intelligence</div>
       <div id="modalRentalArea">
         <button class="rental-btn" id="rbtn-modal-${d.id}" onclick="triggerModalRental(${d.id})">◈ Market rental data</button>
@@ -1817,6 +2121,8 @@ function openModal(id, e) {
   // Market Positioning + RICS
   const posEl = document.getElementById('modalPositioning');
   if (posEl) posEl.innerHTML = renderMarketPositioning(d);
+  const scoreEl = document.getElementById('modalScoreBreakdown');
+  if (scoreEl) { const mp = currentClientProfile(); scoreEl.innerHTML = renderScoreBreakdown(scoreProperty(d, mp), false); }
   const ricsEl = document.getElementById('modalRICS');
   if (ricsEl) {
     const bullets = getRICSContext(d);
@@ -2196,7 +2502,7 @@ function exportClientProperties(invId, invName, forClient) {
 }
 
 // ── Client Call ──────────────────────────────────────────────
-const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
+const cCriteria = { purpose:null, objective:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
 let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
 let devPS = 25, devPage = 1, currentDevFilter = null;
 let invPS = 25, invPage = 1;
@@ -2264,58 +2570,25 @@ function getClientMatches() {
 }
 
 function estimateYield(d, purpose) {
-  const cityBase = {
-    Limassol:  purpose === 'Short-term rental' ? 6.8 : 5.2,
-    Larnaca:   purpose === 'Short-term rental' ? 7.2 : 6.0,
-    Paphos:    purpose === 'Short-term rental' ? 7.5 : 6.3,
-    Nicosia:   purpose === 'Short-term rental' ? 5.4 : 5.2,
-    Famagusta: purpose === 'Short-term rental' ? 6.2 : 6.5,
-  };
-  let y = cityBase[d.city] ?? 5.8;
-  const t = (d.type||'').toLowerCase();
-  if (t.includes('apartment')) y += 0.6;
-  if (t.includes('penthouse')) y -= 0.3;
-  if (t.includes('villa')) y -= 0.5;
-  if (t.includes('house')) y -= 0.4;
-  if (d.bedrooms === 1) y += 0.5;
-  if (d.bedrooms === 2) y += 0.3;
-  if (d.bedrooms === 3) y += 0.1;
-  if ((d.bedrooms||0) >= 4) y -= 0.4;
-  if (d.seaDist != null) {
-    if (d.seaDist < 0.5) y += purpose === 'Short-term rental' ? 1.2 : 0.2;
-    else if (d.seaDist < 1) y += purpose === 'Short-term rental' ? 0.8 : 0.1;
-    else if (d.seaDist < 3) y += 0.3;
-    else if (d.seaDist > 15) y -= 0.3;
-  }
-  if (d.ppm != null) {
-    if (d.ppm < 2500) y += 0.6;
-    else if (d.ppm < 3500) y += 0.3;
-    else if (d.ppm > 6000) y -= 0.4;
-    else if (d.ppm > 8000) y -= 0.7;
-  }
-  const mgmtFee = purpose === 'Short-term rental' ? 0.20 : purpose === 'Long-term rental' ? 0.08 : 0;
-  const grossYield = Math.max(3.5, Math.min(10.5, y));
-  return Math.round(grossYield * (1 - mgmtFee) * 10) / 10;
+  const purposeMap = {'Short-term rental':'short_term','Long-term rental':'long_term','Mixed':'mixed','Investment':'investment'};
+  const profile = { purpose: purposeMap[purpose]||'long_term', objective:'balanced', risk:'moderate' };
+  return scoreProperty(d, profile).yieldData.netYieldPct;
 }
 
 function estimateRentRange(d, purpose) {
   if (!d.price) return null;
-  const mgmtFee = purpose === 'Short-term rental' ? 0.20 : purpose === 'Long-term rental' ? 0.08 : 0;
-  const netYield = estimateYield(d, purpose);
-  const grossYield = mgmtFee > 0 ? netYield / (1 - mgmtFee) : netYield;
-  const grossMonthly = d.price * (grossYield / 100) / 12;
-  const netMonthly = d.price * (netYield / 100) / 12;
-  const low  = Math.round(grossMonthly * 0.85 / 50) * 50;
-  const high = Math.round(grossMonthly * 1.15 / 50) * 50;
-  const netLow  = Math.round(netMonthly * 0.85 / 50) * 50;
-  const netHigh = Math.round(netMonthly * 1.15 / 50) * 50;
-  return { low, high, netLow, netHigh, yPct: netYield, grossYield: Math.round(grossYield*10)/10, mgmtFee };
+  const purposeMap = {'Short-term rental':'short_term','Long-term rental':'long_term','Mixed':'mixed','Investment':'investment'};
+  const profile = { purpose: purposeMap[purpose]||'long_term', objective:'balanced', risk:'moderate' };
+  const r = scoreProperty(d, profile).yieldData;
+  const mgmt = r.mgmtFeePct / 100;
+  return { low:r.monthlyRentLow, high:r.monthlyRentHigh, netLow:Math.round(r.monthlyRentLow*(1-mgmt)/50)*50, netHigh:Math.round(r.monthlyRentHigh*(1-mgmt)/50)*50, yPct:r.netYieldPct, grossYield:r.grossYieldPct, mgmtFee:mgmt };
 }
 
 function applyClientFilter(resetPg) {
   if (resetPg !== false) cPage = 1;
   autoSaveInvestor();
   const results = getClientMatches();
+  const clientProfile = currentClientProfile();
   document.getElementById('cMatchCount').textContent = results.length.toLocaleString();
   if (!results.length) {
     document.getElementById('cResults').innerHTML = '<div class="empty">No listings match these criteria.</div>';
@@ -2324,16 +2597,18 @@ function applyClientFilter(resetPg) {
   if (cSortKey) {
     const pur = cCriteria.purpose || 'Long-term rental';
     results.sort((a, b) => {
-      let av = cSortKey === 'yield' ? estimateYield(a, pur) : a[cSortKey];
-      let bv = cSortKey === 'yield' ? estimateYield(b, pur) : b[cSortKey];
+      let av = cSortKey === 'yield' ? estimateYield(a, pur) : cSortKey === 'score' ? scoreProperty(a, clientProfile).total : a[cSortKey];
+      let bv = cSortKey === 'yield' ? estimateYield(b, pur) : cSortKey === 'score' ? scoreProperty(b, clientProfile).total : b[cSortKey];
       if (av == null) av = cSortAsc ? Infinity : -Infinity;
       if (bv == null) bv = cSortAsc ? Infinity : -Infinity;
       if (typeof av === 'string') av = av.toLowerCase();
       if (typeof bv === 'string') bv = bv.toLowerCase();
       return cSortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
+  } else {
+    results.sort((a, b) => scoreProperty(b, clientProfile).total - scoreProperty(a, clientProfile).total);
   }
-  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
+  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental' || cCriteria.purpose === 'Mixed' || cCriteria.purpose === 'Investment';
   const cTot = Math.ceil(results.length / cPS) || 1;
   const top = results.slice((cPage-1)*cPS, cPage*cPS);
   const arrow = k => cSortKey===k?(cSortAsc?'↑':'↓'):'↕';
@@ -2341,12 +2616,15 @@ function applyClientFilter(resetPg) {
     ? `<th onclick="sortClientBy('yield')" style="cursor:pointer">Rental / Yield ${arrow('yield')}</th>`
     : '<th>€/m²</th>';
   const rows = top.map(d => {
+    const score = scoreProperty(d, clientProfile);
+    const scoreBadge = renderScoreBreakdown(score, true);
     const yieldCell = showYield ? (() => {
-      const r = estimateRentRange(d, cCriteria.purpose);
+      const r = estimateRentRange(d, cCriteria.purpose === 'Short-term rental' ? 'Short-term rental' : 'Long-term rental');
       if (!r) return '<td>—</td>';
       return `<td style="font-size:11px;white-space:nowrap"><div style="font-weight:500">€${r.low.toLocaleString()}–€${r.high.toLocaleString()}/mo</div><div style="color:#15803d;font-size:10px">€${r.netLow.toLocaleString()}–€${r.netHigh.toLocaleString()} net</div><div style="color:var(--mu);font-size:10px">${r.grossYield.toFixed(1)}% gross · ${r.yPct.toFixed(1)}% net</div></td>`;
     })() : `<td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>`;
     return `<tr style="cursor:pointer" onclick="openModal(${d.id})">
+      <td style="white-space:nowrap">${scoreBadge}</td>
       <td title="${d.developer||''}">${d.developer||'—'}</td>
       <td title="${d.title||''}">${d.title||'—'}</td>
       <td>${tagBadge(d.type)}</td>
@@ -2354,13 +2632,14 @@ function applyClientFilter(resetPg) {
       <td>${d.district||'—'}</td>
       <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
       <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
-      <td style="font-weight:600" onclick="sortClientBy('price')" >${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
       ${yieldCell}
       <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
     </tr>`;
   }).join('');
   document.getElementById('cResults').innerHTML = `
-    <table style="min-width:900px"><thead><tr>
+    <table style="min-width:960px"><thead><tr>
+      <th onclick="sortClientBy('score')" style="cursor:pointer">Score ${arrow('score')}</th>
       <th onclick="sortClientBy('developer')" style="cursor:pointer">Developer ${arrow('developer')}</th>
       <th onclick="sortClientBy('title')" style="cursor:pointer">Title ${arrow('title')}</th>
       <th onclick="sortClientBy('type')" style="cursor:pointer">Type ${arrow('type')}</th>
@@ -2892,7 +3171,7 @@ function resetClient() {
   var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
   var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
   var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
-  Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
+  Object.assign(cCriteria, { purpose:null, objective:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
   document.getElementById('cMatchCount').textContent = '—';
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
   const cs = document.getElementById('cSaveStatus'); if(cs) cs.textContent = '';
@@ -3123,98 +3402,9 @@ function resetPortfolioBuilder() {
 }
 
 function scoreAsset(d, strategy, risk, portfolio, budget) {
-  const isST = strategy.includes('Short-term');
-  const isLT = strategy.includes('Long-term') && !strategy.includes('Mixed');
-  const isMixed = strategy.includes('Mixed');
-  const isMaxYield = strategy.includes('Max yield');
-  const isGrowth = strategy.includes('Max appreciation');
-  const isBalanced = strategy.includes('Balanced');
-  const isDiversified = strategy.includes('Diversified');
-
-  let _wDefault;
-  if (isST && isMaxYield)           _wDefault = {yield:0.55,appreciation:0.05,sea:0.25,efficiency:0.12,diversity:0.03};
-  else if (isST && isGrowth)        _wDefault = {yield:0.20,appreciation:0.45,sea:0.22,efficiency:0.08,diversity:0.05};
-  else if (isST && isBalanced)      _wDefault = {yield:0.38,appreciation:0.25,sea:0.22,efficiency:0.10,diversity:0.05};
-  else if (isST && isDiversified)   _wDefault = {yield:0.30,appreciation:0.15,sea:0.20,efficiency:0.10,diversity:0.25};
-  else if (isLT && isMaxYield)      _wDefault = {yield:0.60,appreciation:0.08,sea:0.08,efficiency:0.22,diversity:0.02};
-  else if (isLT && isGrowth)        _wDefault = {yield:0.15,appreciation:0.50,sea:0.12,efficiency:0.15,diversity:0.08};
-  else if (isLT && isBalanced)      _wDefault = {yield:0.40,appreciation:0.28,sea:0.10,efficiency:0.15,diversity:0.07};
-  else if (isLT && isDiversified)   _wDefault = {yield:0.30,appreciation:0.18,sea:0.08,efficiency:0.14,diversity:0.30};
-  else if (isMixed && isMaxYield)   _wDefault = {yield:0.52,appreciation:0.08,sea:0.18,efficiency:0.15,diversity:0.07};
-  else if (isMixed && isGrowth)     _wDefault = {yield:0.18,appreciation:0.47,sea:0.18,efficiency:0.10,diversity:0.07};
-  else if (isMixed && isBalanced)   _wDefault = {yield:0.38,appreciation:0.27,sea:0.16,efficiency:0.12,diversity:0.07};
-  else if (isMixed && isDiversified) _wDefault = {yield:0.28,appreciation:0.20,sea:0.14,efficiency:0.10,diversity:0.28};
-  else _wDefault = {yield:0.35,appreciation:0.25,sea:0.18,efficiency:0.12,diversity:0.10};
-
-  let w;
-  if (pbCustomWeights) {
-    const total = Object.values(pbCustomWeights).reduce((s,v)=>s+v,0)||100;
-    w = Object.fromEntries(Object.entries(pbCustomWeights).map(([k,v])=>[k,v/total]));
-  } else { w = _wDefault; }
-
-  const purpose = isST ? 'Short-term rental' : isLT ? 'Long-term rental' : 'Long-term rental';
-  const yPct = estimateYield(d, purpose);
-  const yieldScore = Math.min(100, (yPct/10)*100);
-
-  const cityAp = isST
-    ? {Paphos:90,Larnaca:85,Limassol:80,Famagusta:78,Nicosia:28}
-    : isGrowth
-    ? {Limassol:95,Paphos:88,Larnaca:70,Famagusta:72,Nicosia:50}
-    : {Limassol:90,Nicosia:78,Larnaca:65,Paphos:62,Famagusta:55};
-  const typeAp = {villa:85,penthouse:80,apartment:60,house:55,flat:50};
-  const cityAScore = cityAp[d.city]||55;
-  const tk = (d.type||'').toLowerCase();
-  const typeAScore = Object.entries(typeAp).find(([k])=>tk.includes(k))?.[1]||55;
-  let ppmScore = 60;
-  if (d.ppm!=null){if(d.ppm<2000)ppmScore=95;else if(d.ppm<3000)ppmScore=80;else if(d.ppm<4500)ppmScore=65;else if(d.ppm<6000)ppmScore=50;else ppmScore=35;}
-  const appreciationScore = cityAScore*0.4+typeAScore*0.3+ppmScore*0.3;
-
-  let seaScore=40;
-  if(d.seaDist!=null){
-    if(isST){if(d.seaDist<0.3)seaScore=100;else if(d.seaDist<0.5)seaScore=97;else if(d.seaDist<1)seaScore=90;else if(d.seaDist<2)seaScore=80;else if(d.seaDist<5)seaScore=60;else if(d.seaDist<10)seaScore=35;else seaScore=15;}
-    else{if(d.seaDist<0.3)seaScore=85;else if(d.seaDist<1)seaScore=75;else if(d.seaDist<3)seaScore=65;else if(d.seaDist<8)seaScore=55;else if(d.seaDist<20)seaScore=40;else seaScore=25;}
-  }
-
-  const cityAvgPpm={Limassol:6200,Paphos:4000,Larnaca:3400,Famagusta:2900,Nicosia:3600};
-  const avg=cityAvgPpm[d.city]||4200;
-  let effScore=50;
-  if(d.ppm!=null){
-    const r=d.ppm/avg;
-    if(r<0.65)effScore=95;else if(r<0.80)effScore=82;else if(r<0.92)effScore=70;
-    else if(r<1.05)effScore=58;else if(r<1.20)effScore=42;else if(r<1.40)effScore=28;else effScore=15;
-  }
-
-  const usedCities=new Set(portfolio.map(x=>x.city));
-  const usedTypes=new Set(portfolio.map(x=>(x.type||'').toLowerCase()));
-  let divScore=50;
-  if(!usedCities.has(d.city))divScore+=30;
-  if(!usedTypes.has(tk))divScore+=20;
-  divScore=Math.min(100,divScore);
-
-  let riskMult=1.0;
-  if(risk==='Conservative'){if(d.price>600000)riskMult*=0.85;if(tk.match(/villa|penthouse/))riskMult*=0.9;if(d.city==='Famagusta')riskMult*=0.9;}
-  else if(risk==='Aggressive'){if(d.city==='Limassol'||d.city==='Paphos')riskMult*=1.1;if(tk.match(/villa|penthouse/))riskMult*=1.05;}
-
-  let deliveryMult=1.0;
-  if((isST||isLT)&&d.addedOn){
-    const yr=parseInt((d.addedOn||'').slice(-4));
-    if(yr>=2028)deliveryMult=isST?0.72:0.80;
-    else if(yr>=2027)deliveryMult=isST?0.82:0.88;
-    else if(yr>=2026)deliveryMult=isST?0.90:0.93;
-  }
-  if(isGrowth&&d.addedOn){const yr=parseInt((d.addedOn||'').slice(-4));if(yr>=2027)deliveryMult=1.08;else if(yr>=2026)deliveryMult=1.04;}
-
-  let concPenalty=1.0;
-  const cityCount=portfolio.filter(x=>x.city===d.city).length;
-  const cityVal=portfolio.filter(x=>x.city===d.city).reduce((s,x)=>s+(x.price||0),0);
-  if(cityCount>=3)concPenalty*=0.7;else if(cityCount>=2)concPenalty*=0.85;
-  if(budget>0&&(cityVal+(d.price||0))/budget>0.5)concPenalty*=0.8;
-
-  const liquidityMult={Limassol:1.10,Paphos:1.00,Larnaca:1.00,Nicosia:0.95,Famagusta:0.85}[d.city]||1.0;
-  const prBonus = (d.price||0) >= 300000 ? 1.06 : 1.0;
-
-  const total=(w.yield*yieldScore+w.appreciation*appreciationScore+w.sea*seaScore+w.efficiency*effScore+w.diversity*divScore)*riskMult*deliveryMult*concPenalty*liquidityMult*prBonus;
-  return {total, yPct};
+  const profile = buildProfileFromStrategy(strategy, risk, portfolio, budget);
+  const result = scoreProperty(d, profile);
+  return { total: result.total, yPct: result.yieldData.netYieldPct };
 }
 
 function buildPortfolio() {
@@ -4995,7 +5185,7 @@ function loadInvestorToClientCall(name){
   currentClientCallId=inv.investorId||inv.id;
   // Reset all criteria first
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
-  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  Object.assign(cCriteria,{purpose:null,objective:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
   // Fill contact fields (read-only)
   var el=document.getElementById('cName');if(el){el.value=inv.name;el.readOnly=true;}
   var ep=document.getElementById('cPhone');if(ep){ep.value=inv.phone||'';ep.readOnly=true;}
@@ -5167,7 +5357,7 @@ function clearClientSelection(){
   var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
   var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
   var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
-  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  Object.assign(cCriteria,{purpose:null,objective:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
   var mc=document.getElementById('cMatchCount');if(mc)mc.textContent='—';
   var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
