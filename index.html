@@ -5706,17 +5706,18 @@ async function loadActivityLog(clientID) {
   var text = await r.text();
   var rows = parseCommsCSV(text);
   if (!rows.length) return [];
-  var hdr = rows[0].map(function(h){ return h.toLowerCase().replace(/\s+/g,''); });
-  var iClientID    = hdr.indexOf('clientid');
-  var iDate        = hdr.indexOf('date');
-  var iInvName     = hdr.indexOf('investorname');
-  var iType        = hdr.indexOf('type');
-  var iAction      = hdr.indexOf('action');
-  var iPropID      = hdr.indexOf('propertyid');
-  var iPropTitle   = hdr.indexOf('propertytitle');
-  var iNotes       = hdr.indexOf('notes');
+  var hdr = rows[0].map(function(h){ return h.toLowerCase().replace(/[\s_]/g,''); });
+  function col(a,b){ var i=hdr.indexOf(a); return i>=0?i:(b!=null?hdr.indexOf(b):-1); }
+  var iClientID  = col('investorid','clientid');   if(iClientID<0)iClientID=1;
+  var iDate      = col('date');                    if(iDate<0)iDate=2;
+  var iInvName   = col('investorname');            if(iInvName<0)iInvName=3;
+  var iType      = col('type');                    if(iType<0)iType=4;
+  var iAction    = col('action');                  if(iAction<0)iAction=5;
+  var iPropID    = col('propertyid');              if(iPropID<0)iPropID=6;
+  var iPropTitle = col('propertytitle');           if(iPropTitle<0)iPropTitle=7;
+  var iNotes     = col('note','notes');            if(iNotes<0)iNotes=8;
   var cid = String(clientID);
-  return rows.slice(1).filter(function(row){ return String(row[iClientID]||'').trim() === cid; })
+  return rows.slice(1).filter(function(row){ return row.length>1 && String(row[iClientID]||'').trim()===cid; })
     .map(function(row){
       var raw = iDate >= 0 ? row[iDate] : '';
       return {
