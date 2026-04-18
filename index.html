@@ -1717,7 +1717,7 @@ function scoreProperty(listing, profile) {
     if(cc>=3)mod*=0.68;else if(cc>=2)mod*=0.82;
     if(p.budget&&p.budget>0&&(cv+(d.price||0))/p.budget>0.5)mod*=0.82;
   }
-  const total=Math.max(0,Math.min(100,rawScore*mod));
+  const total=Math.round(Math.max(0,Math.min(100,rawScore*mod)));
 
   const distChar = distScore ? distScore.char : 'unknown';
   const flags={
@@ -2065,8 +2065,8 @@ function renderInsightsBar(data) {
   const ppms   = data.filter(d => d.ppm).map(d => d.ppm);
   const avgP   = prices.length ? Math.round(prices.reduce((a,b)=>a+b)/prices.length) : null;
   const avgPpm = ppms.length   ? Math.round(ppms.reduce((a,b)=>a+b)/ppms.length)   : null;
-  const minPpm = ppms.length   ? Math.min(...ppms) : null;
-  const minPpmD = ppms.length  ? data.filter(d=>d.ppm).sort((a,b)=>a.ppm-b.ppm)[0] : null;
+  const minPpm = ppms.filter(p=>p>100).length ? Math.min(...ppms.filter(p=>p>100)) : null;
+  const minPpmD = minPpm ? data.filter(d=>d.ppm&&d.ppm>100).sort((a,b)=>a.ppm-b.ppm)[0] : null;
 
   // Best value = lowest ppm with price > 0
   const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
@@ -2077,7 +2077,7 @@ function renderInsightsBar(data) {
     { lbl:'Avg price', val: avgP ? '€'+avgP.toLocaleString() : '—', sub:'all types' },
     { lbl:'Avg €/m²',  val: avgPpm ? '€'+avgPpm.toLocaleString() : '—', sub:'filtered' },
     { lbl:'Lowest €/m²', val: minPpm ? '€'+minPpm.toLocaleString() : '—', sub: minPpmD ? minPpmD.city||'' : '' },
-    { lbl:'Best deal', val: bestScored ? bestScored.s+' score' : '—', sub: bestScored ? (bestScored.d.city||'') : '', action: bestScored ? `openModal(${bestScored.d.id})` : '' },
+    { lbl:'Best deal', val: bestScored ? bestScored.s+' / 100' : '—', sub: bestScored ? (bestScored.d.title||bestScored.d.developer||'').slice(0,18)||bestScored.d.city||'' : '', action: bestScored ? `openModal(${bestScored.d.id})` : '' },
   ];
   el.innerHTML = kpis.map(k => `<div onclick="${k.action||''}" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;${k.action?'cursor:pointer;':''}">
     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:4px">${k.lbl}</div>
@@ -2093,7 +2093,7 @@ function renderTopOpps(data) {
   if (!wrap || !cards || !data.length) return;
   const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
   const top5 = data.filter(d=>d.price).map(d => ({ d, score: scoreProperty(d, profile) }))
-    .sort((a,b) => b.score.total - a.score.total).slice(0, 5);
+    .sort((a,b) => b.score.total - a.score.total).slice(0, 4);
   if (!top5.length) { wrap.style.display = 'none'; return; }
   const verdictColors = {'verdict-priority':'#15803d','verdict-strong':'#1e40af','verdict-selective':'#854d0e','verdict-strategy':'#9a3412','verdict-pass':'#991b1b'};
   cards.innerHTML = top5.map((item, i) => {
@@ -2288,9 +2288,8 @@ function render() {
         <td style="padding:7px 8px" onclick="event.stopPropagation()">
           <input type="checkbox" ${isChecked?'checked':''} onchange="toggleListingCompare(${d.id},this)" style="cursor:pointer;accent-color:var(--tx)">
         </td>
-        <td style="padding:7px 10px;white-space:nowrap">
+        <td style="padding:7px 10px;white-space:nowrap;text-align:center">
           <div style="font-size:16px;font-weight:700;color:var(--tx);line-height:1">${score.total}</div>
-          <div style="font-size:9px;color:var(--mu);margin-top:1px">${conf.split(' ')[0]}</div>
         </td>
         <td style="padding:7px 8px;white-space:nowrap">
           <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px;background:${vc}">${v.label}</span>
