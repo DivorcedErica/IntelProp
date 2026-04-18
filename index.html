@@ -2572,7 +2572,7 @@ function renderInvestorCard(inv) {
   // Async-load activity log from Google Sheets
   (async function(){
     try {
-      var entries = await loadActivityLog(inv.name);
+      var entries = await loadActivityLog(inv.investorId||inv.id);
       var countEl = document.getElementById('invActCount');
       var titleEl = document.getElementById('invActTitle');
       var tlEl    = document.getElementById('invTimeline');
@@ -5686,7 +5686,7 @@ function parseCommsCSV(text) {
   return rows;
 }
 
-async function loadActivityLog(investorName) {
+async function loadActivityLog(clientID) {
   // Sheet headers: CommID(0) ClientID(1) Date(2) Investor Name(3) Type(4) Action(5) Property ID(6) Property Title(7) Notes(8)
   var r = await fetch('https://docs.google.com/spreadsheets/d/'+SID+'/gviz/tq?tqx=out:csv&gid='+COMMS_GID);
   var text = await r.text();
@@ -5702,11 +5702,11 @@ async function loadActivityLog(investorName) {
   var iPropID    = col('propertyid');              if(iPropID<0)iPropID=6;
   var iPropTitle = col('propertytitle');           if(iPropTitle<0)iPropTitle=7;
   var iNotes     = col('notes','note');            if(iNotes<0)iNotes=8;
-  var nameLower = String(investorName||'').trim().toLowerCase();
-  console.log('[loadActivityLog] name:', nameLower, 'iInvName:', iInvName, 'rows:', rows.length-1, 'hdr:', hdr);
+  var cidNum = +clientID;
+  console.log('[loadActivityLog] clientID:', cidNum, 'iClientID:', iClientID, 'hdr:', hdr, 'total rows:', rows.length-1);
   return rows.slice(1).filter(function(row){
     if (row.length <= 1) return false;
-    return String(row[iInvName]||'').trim().toLowerCase() === nameLower;
+    return +row[iClientID] === cidNum;
   })
     .map(function(row){
       var raw = iDate >= 0 ? row[iDate] : '';
@@ -5724,15 +5724,15 @@ async function loadActivityLog(investorName) {
     });
 }
 
-async function renderActivityLog(investorName) {
+async function renderActivityLog(clientID) {
   var wrap = document.getElementById('activityLogWrap');
   var list = document.getElementById('activityLogList');
   if (!wrap || !list) return;
-  if (!investorName) { wrap.style.display = 'none'; return; }
+  if (!clientID) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
   list.innerHTML = '<div style="font-size:11px;color:var(--mu)">Loading…</div>';
   try {
-    var entries = await loadActivityLog(investorName);
+    var entries = await loadActivityLog(clientID);
     if (!entries.length) { list.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">No activity yet.</div>'; return; }
     entries.reverse();
     list.innerHTML = entries.map(function(e){
@@ -5755,13 +5755,15 @@ async function renderActivityLog(investorName) {
   }
 }
 
-function getCurrentClientName() {
+function getCurrentClientID() {
   var nameEl = document.getElementById('cName');
-  return nameEl ? nameEl.value.trim() : null;
+  if (!nameEl || !nameEl.value.trim()) return null;
+  var inv = investorProfiles.find(function(i){ return i.name.toLowerCase() === nameEl.value.trim().toLowerCase(); });
+  return inv ? (inv.investorId||inv.id) : null;
 }
 
 function refreshActivityLog() {
-  renderActivityLog(getCurrentClientName());
+  renderActivityLog(getCurrentClientID());
 }
 
 async function logActivity(opts) {
@@ -5797,7 +5799,7 @@ async function logActivity(opts) {
       var inv = _origGetOrCreate.apply(this, arguments);
       if (wasNew && inv) {
         logActivity({clientID: inv.investorId||inv.id, investorName: inv.name, type:'session', action:'Profile created'});
-        renderActivityLog(inv.name);
+        renderActivityLog(inv.investorId||inv.id);
       }
       return inv;
     };
@@ -5808,8 +5810,8 @@ async function logActivity(opts) {
     gotoTab = function(t, el) {
       _origGotoTab.apply(this, arguments);
       if (t === 'clients') {
-        var _name = getCurrentClientName();
-        if (_name) renderActivityLog(_name);
+        var _cid = getCurrentClientID();
+        if (_cid) renderActivityLog(_cid);
       }
     };
   }
