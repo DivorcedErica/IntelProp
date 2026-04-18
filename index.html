@@ -509,6 +509,17 @@ tr:hover td{background:var(--bg2)}
 
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+
+      <!-- ── Activity Log ── -->
+      <div id="activityLogWrap" style="display:none;margin-top:20px;border-top:1px solid var(--bd);padding-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Activity Log</div>
+          <button onclick="refreshActivityLog()" class="btn" style="font-size:10px;height:26px;padding:0 10px">↻ Refresh</button>
+        </div>
+        <div id="activityLogList" style="max-height:280px;overflow-y:auto">
+          <div style="font-size:12px;color:var(--mu);padding:8px 0">Enter a client name above to load their activity log.</div>
+        </div>
+      </div>
     </div>
 
     <!-- PORTFOLIO BUILDER -->
@@ -3886,6 +3897,253 @@ function renderAiResults(allMatched, topN, usedGmaps, sortBy) {
 
   document.getElementById('aiResults').innerHTML = html;
 }
+
+// ══════════════════════════════════════════════════════════════════
+// ACTIVITY LOG — FIXED
+// Sheet: Client Communications Log (GID 614194656)
+// Columns: CommID | ClientID | Date | Investor Name | Type | Action
+//           | Property ID | Property Title | Notes
+//
+// Bug fixes applied:
+//   1. parseSheetDate — handles "DD/MM/YYYY, HH:MM:SS" correctly
+//   2. loadActivityLog — filters rows by ClientID (not all rows)
+//   3. logActivity — deduplicates "Profile created" before writing
+// ══════════════════════════════════════════════════════════════════
+
+const COMMS_GID = '614194656';
+// n8n webhook that appends a row to the Comms sheet.
+// Set this to your actual n8n webhook URL.
+const COMMS_WEBHOOK = '';   // ← paste your n8n append webhook here
+
+// ── FIX 1: Parse "DD/MM/YYYY, HH:MM:SS" correctly ───────────────
+function parseSheetDate(raw) {
+  if (!raw) return null;
+  // Handles: "17/04/2026, 18:57:26" or "17/04/2026 18:57:26"
+  const m = String(raw).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, day, month, year, hh, mm, ss] = m;
+  return new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${hh}:${mm}:${ss}`);
+}
+
+function fmtActivityDate(raw) {
+  const d = parseSheetDate(raw);
+  if (!d || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-GB', { day:'numeric', month:'short' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ── Parse raw CSV text into array-of-arrays ───────────────────────
+function parseCommsCSV(text) {
+  const rows = [];
+  const lines = text.trim().split('\n');
+  for (const line of lines) {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur.trim());
+    rows.push(cols.map(v => v.replace(/^"|"$/g, '').trim()));
+  }
+  return rows;
+}
+
+// ── FIX 2: Load & filter rows by ClientID ────────────────────────
+async function loadActivityLog(clientID) {
+  if (!clientID && clientID !== 0) return [];
+  const url = `https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:csv&gid=${COMMS_GID}`;
+  let rows;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    rows = parseCommsCSV(text);
+  } catch(e) {
+    console.error('[ActivityLog] Fetch failed:', e);
+    return [];
+  }
+  if (rows.length < 2) return [];
+
+  // Resolve column indices from header
+  const header = rows[0].map(h => h.toLowerCase().replace(/\s+/g,''));
+  const ci = name => header.indexOf(name);
+  const iClientID      = ci('clientid');        // col B → 1
+  const iDate          = ci('date');             // col C → 2
+  const iInvestorName  = ci('investorname');     // col D → 3
+  const iType          = ci('type');             // col E → 4
+  const iAction        = ci('action');           // col F → 5
+  const iPropertyID    = ci('propertyid');       // col G → 6
+  const iPropertyTitle = ci('propertytitle');    // col H → 7
+  const iNotes         = ci('notes');            // col I → 8
+
+  const clientStr = String(clientID).trim();
+
+  return rows.slice(1)
+    .filter(row => String(row[iClientID] || '').trim() === clientStr) // FIX 2
+    .map(row => ({
+      date:          row[iDate],
+      dateFormatted: fmtActivityDate(row[iDate]),   // FIX 1
+      investorName:  row[iInvestorName],
+      type:          (row[iType] || '').toLowerCase(),
+      action:        row[iAction],
+      propertyID:    row[iPropertyID],
+      propertyTitle: row[iPropertyTitle],
+      notes:         row[iNotes],
+    }));
+}
+
+// ── Render the activity log into the UI panel ─────────────────────
+async function renderActivityLog(clientID) {
+  const panel = document.getElementById('activityLogList');
+  const wrap  = document.getElementById('activityLogWrap');
+  if (!panel) return;
+
+  if (!clientID) {
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+  if (wrap) wrap.style.display = '';
+  panel.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:8px 0">Loading…</div>';
+
+  const entries = await loadActivityLog(clientID);
+
+  if (!entries.length) {
+    panel.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:8px 0">No activity recorded yet.</div>';
+    return;
+  }
+
+  // Newest first
+  const sorted = [...entries].reverse();
+
+  const typeIcon  = t => t === 'shortlist' ? '♥' : t === 'general' ? '📝' : '●';
+  const typeColor = t => t === 'shortlist' ? 'color:var(--red)' : t === 'general' ? 'color:var(--gold)' : 'color:var(--mu)';
+
+  panel.innerHTML = sorted.map(e => `
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:14px;${typeColor(e.type)};flex-shrink:0;margin-top:1px">${typeIcon(e.type)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--tx)">${e.action || '—'}</div>
+        ${e.propertyTitle ? `<div style="font-size:11px;color:var(--mu);margin-top:1px">📋 ${e.propertyTitle}</div>` : ''}
+        ${e.notes         ? `<div style="font-size:11px;color:var(--mu);margin-top:2px;line-height:1.5">${e.notes}</div>` : ''}
+        <div style="font-size:10px;color:var(--mu);margin-top:3px">${e.dateFormatted}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Refresh button handler ────────────────────────────────────────
+function refreshActivityLog() {
+  const clientID = getCurrentClientID();
+  if (clientID) renderActivityLog(clientID);
+}
+
+// ── Derive a stable numeric ClientID from the client name ─────────
+// Uses the investor profile's id (timestamp-based) as ClientID.
+// This matches how the sheet was originally populated.
+function getCurrentClientID() {
+  const name = (document.getElementById('cName') || {}).value || '';
+  if (!name.trim()) return null;
+  const inv = investorProfiles.find(i => i.name.toLowerCase() === name.trim().toLowerCase());
+  return inv ? inv.id : null;
+}
+
+// ── FIX 3: Write activity row — deduplicate "Profile created" ─────
+async function logActivity({ clientID, investorName='', type='session', action='', propertyID='', propertyTitle='', notes='' }) {
+  if (!clientID) return;
+
+  // FIX 3: skip if "Profile created" already logged for this clientID
+  if (action === 'Profile created') {
+    try {
+      const existing = await loadActivityLog(clientID);
+      if (existing.some(e => e.action === 'Profile created')) {
+        console.log('[ActivityLog] Profile created already exists for', clientID, '— skipping.');
+        return;
+      }
+    } catch(e) {
+      console.warn('[ActivityLog] Dedup check failed, proceeding:', e);
+    }
+  }
+
+  // Format date as DD/MM/YYYY, HH:MM:SS (matches existing sheet format)
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}, ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  const payload = {
+    ClientID:        String(clientID),
+    Date:            dateStr,
+    'Investor Name': investorName,
+    Type:            type,
+    Action:          action,
+    'Property ID':   String(propertyID),
+    'Property Title':propertyTitle,
+    Notes:           notes,
+  };
+
+  if (!COMMS_WEBHOOK) {
+    console.log('[ActivityLog] No webhook set. Payload:', payload);
+    return;
+  }
+  try {
+    await fetch(COMMS_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch(e) {
+    console.error('[ActivityLog] Write failed:', e);
+  }
+}
+
+// ── Hook into existing getOrCreateInvestor & autoSaveInvestor ─────
+// Wrap getOrCreateInvestor to fire logActivity on new profile creation
+const _origGetOrCreate = getOrCreateInvestor;
+getOrCreateInvestor = function(name, phone) {
+  const wasNew = !investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+  const inv = _origGetOrCreate(name, phone);
+  if (wasNew) {
+    // FIX 3: dedup check happens inside logActivity
+    logActivity({ clientID: inv.id, investorName: name, type: 'session', action: 'Profile created' });
+  }
+  // Show the activity log panel when a client is loaded
+  renderActivityLog(inv.id);
+  return inv;
+};
+
+// Hook into gotoTab — when Client Call tab is opened with a name, load log
+const _origGotoTab = gotoTab;
+gotoTab = function(t, el) {
+  _origGotoTab(t, el);
+  if (t === 'clients') {
+    const name = (document.getElementById('cName') || {}).value || '';
+    if (name.trim()) {
+      const inv = investorProfiles.find(i => i.name.toLowerCase() === name.trim().toLowerCase());
+      if (inv) renderActivityLog(inv.id);
+    }
+  }
+};
+
+// Listen for client name changes to show/hide log
+document.addEventListener('DOMContentLoaded', () => {
+  const cName = document.getElementById('cName');
+  if (cName) {
+    let _logDebounce;
+    cName.addEventListener('input', () => {
+      clearTimeout(_logDebounce);
+      _logDebounce = setTimeout(() => {
+        const name = cName.value.trim();
+        if (!name) {
+          const wrap = document.getElementById('activityLogWrap');
+          if (wrap) wrap.style.display = 'none';
+          return;
+        }
+        const inv = investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (inv) renderActivityLog(inv.id);
+      }, 600);
+    });
+  }
+});
 
 init();
 </script>
