@@ -360,51 +360,114 @@ tr:hover td{background:var(--bg2)}
 
     <!-- LISTINGS -->
     <div id="pListings">
-      <div class="frow">
-        <input type="text" id="q" placeholder="Search developer, title, district, complex, size…" oninput="doFilter()">
-        <select id="fCity" onchange="doFilter()"><option value="">All cities</option></select>
-        <select id="fType" onchange="doFilter()"><option value="">All types</option></select>
-        <select id="fBeds" onchange="doFilter()"><option value="">Any beds</option></select>
-        <select id="fDelivery" onchange="doFilter()"><option value="">Any delivery</option></select>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px;margin-top:-4px">
-        <button onclick="clearFilters()" style="font-size:11px;padding:3px 12px;border:1px solid var(--bd);border-radius:var(--r);background:none;color:var(--mu);cursor:pointer" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--mu)'">✕ Clear all filters</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--mu);white-space:nowrap">Max distance to sea</span>
-        <select id="fSea" onchange="doFilter()" style="font-size:12px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
-          <option value="">Any distance</option>
-          <option value="0.5">Beachfront (&lt;500m)</option>
-          <option value="1">Walking distance (&lt;1km)</option>
-          <option value="3">Close (&lt;3km)</option>
-          <option value="8">Near (&lt;8km)</option>
-          <option value="20">Within 20km</option>
-        </select>
-      </div>
-      <div class="prow">
-        <label style="flex:none">Max price</label>
-        <input type="range" id="priceR" min="0" max="5000000" step="50000" value="5000000" oninput="onPrice()" style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:3px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);padding:0 8px;height:30px;flex:none">
-          <span style="font-size:12px;color:var(--mu)">€</span>
-          <input type="number" id="priceInput" step="50000" min="0" max="5000000" placeholder="Any" oninput="onPriceInput()" style="width:90px;border:none;background:transparent;font-size:12px;color:var(--tx);outline:none;padding:0">
+
+      <!-- ── Smart Filters ── -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;margin-bottom:12px">
+        <div class="frow">
+          <input type="text" id="q" placeholder="Search developer, title, district, complex, size…" oninput="doFilter()">
+          <select id="fCity" onchange="doFilter()"><option value="">All cities</option></select>
+          <select id="fType" onchange="doFilter()"><option value="">All types</option></select>
+          <select id="fBeds" onchange="doFilter()"><option value="">Any beds</option></select>
+          <select id="fDelivery" onchange="doFilter()"><option value="">Any delivery</option></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--mu);white-space:nowrap">Sea distance</span>
+            <select id="fSea" onchange="doFilter()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+              <option value="">Any</option>
+              <option value="0.5">Beachfront</option>
+              <option value="1">&lt;1km</option>
+              <option value="3">&lt;3km</option>
+              <option value="8">&lt;8km</option>
+              <option value="20">&lt;20km</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--mu);white-space:nowrap">Value</span>
+            <select id="fValue" onchange="doFilter()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+              <option value="">Any</option>
+              <option value="under">Under market</option>
+              <option value="market">At market</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--mu);white-space:nowrap">Verdict</span>
+            <select id="fVerdict" onchange="doFilter()" style="font-size:11px;height:30px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+              <option value="">All</option>
+              <option value="priority">Priority Acquisition</option>
+              <option value="strong">Strong Opportunity</option>
+              <option value="selective">Selective</option>
+              <option value="strategy">Strategy-Specific</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--mu);white-space:nowrap">Max price</span>
+            <input type="range" id="priceR" min="0" max="5000000" step="50000" value="5000000" oninput="onPrice()" style="width:100px;accent-color:var(--tx)">
+            <div style="display:flex;align-items:center;gap:2px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);padding:0 7px;height:30px">
+              <span style="font-size:11px;color:var(--mu)">€</span>
+              <input type="number" id="priceInput" step="50000" min="0" max="5000000" placeholder="Any" oninput="onPriceInput()" style="width:80px;border:none;background:transparent;font-size:11px;color:var(--tx);outline:none;padding:0">
+            </div>
+          </div>
+          <button onclick="clearFilters()" style="font-size:11px;padding:3px 12px;border:1px solid var(--bd);border-radius:var(--r);background:none;color:var(--mu);cursor:pointer;margin-left:auto" onmouseover="this.style.color='var(--tx)'" onmouseout="this.style.color='var(--mu)'">✕ Clear</button>
         </div>
       </div>
-      <div class="sbar">
-        <div class="stat">Showing <b id="cShown">—</b> of <b id="cTotal">—</b></div>
-        <div class="stat">Avg price <b id="aPrice">—</b></div>
-        <div class="stat">Avg €/m² <b id="aPpm">—</b></div>
+
+      <!-- ── Quick Insights Bar ── -->
+      <div id="insightsBar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px"></div>
+
+      <!-- ── Top Opportunities ── -->
+      <div id="topOppsWrap" style="margin-bottom:12px;display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">Top Opportunities</div>
+          <button onclick="document.getElementById('topOppsWrap').style.display='none'" style="font-size:10px;color:var(--mu);background:none;border:none;cursor:pointer">Hide</button>
+        </div>
+        <div id="topOppsCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px"></div>
       </div>
-      <div class="vt">
-        <button class="vtb on" id="vTable" onclick="setView('table')">≡ Table</button>
-        <button class="vtb" id="vCards" onclick="setView('cards')">⊞ Cards</button>
+
+      <!-- ── Sort + View controls ── -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--mu)">Sort:</span>
+          <div style="display:flex;gap:4px" id="lSortGroup">
+            <button class="vtb on" id="lsScore"   onclick="setListingSort('score',this)">✦ Best Score</button>
+            <button class="vtb"    id="lsValue"   onclick="setListingSort('value',this)">💰 Best Value</button>
+            <button class="vtb"    id="lsYield"   onclick="setListingSort('yield',this)">📈 Yield</button>
+            <button class="vtb"    id="lsRisk"    onclick="setListingSort('risk',this)">🛡 Low Risk</button>
+            <button class="vtb"    id="lsPrice"   onclick="setListingSort('price',this)">€ Price ↑</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="sbar" style="margin:0">
+            <div class="stat">Showing <b id="cShown">—</b> of <b id="cTotal">—</b></div>
+          </div>
+          <div class="vt" style="margin:0">
+            <button class="vtb on" id="vTable" onclick="setView('table')">≡ Table</button>
+            <button class="vtb"    id="vCards" onclick="setView('cards')">⊞ Cards</button>
+          </div>
+          <button onclick="compareListingsSelected()" class="btn" style="font-size:11px;height:28px;padding:0 12px">⊞ Compare (<span id="lCompareCount">0</span>)</button>
+        </div>
       </div>
+
+      <!-- Comparison panel -->
+      <div id="lComparePanel" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--bd)">
+          <div style="font-size:12px;font-weight:600">Property Comparison</div>
+          <button onclick="document.getElementById('lComparePanel').style.display='none'" class="btn" style="font-size:11px;height:28px;padding:0 10px">✕</button>
+        </div>
+        <div id="lCompareContent" style="overflow-x:auto;padding:14px"></div>
+      </div>
+
+      <!-- Listings table/cards -->
       <div class="twrap" id="mainView"><div class="empty">Loading listings…</div></div>
+
+      <!-- Pagination -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;gap:5px">
           <span style="font-size:11px;color:var(--mu)">Per page</span>
-          <button class="vtb on" id="ps25" onclick="setPS(25)">25</button>
-          <button class="vtb" id="ps50" onclick="setPS(50)">50</button>
-          <button class="vtb" id="ps100" onclick="setPS(100)">100</button>
+          <button class="vtb on" id="ps25"  onclick="setPS(25)">25</button>
+          <button class="vtb"    id="ps50"  onclick="setPS(50)">50</button>
+          <button class="vtb"    id="ps100" onclick="setPS(100)">100</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button id="bPrev" onclick="pg(-1)" disabled style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
@@ -467,6 +530,7 @@ tr:hover td{background:var(--bg2)}
             <button onclick="resetClient()" class="btn" style="font-size:11px;height:30px;padding:0 12px">✕ Reset</button>
           </div>
         </div>
+        <!-- Client selector -->
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
           <span style="font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap">Client</span>
           <select id="cClientSelector" onchange="selectClientForCall(this.value)" style="flex:1;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
@@ -474,22 +538,23 @@ tr:hover td{background:var(--bg2)}
           </select>
           <button onclick="clearClientSelection()" class="btn" style="font-size:11px;padding:0 10px;height:32px">✕ Clear</button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px" id="cContactRow">
+        <!-- Contact fields — always horizontal grid -->
+        <div id="cContactRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Full Name</div>
-            <input type="text" id="cName" placeholder="— select a client —" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+            <input type="text" id="cName" placeholder="— select a client —" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default;box-sizing:border-box">
           </div>
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
-            <input type="text" id="cPhone" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+            <input type="text" id="cPhone" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default;box-sizing:border-box">
           </div>
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div>
-            <input type="email" id="cEmail" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+            <input type="email" id="cEmail" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default;box-sizing:border-box">
           </div>
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client Type</div>
-            <input type="text" id="cClientType" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+            <input type="text" id="cClientType" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default;box-sizing:border-box">
           </div>
         </div>
         <!-- Hidden fields for JS compatibility -->
@@ -1926,6 +1991,190 @@ function onMapPriceInput() {
   renderMap();
 }
 
+// ── Listings intelligence ─────────────────────────────────────
+let lSortMode = 'score'; // score | value | yield | risk | price
+let lSelectedForCompare = new Set();
+
+function setListingSort(mode, btn) {
+  lSortMode = mode;
+  document.querySelectorAll('#lSortGroup .vtb').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  doFilter();
+}
+
+function getListingRisk(d) {
+  // Heuristic risk: delivery timing, missing developer, ppm outlier
+  let riskPoints = 0;
+  if (!d.developer) riskPoints += 2;
+  if (d.delivery) {
+    const yr = parseInt(d.delivery);
+    if (yr >= 2027) riskPoints += 2;
+    else if (yr >= 2026) riskPoints += 1;
+  }
+  const bench = CITY_BENCHMARKS[d.city] || {};
+  const medPpm = bench.medianPpm || null;
+  if (medPpm && d.ppm && d.ppm > medPpm * 1.4) riskPoints += 1;
+  if (!d.price) riskPoints += 2;
+  if (riskPoints >= 4) return { label:'High', color:'#991b1b', bg:'#fee2e2' };
+  if (riskPoints >= 2) return { label:'Med',  color:'#92400e', bg:'#fef3c7' };
+  return                      { label:'Low',  color:'#15803d', bg:'#dcfce7' };
+}
+
+function getValueLabel(d) {
+  const bench = CITY_BENCHMARKS[d.city] || {};
+  const med = bench.medianPpm || null;
+  if (!med || !d.ppm) return null;
+  const ratio = d.ppm / med;
+  if (ratio < 0.85) return { label:'Undervalued', color:'#15803d', bg:'#dcfce7' };
+  if (ratio < 1.10) return { label:'Market',      color:'#1e40af', bg:'#dbeafe' };
+  return                   { label:'Premium',      color:'#92400e', bg:'#fef3c7' };
+}
+
+function getDealTags(d, score) {
+  const tags = [];
+  const bench = CITY_BENCHMARKS[d.city] || {};
+  const med = bench.medianPpm || null;
+  if (med && d.ppm && d.ppm < med * 0.85) tags.push({ t:'Undervalued', c:'#15803d' });
+  if (score >= 80) tags.push({ t:'Top Scored', c:'#1e40af' });
+  if (d.seaDist != null && d.seaDist < 0.5) tags.push({ t:'Beachfront', c:'#0369a1' });
+  if (d.seaDist != null && d.seaDist < 1)   tags.push({ t:'Prime Location', c:'#6d28d9' });
+  if (d.delivery && d.delivery.toLowerCase().includes('ready')) tags.push({ t:'Ready Now', c:'#15803d' });
+  if (d.ppm && d.ppm < 2000) tags.push({ t:'Low Entry', c:'#854d0e' });
+  return tags.slice(0, 3);
+}
+
+function getListingNarrative(d, score) {
+  const vl = getValueLabel(d);
+  const risk = getListingRisk(d);
+  const parts = [];
+  if (vl && vl.label === 'Undervalued') parts.push('priced below city median');
+  else if (vl && vl.label === 'Premium') parts.push('premium pricing');
+  if (d.seaDist != null && d.seaDist < 1) parts.push('excellent coastal position');
+  if (d.delivery && d.delivery.toLowerCase().includes('ready')) parts.push('immediately available');
+  if (score >= 80) parts.push('strong overall profile');
+  const concern = risk.label === 'High' ? 'High execution risk.' : risk.label === 'Med' ? 'Moderate risk profile.' : 'Low risk profile.';
+  const bestUse = (d.seaDist != null && d.seaDist < 2) ? 'STR / own use' : 'LTR / mixed';
+  return (parts.length ? parts.slice(0,2).join(', ').replace(/^./, s => s.toUpperCase()) + '. ' : '') + concern + ` Best use: ${bestUse}.`;
+}
+
+// ── Insights bar ───────────────────────────────────────────────
+function renderInsightsBar(data) {
+  const el = document.getElementById('insightsBar');
+  if (!el || !data.length) return;
+  const prices = data.filter(d => d.price).map(d => d.price);
+  const ppms   = data.filter(d => d.ppm).map(d => d.ppm);
+  const avgP   = prices.length ? Math.round(prices.reduce((a,b)=>a+b)/prices.length) : null;
+  const avgPpm = ppms.length   ? Math.round(ppms.reduce((a,b)=>a+b)/ppms.length)   : null;
+  const minPpm = ppms.length   ? Math.min(...ppms) : null;
+  const minPpmD = ppms.length  ? data.filter(d=>d.ppm).sort((a,b)=>a.ppm-b.ppm)[0] : null;
+
+  // Best value = lowest ppm with price > 0
+  const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
+  const bestScored = data.filter(d=>d.price).map(d=>({d,s:scoreProperty(d,profile).total})).sort((a,b)=>b.s-a.s)[0];
+
+  const kpis = [
+    { lbl:'Listings', val: data.length.toLocaleString(), sub:'matching' },
+    { lbl:'Avg price', val: avgP ? '€'+avgP.toLocaleString() : '—', sub:'all types' },
+    { lbl:'Avg €/m²',  val: avgPpm ? '€'+avgPpm.toLocaleString() : '—', sub:'filtered' },
+    { lbl:'Lowest €/m²', val: minPpm ? '€'+minPpm.toLocaleString() : '—', sub: minPpmD ? minPpmD.city||'' : '' },
+    { lbl:'Best deal', val: bestScored ? bestScored.s+' score' : '—', sub: bestScored ? (bestScored.d.city||'') : '', action: bestScored ? `openModal(${bestScored.d.id})` : '' },
+  ];
+  el.innerHTML = kpis.map(k => `<div onclick="${k.action||''}" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;${k.action?'cursor:pointer;':''}">
+    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu);margin-bottom:4px">${k.lbl}</div>
+    <div style="font-size:17px;font-weight:700;color:var(--tx);line-height:1.1">${k.val}</div>
+    <div style="font-size:10px;color:var(--mu);margin-top:2px">${k.sub}</div>
+  </div>`).join('');
+}
+
+// ── Top Opportunities ──────────────────────────────────────────
+function renderTopOpps(data) {
+  const wrap = document.getElementById('topOppsWrap');
+  const cards = document.getElementById('topOppsCards');
+  if (!wrap || !cards || !data.length) return;
+  const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
+  const top5 = data.filter(d=>d.price).map(d => ({ d, score: scoreProperty(d, profile) }))
+    .sort((a,b) => b.score.total - a.score.total).slice(0, 5);
+  if (!top5.length) { wrap.style.display = 'none'; return; }
+  const verdictColors = {'verdict-priority':'#15803d','verdict-strong':'#1e40af','verdict-selective':'#854d0e','verdict-strategy':'#9a3412','verdict-pass':'#991b1b'};
+  cards.innerHTML = top5.map((item, i) => {
+    const { d, score } = item;
+    const v = getVerdict(score.total);
+    const risk = getListingRisk(d);
+    const narrative = getListingNarrative(d, score.total);
+    const bc = verdictColors[v.cls] || '#6b7280';
+    return `<div onclick="openModal(${d.id})" style="background:var(--bg);border:1px solid var(--bd);border-left:3px solid ${bc};border-radius:0 8px 8px 0;padding:10px 12px;cursor:pointer;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:4px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;color:var(--mu);font-weight:600;margin-bottom:1px">#${i+1} · ${d.city||''}</div>
+          <div style="font-size:12px;font-weight:600;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title||d.developer||'Property #'+d.id}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:18px;font-weight:700;color:var(--tx)">${score.total}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px">
+        <span style="font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;background:${verdictColors[v.cls]+'22'};color:${bc}">${v.label}</span>
+        <span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${risk.bg};color:${risk.color}">${risk.label} risk</span>
+        ${d.price ? `<span style="font-size:10px;font-weight:600;color:var(--tx)">€${d.price.toLocaleString()}</span>` : ''}
+      </div>
+      <div style="font-size:10px;color:var(--mu);line-height:1.5">${narrative}</div>
+    </div>`;
+  }).join('');
+  wrap.style.display = '';
+}
+
+// ── Listings comparison ────────────────────────────────────────
+function toggleListingCompare(id, cb) {
+  if (cb && cb.checked) lSelectedForCompare.add(id);
+  else lSelectedForCompare.delete(id);
+  const el = document.getElementById('lCompareCount');
+  if (el) el.textContent = lSelectedForCompare.size;
+}
+
+function compareListingsSelected() {
+  if (lSelectedForCompare.size < 2) { alert('Select at least 2 properties to compare.'); return; }
+  const items = Array.from(lSelectedForCompare).map(id => all.find(d => d.id === id)).filter(Boolean);
+  const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
+  const scored = items.map(d => ({ d, score: scoreProperty(d, profile) }));
+  const panel = document.getElementById('lComparePanel');
+  const content = document.getElementById('lCompareContent');
+  if (!panel || !content) return;
+  const thS = 'padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd);white-space:nowrap;text-align:left;min-width:160px';
+  const tdS = 'padding:9px 12px;font-size:12px;border-bottom:1px solid var(--bd)';
+  const rowLabelS = `${tdS};font-weight:600;color:var(--mu);font-size:11px;background:var(--bg2);white-space:nowrap`;
+  const metrics = [
+    { key:'score',   label:'Score',   fmt:(d,s)=>`<b style="font-size:15px">${s.total}</b> ${verdictBadge(s.total)}` },
+    { key:'price',   label:'Price',   fmt:(d,s)=>d.price?'€'+d.price.toLocaleString():'—' },
+    { key:'ppm',     label:'€/m²',    fmt:(d,s)=>d.ppm?'€'+d.ppm.toLocaleString():'—' },
+    { key:'area',    label:'Area',    fmt:(d,s)=>d.area?d.area+' m²':'—' },
+    { key:'bedrooms',label:'Beds',    fmt:(d,s)=>d.bedrooms!=null?d.bedrooms:'—' },
+    { key:'city',    label:'City',    fmt:(d,s)=>d.city||'—' },
+    { key:'type',    label:'Type',    fmt:(d,s)=>d.type||'—' },
+    { key:'delivery',label:'Delivery',fmt:(d,s)=>d.delivery||'—' },
+    { key:'seaDist', label:'Sea',     fmt:(d,s)=>d.seaDist!=null?(d.seaDist<0.3?'Beachfront':d.seaDist<1?Math.round(d.seaDist*1000)+'m':d.seaDist.toFixed(1)+'km'):'—' },
+    { key:'risk',    label:'Risk',    fmt:(d,s)=>{ const r=getListingRisk(d); return `<span style="color:${r.color};font-weight:600">${r.label}</span>`; } },
+    { key:'value',   label:'Value',   fmt:(d,s)=>{ const v=getValueLabel(d); return v?`<span style="color:${v.color}">${v.label}</span>`:'—'; } },
+  ];
+  const bestMap = {};
+  ['score','ppm','price','seaDist'].forEach(key => {
+    let best=null, bestVal=key==='ppm'||key==='seaDist'||key==='price'?Infinity:-Infinity;
+    scored.forEach(({d,score})=>{ const val=key==='score'?score.total:d[key]; if(val==null)return; const isBetter=(key==='ppm'||key==='seaDist')?(val<bestVal):(val>bestVal); if(isBetter){bestVal=val;best=d.id;} });
+    bestMap[key]=best;
+  });
+  const headers = scored.map(({d})=>`<th style="${thS}">${d.title||d.developer||'#'+d.id}<div style="font-size:10px;color:var(--mu);font-weight:400">${d.city||''}</div></th>`).join('');
+  const rows = metrics.map(m=>{
+    const cells = scored.map(({d,score})=>{
+      const isBest=bestMap[m.key]===d.id;
+      return `<td style="${tdS};${isBest?'background:rgba(21,128,61,.05)':''}">${m.fmt(d,score)}${isBest?' <span style="font-size:9px;color:#15803d;font-weight:700">★</span>':''}</td>`;
+    }).join('');
+    return `<tr><td style="${rowLabelS}">${m.label}</td>${cells}</tr>`;
+  }).join('');
+  content.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:400px"><thead><tr><th style="${rowLabelS}">Metric</th>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+  panel.style.display='';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── doFilter — upgraded ────────────────────────────────────────
 function doFilter() {
   const q=document.getElementById('q').value.toLowerCase();
   const city=document.getElementById('fCity').value;
@@ -1938,17 +2187,56 @@ function doFilter() {
   const maxSea = seaEl && seaEl.value ? +seaEl.value : null;
   const deliveryEl = document.getElementById('fDelivery');
   const deliveryF = deliveryEl ? deliveryEl.value : '';
-  filt=all.filter(d=>{
-    if(q&&!`${d.developer} ${d.title} ${d.district} ${d.complex||''} ${d.area!=null?d.area+' m²':''} ${d.bedrooms!=null?d.bedrooms+' bed':''}`.toLowerCase().includes(q))return false;
-    if(city&&d.city!==city)return false;
-    if(type&&d.type!==type)return false;
-    if(beds&&d.bedrooms!==+beds)return false;
-    if(maxP&&d.price>maxP)return false;
-    if(maxSea&&(d.seaDist==null||d.seaDist>maxSea))return false;
-    if(deliveryF&&deliveryYear(d.delivery)!==deliveryF)return false;
+  const fValue = (document.getElementById('fValue')||{}).value || '';
+  const fVerdict = (document.getElementById('fVerdict')||{}).value || '';
+
+  const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
+
+  filt = all.filter(d => {
+    if(q&&!`${d.developer} ${d.title} ${d.district} ${d.complex||''} ${d.area!=null?d.area+' m²':''} ${d.bedrooms!=null?d.bedrooms+' bed':''}`.toLowerCase().includes(q)) return false;
+    if(city&&d.city!==city) return false;
+    if(type&&d.type!==type) return false;
+    if(beds&&d.bedrooms!==+beds) return false;
+    if(maxP&&d.price>maxP) return false;
+    if(maxSea&&(d.seaDist==null||d.seaDist>maxSea)) return false;
+    if(deliveryF&&deliveryYear(d.delivery)!==deliveryF) return false;
+    // Value filter
+    if(fValue) {
+      const vl = getValueLabel(d);
+      if(fValue==='under'  && (!vl || vl.label!=='Undervalued')) return false;
+      if(fValue==='market' && (!vl || vl.label!=='Market'))      return false;
+      if(fValue==='premium'&& (!vl || vl.label!=='Premium'))     return false;
+    }
+    // Verdict filter
+    if(fVerdict) {
+      const s = scoreProperty(d, profile).total;
+      const v = getVerdict(s);
+      if(fVerdict==='priority' && v.cls!=='verdict-priority') return false;
+      if(fVerdict==='strong'   && v.cls!=='verdict-strong')   return false;
+      if(fVerdict==='selective'&& v.cls!=='verdict-selective') return false;
+      if(fVerdict==='strategy' && v.cls!=='verdict-strategy')  return false;
+    }
     return true;
   });
-  if(sc){
+
+  // Sort
+  if (lSortMode === 'score') {
+    filt.sort((a,b) => scoreProperty(b,profile).total - scoreProperty(a,profile).total);
+  } else if (lSortMode === 'value') {
+    const med = d => (CITY_BENCHMARKS[d.city]||{}).medianPpm || 3000;
+    filt.sort((a,b) => {
+      const ra = a.ppm ? a.ppm/med(a) : 999;
+      const rb = b.ppm ? b.ppm/med(b) : 999;
+      return ra - rb;
+    });
+  } else if (lSortMode === 'yield') {
+    filt.sort((a,b) => scoreProperty(b,{...profile,purpose:'long_term'}).yieldData.grossYieldPct - scoreProperty(a,{...profile,purpose:'long_term'}).yieldData.grossYieldPct);
+  } else if (lSortMode === 'risk') {
+    const riskVal = d => { const r=getListingRisk(d); return r.label==='Low'?0:r.label==='Med'?1:2; };
+    filt.sort((a,b) => riskVal(a) - riskVal(b));
+  } else if (lSortMode === 'price') {
+    filt.sort((a,b) => (a.price||0) - (b.price||0));
+  } else if (sc) {
     filt.sort((a,b)=>{
       let av=a[sc],bv=b[sc];
       if(av===null)av=sa?Infinity:-Infinity;
@@ -1958,20 +2246,101 @@ function doFilter() {
       return sa?(av>bv?1:-1):(av<bv?1:-1);
     });
   }
-  page=1; render();
+
+  page=1;
+  renderInsightsBar(filt);
+  renderTopOpps(filt);
+  render();
 }
 
-function tagBadge(t) {
-  const k=(t||'').toLowerCase();
-  if(k.includes('flat'))return`<span class="tag tf">${t}</span>`;
-  if(k.includes('house'))return`<span class="tag th">${t}</span>`;
-  if(k.includes('villa'))return`<span class="tag tv">${t}</span>`;
-  if(k.includes('apartment'))return`<span class="tag ta">${t}</span>`;
-  if(k.includes('penthouse'))return`<span class="tag tp">${t}</span>`;
-  return`<span class="tag to">${t}</span>`;
+// ── render — upgraded ──────────────────────────────────────────
+function render() {
+  const start=(page-1)*PS, data=filt.slice(start,start+PS), tot=Math.ceil(filt.length/PS)||1;
+  document.getElementById('cShown').textContent=filt.length.toLocaleString();
+  document.getElementById('cTotal').textContent=all.length.toLocaleString();
+  // Keep legacy stat fields if they exist
+  const ps=filt.filter(d=>d.price).map(d=>d.price);
+  const ms=filt.filter(d=>d.ppm).map(d=>d.ppm);
+  const aP=document.getElementById('aPrice'); if(aP) aP.textContent=ps.length?'€'+Math.round(ps.reduce((a,b)=>a+b)/ps.length).toLocaleString():'—';
+  const aM=document.getElementById('aPpm');   if(aM) aM.textContent=ms.length?'€'+Math.round(ms.reduce((a,b)=>a+b)/ms.length).toLocaleString():'—';
+  document.getElementById('pInfo').textContent=`Page ${page} of ${tot}`;
+  document.getElementById('bPrev').disabled=page<=1;
+  document.getElementById('bNext').disabled=page>=tot;
+  if(!data.length){document.getElementById('mainView').innerHTML=`<div class="empty">No listings match.</div>`;return;}
+
+  const profile = { purpose:'mixed', objective:'balanced', risk:'moderate', weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5} };
+
+  if(view==='table'){
+    const rows=data.map((d,i)=>{
+      const score = scoreProperty(d, profile);
+      const v = getVerdict(score.total);
+      const conf = getConfidence(score.total, d);
+      const risk = getListingRisk(d);
+      const vl = getValueLabel(d);
+      const tags = getDealTags(d, score.total);
+      const isTop = score.total >= 80;
+      const verdictColors = {'verdict-priority':'#dcfce7;color:#15803d','verdict-strong':'#dbeafe;color:#1e40af','verdict-selective':'#fef9c3;color:#854d0e','verdict-strategy':'#fed7aa;color:#9a3412','verdict-pass':'#fee2e2;color:#991b1b'};
+      const vc = verdictColors[v.cls]||'#f3f4f6;color:#374151';
+      const confColor = conf==='High Confidence'?'#15803d':conf==='Good Confidence'?'#1e40af':conf==='Moderate Confidence'?'#92400e':'#6b7280';
+      const isChecked = lSelectedForCompare.has(d.id);
+      const rowBg = isTop ? 'background:rgba(21,128,61,.025)' : (start+i)%2===1 ? 'background:var(--bg2)' : '';
+      return `<tr style="cursor:pointer;${rowBg}" onclick="openModal(${d.id})" onmouseenter="this.style.background='rgba(0,0,0,.03)'" onmouseleave="this.style.background='${isTop?'rgba(21,128,61,.025)':(start+i)%2===1?'var(--bg2)':'var(--bg)'}'">
+        <td style="padding:7px 8px" onclick="event.stopPropagation()">
+          <input type="checkbox" ${isChecked?'checked':''} onchange="toggleListingCompare(${d.id},this)" style="cursor:pointer;accent-color:var(--tx)">
+        </td>
+        <td style="padding:7px 10px;white-space:nowrap">
+          <div style="font-size:16px;font-weight:700;color:var(--tx);line-height:1">${score.total}</div>
+          <div style="font-size:9px;color:var(--mu);margin-top:1px">${conf.split(' ')[0]}</div>
+        </td>
+        <td style="padding:7px 8px;white-space:nowrap">
+          <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px;background:${vc}">${v.label}</span>
+        </td>
+        <td style="padding:7px 8px">
+          <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px;background:${risk.bg};color:${risk.color}">${risk.label}</span>
+        </td>
+        <td style="padding:7px 10px;font-size:12px" title="${d.developer||''}">${d.developer||'—'}</td>
+        <td style="padding:7px 10px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${d.title||''}">
+          ${d.title||'—'}${d.complex?`<span style="color:var(--mu);font-size:10px"> · ${d.complex}</span>`:''}
+          ${tags.length ? '<div style="display:flex;gap:3px;margin-top:3px;flex-wrap:wrap">'+tags.map(t=>`<span style="font-size:9px;padding:1px 5px;border-radius:99px;background:${t.c}22;color:${t.c};font-weight:600">${t.t}</span>`).join('')+'</div>' : ''}
+        </td>
+        <td style="padding:7px 8px">${tagBadge(d.type)}</td>
+        <td style="padding:7px 10px;font-size:12px">${d.city||'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;text-align:right;white-space:nowrap;color:var(--mu)">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
+        <td style="padding:7px 10px;font-size:12px;font-weight:600;white-space:nowrap">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+        <td style="padding:7px 10px;font-size:11px;white-space:nowrap;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}${vl?` <span style="font-size:9px;color:${vl.color}">(${vl.label})</span>`:''}</td>
+        <td style="padding:7px 8px;text-align:center" onclick="event.stopPropagation()">
+          <button class="hb ${sl.has(d.id)?'on':''}" onclick="heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button>
+        </td>
+      </tr>`;
+    }).join('');
+    const thS = 'padding:8px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);border-bottom:1px solid var(--bd);white-space:nowrap;cursor:pointer;user-select:none';
+    document.getElementById('mainView').innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead style="position:sticky;top:0;z-index:2;background:var(--bg2)"><tr>
+        <th style="${thS};width:32px;cursor:default"></th>
+        <th style="${thS}" onclick="setListingSort('score')">Score</th>
+        <th style="${thS}">Verdict</th>
+        <th style="${thS}">Risk</th>
+        <th style="${thS}" onclick="sortBy('developer')">Developer${sc==='developer'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS}" onclick="sortBy('title')">Title${sc==='title'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS}">Type</th>
+        <th style="${thS}" onclick="sortBy('city')">City${sc==='city'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS};text-align:center" onclick="sortBy('bedrooms')">Beds${sc==='bedrooms'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS};text-align:right" onclick="sortBy('area')">Area${sc==='area'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS}" onclick="sortBy('price')">Price${sc==='price'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS};text-align:right" onclick="sortBy('ppm')">€/m²${sc==='ppm'?(sa?' ↑':' ↓'):''}</th>
+        <th style="${thS};cursor:default"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } else {
+    document.getElementById('mainView').innerHTML=`<div style="padding:12px"><div class="cards">${data.map(d=>renderCard(d)).join('')}</div></div>`;
+  }
 }
 
-// ── Rental research ──
+function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);lSortMode='';document.querySelectorAll('#lSortGroup .vtb').forEach(b=>b.classList.remove('on'));doFilter();}
+function tagBadge(t){const k=(t||'').toLowerCase();if(k.includes('flat'))return`<span class="tag tf">${t}</span>`;if(k.includes('house'))return`<span class="tag th">${t}</span>`;if(k.includes('villa'))return`<span class="tag tv">${t}</span>`;if(k.includes('apartment'))return`<span class="tag ta">${t}</span>`;if(k.includes('penthouse'))return`<span class="tag tp">${t}</span>`;return`<span class="tag to">${t}</span>`;}
+
 async function getRentalData(id) {
   if(rentalCache[id])return rentalCache[id];
   const d=all.find(x=>x.id===id);
@@ -2392,40 +2761,6 @@ function renderCard(d) {
   </div>`;
 }
 
-function render() {
-  const start=(page-1)*PS, data=filt.slice(start,start+PS), tot=Math.ceil(filt.length/PS)||1;
-  document.getElementById('cShown').textContent=filt.length.toLocaleString();
-  document.getElementById('cTotal').textContent=all.length.toLocaleString();
-  const ps=filt.filter(d=>d.price).map(d=>d.price);
-  const ms=filt.filter(d=>d.ppm).map(d=>d.ppm);
-  document.getElementById('aPrice').textContent=ps.length?'€'+Math.round(ps.reduce((a,b)=>a+b)/ps.length).toLocaleString():'—';
-  document.getElementById('aPpm').textContent=ms.length?'€'+Math.round(ms.reduce((a,b)=>a+b)/ms.length).toLocaleString():'—';
-  document.getElementById('pInfo').textContent=`Page ${page} of ${tot}`;
-  document.getElementById('bPrev').disabled=page<=1;
-  document.getElementById('bNext').disabled=page>=tot;
-  if(!data.length){document.getElementById('mainView').innerHTML=`<div class="empty">No listings match.</div>`;return;}
-  if(view==='table'){
-    const cw='<col style="width:145px"><col style="width:185px"><col style="width:88px"><col style="width:82px"><col style="width:112px"><col style="width:46px"><col style="width:66px"><col style="width:106px"><col style="width:64px"><col style="width:36px">';
-    const lbl={developer:'Developer',title:'Title',type:'Type',city:'City',district:'District',bedrooms:'Beds',area:'Area m²',price:'Price',ppm:'€/m²'};
-    const hs=Object.keys(lbl).map(k=>`<th onclick="sortBy('${k}')">${lbl[k]}${sc===k?(sa?' ↑':' ↓'):''}</th>`).join('');
-    const rows=data.map(d=>`<tr style="cursor:pointer" onclick="openModal(${d.id})">
-      <td title="${d.developer||''}">${d.developer||'—'}</td>
-      <td title="${d.title||''}${d.complex?' · '+d.complex:''}">${d.title||'—'}${d.complex?`<span style="color:var(--mu);font-size:10px"> · ${d.complex}</span>`:''}</td>
-      <td>${tagBadge(d.type)}</td>
-      <td>${d.city||'—'}</td>
-      <td>${d.district||'—'}</td>
-      <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
-      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
-      <td style="font-weight:600;white-space:nowrap">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
-      <td style="text-align:right;white-space:nowrap;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>
-      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
-    </tr>`).join('');
-    document.getElementById('mainView').innerHTML=`<table><colgroup>${cw}</colgroup><thead><tr>${hs}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
-  } else {
-    document.getElementById('mainView').innerHTML=`<div style="padding:12px"><div class="cards">${data.map(d=>renderCard(d)).join('')}</div></div>`;
-  }
-}
-
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
   const on = sl.has(id);
@@ -2439,7 +2774,6 @@ function heart(id) {
   linkPropToClient(id, on);
 }
 
-function sortBy(k){sc===k?sa=!sa:(sc=k,sa=true);doFilter();}
 function pg(d){page+=d;render();window.scrollTo(0,0);}
 function setView(v){
   view=v;
@@ -2459,8 +2793,15 @@ function clearFilters(){
   document.getElementById('fBeds').value='';
   const fSea=document.getElementById('fSea');if(fSea)fSea.value='';
   const fDel=document.getElementById('fDelivery');if(fDel)fDel.value='';
+  const fVal=document.getElementById('fValue');if(fVal)fVal.value='';
+  const fVer=document.getElementById('fVerdict');if(fVer)fVer.value='';
   const slider=document.getElementById('priceR');slider.value=slider.max;
   const pinput=document.getElementById('priceInput');pinput.value='';pinput.placeholder='Any';
+  lSortMode='score';
+  document.querySelectorAll('#lSortGroup .vtb').forEach(b=>b.classList.remove('on'));
+  const lsScore=document.getElementById('lsScore');if(lsScore)lsScore.classList.add('on');
+  lSelectedForCompare.clear();
+  const cc=document.getElementById('lCompareCount');if(cc)cc.textContent='0';
   doFilter();
 }
 
@@ -3761,17 +4102,39 @@ function sheetCacheSet(sheetName, rows) {
 
 async function loadSheetViaAppsScript(sheetName) {
   if (!APPS_SCRIPT_URL) throw new Error('No Apps Script URL configured');
-  const url = APPS_SCRIPT_URL + '?action=read&sheet=' + encodeURIComponent(sheetName);
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Apps Script HTTP ' + r.status);
-  const text = await r.text();
-  // If Apps Script doesn't support read yet, it returns "ready" or non-JSON
-  let json;
-  try { json = JSON.parse(text); } catch(e) { throw new Error('Apps Script read not yet deployed'); }
-  if (json.error) throw new Error('Apps Script: ' + json.error);
-  if (!json.rows) throw new Error('Apps Script read not yet deployed');
-  sheetCacheSet(sheetName, json.rows);
-  return json.rows;
+  // Apps Script exec URLs redirect, which fetch() can't follow cross-origin.
+  // Use JSONP instead — inject a <script> tag with a callback parameter.
+  return new Promise(function(resolve, reject) {
+    var cbName = 'apsCb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+    var script = document.createElement('script');
+    var done = false;
+    var timer = setTimeout(function() {
+      if (done) return; done = true;
+      delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      reject(new Error('Apps Script timeout'));
+    }, 15000);
+    window[cbName] = function(data) {
+      if (done) return; done = true;
+      clearTimeout(timer); delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      if (data && data.error) { reject(new Error('Apps Script: ' + data.error)); return; }
+      if (!data || !data.rows) { reject(new Error('Apps Script read not yet deployed')); return; }
+      sheetCacheSet(sheetName, data.rows);
+      resolve(data.rows);
+    };
+    script.onerror = function() {
+      if (done) return; done = true;
+      clearTimeout(timer); delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      reject(new Error('Failed to fetch'));
+    };
+    script.src = APPS_SCRIPT_URL
+      + '?action=read'
+      + '&sheet=' + encodeURIComponent(sheetName)
+      + '&callback=' + cbName;
+    document.head.appendChild(script);
+  });
 }
 
 // CSV parser kept as fallback for non-restricted sheets
@@ -3961,7 +4324,7 @@ function resetClient() {
   cSelectedAgentId = null;
   var sel=document.getElementById('cClientSelector');if(sel)sel.value='';
   ['cName','cPhone','cEmail','cClientType'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
-  var crow=document.getElementById('cContactRow');if(crow)crow.style.display='';
+  var crow=document.getElementById('cContactRow');if(crow)crow.style.display='grid';
   document.getElementById('cNotes').value = '';
   const cBudgetMaxEl = document.getElementById('cBudgetMax'); if (cBudgetMaxEl) cBudgetMaxEl.value = '';
   document.querySelectorAll('#pClients .crit-btn.on').forEach(b => b.classList.remove('on'));
