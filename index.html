@@ -355,7 +355,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
       <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
       <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
-      <button class="tab" onclick="gotoTab('shortlist',this)">Shortlist <span class="slbadge" id="slBadge">0</span></button>
+
     </div>
 
     <!-- LISTINGS -->
@@ -2754,7 +2754,7 @@ function renderInvestorCard(inv) {
       + assignedProps.map(function(p){
           var dateStr = p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—';
           var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥</span>' : '';
-          var rowClick = p.listingId ? 'style="cursor:pointer" onclick="openModal('+p.listingId+'"' : '';
+          var rowClick = p.listingId ? 'style="cursor:pointer" onclick="openModal('+p.listingId+')"' : '';
           return '<tr '+rowClick+'>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
