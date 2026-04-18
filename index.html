@@ -1114,36 +1114,20 @@ const AGENTS_GID = '';
 const CLIENTS_GID = '1084166034';
 const COMMS_GID = '614194656';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
+// ── Config sheet IDs (reference data loaded from Google Sheets) ──
+const COAST_SID     = '11H1IIHDndxlcL-Th8mId88jTSqoFX-xpVX16ItkoxXA';
+const CITYCRD_SID   = '1EA85blhx8dKKi2Q7i_By1aGRBR5Tm1Z7uiTK1DcJsIE';
+const DISTCRD_SID   = '1IP0VKLMxA-jCy6GpZdl1PeSqb-oy0BpKPVzDPJTcEw4';
+const CITYRATES_SID = '1ayjajbX9IVVgcx8xyXpVZzPEDiSMsG9fYDSwXYdCSw4';
+const SEASON_SID    = '1lSUXRkKfozGsiyGge8L46pfj4mRSNVcxX64JuZ6G8WY';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
 const rentalCache = {};
 const geocodeCache = {};
 
-// ── Sea distance (Haversine) ──────────────────────────────────
-const COAST = [
-  {name:'Limassol seafront',lat:34.6700,lon:33.0400},
-  {name:'Germasogeia beach',lat:34.7050,lon:33.0850},
-  {name:'Amathus beach',lat:34.6950,lon:33.1100},
-  {name:"Governor's Beach",lat:34.6350,lon:33.2300},
-  {name:'Mackenzie Beach Larnaca',lat:34.8700,lon:33.6200},
-  {name:'Finikoudes Beach Larnaca',lat:34.9170,lon:33.6350},
-  {name:'Ayia Napa beach',lat:34.9950,lon:34.0000},
-  {name:'Protaras Fig Tree Bay',lat:35.0120,lon:34.0560},
-  {name:'Coral Bay Paphos',lat:34.8350,lon:32.3800},
-  {name:'Kato Paphos seafront',lat:34.7540,lon:32.4050},
-  {name:'Polis beach',lat:35.0350,lon:32.4300},
-  {name:'Latchi beach',lat:35.0500,lon:32.3900},
-  {name:'Kyrenia harbour',lat:35.3400,lon:33.3150},
-  {name:'Famagusta coast',lat:35.1100,lon:33.9500},
-  {name:'Cape Greco',lat:34.9600,lon:34.0800},
-  {name:'Akrotiri coast',lat:34.5800,lon:32.9700},
-  {name:'Episkopi beach',lat:34.6200,lon:32.8900},
-  {name:'Paramali beach',lat:34.6500,lon:32.8000},
-  {name:'Evdimou beach',lat:34.6400,lon:32.7500},
-  {name:'Limassol old port',lat:34.6720,lon:33.0490},
-  {name:'Larnaca Salt Lake coast',lat:34.8900,lon:33.6000},
-  {name:'Aphrodite Hills coast',lat:34.7000,lon:32.6500},
-];
+// COAST, DISTRICT_FALLBACK, CITY_FALLBACK loaded from Google Sheets via loadConfig()
+let COAST = [];
+
 
 function haversine(lat1,lon1,lat2,lon2){
   const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
@@ -1203,48 +1187,10 @@ function initMap() {
   gInfoWindow = new google.maps.InfoWindow();
 }
 
-// ── Fallback coordinates: district first, then city ──
-const DISTRICT_FALLBACK = {
-  // Limassol districts
-  'Agios Athanasios':[34.6600,33.0500],'Germasogeia':[34.7050,33.0700],
-  'Potamos Germasogeias':[34.7100,33.0900],'Amathus':[34.6950,33.1100],
-  "Governor's Beach":[34.6350,33.2300],'Mesa Geitonia':[34.6800,33.0400],
-  'Ypsonas':[34.7000,32.9800],'Polemidia':[34.7100,32.9700],
-  'Zakaki':[34.6700,32.9900],'Kolossi':[34.6700,32.9200],
-  'Erimi':[34.6600,32.8700],'Episkopi':[34.6150,32.8900],
-  'Paramali':[34.6450,32.8000],'Evdimou':[34.6350,32.7500],
-  // Larnaca districts
-  'Oroklini':[34.8500,33.6400],'Pervolia':[34.8400,33.5800],
-  'Meneou':[34.8550,33.5700],'Mazotos':[34.8000,33.5200],
-  'Kiti':[34.8300,33.5600],'Perivolia':[34.8400,33.5800],
-  'Vergina':[34.9000,33.5800],'Aradippou':[34.9500,33.5900],
-  'Metropolis Mall Area':[34.9200,33.6200],
-  // Paphos districts
-  'Kato Paphos':[34.7540,32.4050],'Coral Bay':[34.8350,32.3800],
-  'Chlorakas':[34.7900,32.3900],'Emba':[34.8200,32.4300],
-  'Tala':[34.8200,32.4600],'Pegeia':[34.8600,32.3700],
-  'Polis':[35.0350,32.4300],'Latchi':[35.0500,32.3900],
-  'Aphrodite Hills':[34.7000,32.6500],'Kouklia':[34.6900,32.5800],
-  // Famagusta / east coast
-  'Protaras':[35.0120,34.0560],'Ayia Napa':[34.9950,34.0000],
-  'Paralimni':[35.0350,33.9700],'Sotira':[35.0600,33.9200],
-  'Frenaros':[35.0500,33.9100],'Cape Greco':[34.9600,34.0800],
-  // Nicosia districts (inland - correct distances ~50km)
-  'Strovolos':[35.1400,33.3600],'Latsia':[35.1200,33.3200],
-  'Tseri':[35.1700,33.4200],'Lakatameia':[35.1500,33.3000],
-  'Agios Dometios':[35.1600,33.3400],'Pera Chorio':[35.0500,33.4500],
-  'Dali':[35.0200,33.4200],'Geri':[35.1000,33.4500],
-  'Anthoupolis':[35.1600,33.3100],'Aglandjia':[35.1700,33.3900],
-  'Makedonitissa':[35.1800,33.3600],'Engomi':[35.1700,33.3500],
-};
-const CITY_FALLBACK = {
-  'Nicosia':   [35.1856, 33.3823],
-  'Limassol':  [34.6841, 33.0228],
-  'Larnaca':   [34.9229, 33.6233],
-  'Paphos':    [34.7754, 32.4241],
-  'Famagusta': [35.0350, 33.9700],  // Paralimni — free Famagusta district centre
-  'Kyrenia':   [35.3417, 33.3192],
-};
+// ── Fallback coordinates: loaded from Google Sheets via loadConfig() ──
+let DISTRICT_FALLBACK = {};
+let CITY_FALLBACK = {};
+
 
 // ── Nominatim geocoding ──
 async function geocode(city, district) {
@@ -1310,8 +1256,86 @@ function createPin(color) {
   });
 }
 
+// ── Config loader: fetches all reference data from Google Sheets ──
+function _parseConfigCSV(text) {
+  const rows = [];
+  for (const line of text.trim().split('\n')) {
+    const cols = []; let cur = '', inQ = false;
+    for (const c of line) {
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    cols.push(cur.trim());
+    rows.push(cols.map(v => v.replace(/^"|"$/g, '').trim()));
+  }
+  return rows;
+}
+
+async function _fetchConfigCSV(sid) {
+  const url = `https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Config fetch failed (${sid}): HTTP ${r.status}`);
+  return _parseConfigCSV(await r.text());
+}
+
+async function loadConfig() {
+  try {
+    const [coastRows, cityRows, distRows, ratesRows, seasonRows] = await Promise.all([
+      _fetchConfigCSV(COAST_SID),
+      _fetchConfigCSV(CITYCRD_SID),
+      _fetchConfigCSV(DISTCRD_SID),
+      _fetchConfigCSV(CITYRATES_SID),
+      _fetchConfigCSV(SEASON_SID),
+    ]);
+
+    // COAST: [{name, lat, lon}]
+    COAST = coastRows.slice(1)
+      .filter(r => r[0] && r[1] && r[2])
+      .map(r => ({ name: r[0], lat: parseFloat(r[1]), lon: parseFloat(r[2]) }));
+
+    // CITY_FALLBACK: {CityName: [lat, lon]}
+    CITY_FALLBACK = {};
+    cityRows.slice(1).filter(r => r[0]).forEach(r => {
+      CITY_FALLBACK[r[0]] = [parseFloat(r[1]), parseFloat(r[2])];
+    });
+
+    // DISTRICT_FALLBACK: {DistrictName: [lat, lon]}
+    DISTRICT_FALLBACK = {};
+    distRows.slice(1).filter(r => r[0]).forEach(r => {
+      DISTRICT_FALLBACK[r[0]] = [parseFloat(r[1]), parseFloat(r[2])];
+    });
+
+    // CITY_ADR + CITY_OCCUPANCY: {City: {bedType: value}}
+    // Rates sheet columns: City, BedType, ADR, Occupancy
+    CITY_ADR = {}; CITY_OCCUPANCY = {};
+    ratesRows.slice(1).filter(r => r[0] && r[1]).forEach(r => {
+      const city = r[0], bed = r[1], adr = parseFloat(r[2]), occ = parseFloat(r[3]);
+      if (!CITY_ADR[city]) { CITY_ADR[city] = {}; CITY_OCCUPANCY[city] = {}; }
+      CITY_ADR[city][bed] = adr;
+      CITY_OCCUPANCY[city][bed] = occ;
+    });
+
+    // CYPRUS_SEASONALITY: [0.52, 0.55, ...] — 12 floats in month order
+    const parsed = seasonRows.slice(1).filter(r => r[1]).map(r => parseFloat(r[1]));
+    if (parsed.length === 12) CYPRUS_SEASONALITY = parsed;
+
+    console.log(`[Config] Loaded: ${COAST.length} coast pts, ${Object.keys(CITY_FALLBACK).length} cities, ${Object.keys(DISTRICT_FALLBACK).length} districts, ${Object.keys(CITY_ADR).length} city rate sets`);
+  } catch(e) {
+    console.warn('[Config] Failed to load from sheets, using fallback defaults:', e.message);
+    // Re-populate fallbacks so the app still works
+    COAST = [{name:'Limassol seafront',lat:34.6700,lon:33.0400},{name:'Ayia Napa beach',lat:34.9950,lon:34.0000},{name:'Kato Paphos seafront',lat:34.7540,lon:32.4050},{name:'Finikoudes Beach Larnaca',lat:34.9170,lon:33.6350}];
+    CITY_FALLBACK = {'Nicosia':[35.1856,33.3823],'Limassol':[34.6841,33.0228],'Larnaca':[34.9229,33.6233],'Paphos':[34.7754,32.4241],'Famagusta':[35.0350,33.9700],'Kyrenia':[35.3417,33.3192]};
+    DISTRICT_FALLBACK = {'Germasogeia':[34.7050,33.0700],'Potamos Germasogeias':[34.7100,33.0900],'Mesa Geitonia':[34.6800,33.0400],'Protaras':[35.0120,34.0560],'Ayia Napa':[34.9950,34.0000],'Paralimni':[35.0350,33.9700],'Strovolos':[35.1400,33.3600],'Aglandjia':[35.1700,33.3900],'Kato Paphos':[34.7540,32.4050],'Coral Bay':[34.8350,32.3800]};
+    CITY_ADR = {Limassol:{studio:85,'1bed':110,'2bed':150,'3bed':200,'4bed':280,villa:350},Paphos:{studio:75,'1bed':95,'2bed':130,'3bed':175,'4bed':240,villa:320},Larnaca:{studio:70,'1bed':90,'2bed':120,'3bed':160,'4bed':210,villa:280},Famagusta:{studio:65,'1bed':85,'2bed':115,'3bed':150,'4bed':195,villa:260},Nicosia:{studio:55,'1bed':70,'2bed':95,'3bed':130,'4bed':170,villa:220}};
+    CITY_OCCUPANCY = {Limassol:{studio:0.72,'1bed':0.75,'2bed':0.70,'3bed':0.65,'4bed':0.58,villa:0.55},Paphos:{studio:0.78,'1bed':0.80,'2bed':0.75,'3bed':0.70,'4bed':0.62,villa:0.60},Larnaca:{studio:0.70,'1bed':0.72,'2bed':0.68,'3bed':0.63,'4bed':0.55,villa:0.52},Famagusta:{studio:0.65,'1bed':0.68,'2bed':0.63,'3bed':0.58,'4bed':0.50,villa:0.48},Nicosia:{studio:0.60,'1bed':0.62,'2bed':0.58,'3bed':0.52,'4bed':0.45,villa:0.42}};
+    CYPRUS_SEASONALITY = [0.52,0.55,0.65,0.78,0.88,0.95,1.00,1.00,0.93,0.82,0.63,0.50];
+  }
+}
+
 async function init() {
   try {
+    await loadConfig(); // Load all reference data from Google Sheets first
     // Try gviz first, fall back to CSV export
     let rows = null;
     try {
@@ -3441,28 +3465,11 @@ function pbRebuildOutput() {
 let analyticsSection = 'overview';
 let anCharts = {};
 
-// Cyprus seasonality index by month (Jan=0 .. Dec=11)
-// Based on tourist arrivals data — peak Jul-Sep, low Jan-Feb
-const CYPRUS_SEASONALITY = [0.52, 0.55, 0.65, 0.78, 0.88, 0.95, 1.00, 1.00, 0.93, 0.82, 0.63, 0.50];
+// Cyprus seasonality, ADR, and occupancy loaded from Google Sheets via loadConfig()
+let CYPRUS_SEASONALITY = [0.7,0.7,0.7,0.7,0.7,0.7,0.7,0.7,0.7,0.7,0.7,0.7]; // safe fallback
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-// City-specific ADR (Average Daily Rate) in EUR — based on 2025 Cyprus Airbnb data
-const CITY_ADR = {
-  Limassol:  { studio:85,  '1bed':110, '2bed':150, '3bed':200, '4bed':280, villa:350 },
-  Paphos:    { studio:75,  '1bed':95,  '2bed':130, '3bed':175, '4bed':240, villa:320 },
-  Larnaca:   { studio:70,  '1bed':90,  '2bed':120, '3bed':160, '4bed':210, villa:280 },
-  Famagusta: { studio:65,  '1bed':85,  '2bed':115, '3bed':150, '4bed':195, villa:260 },
-  Nicosia:   { studio:55,  '1bed':70,  '2bed':95,  '3bed':130, '4bed':170, villa:220 },
-};
-
-// City-specific occupancy rates (annual average)
-const CITY_OCCUPANCY = {
-  Limassol:  { studio:0.72, '1bed':0.75, '2bed':0.70, '3bed':0.65, '4bed':0.58, villa:0.55 },
-  Paphos:    { studio:0.78, '1bed':0.80, '2bed':0.75, '3bed':0.70, '4bed':0.62, villa:0.60 },
-  Larnaca:   { studio:0.70, '1bed':0.72, '2bed':0.68, '3bed':0.63, '4bed':0.55, villa:0.52 },
-  Famagusta: { studio:0.65, '1bed':0.68, '2bed':0.63, '3bed':0.58, '4bed':0.50, villa:0.48 },
-  Nicosia:   { studio:0.60, '1bed':0.62, '2bed':0.58, '3bed':0.52, '4bed':0.45, villa:0.42 },
-};
+let CITY_ADR = {};
+let CITY_OCCUPANCY = {};
 
 function getBedKey(bedrooms) {
   if (!bedrooms || bedrooms === 0) return 'studio';
