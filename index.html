@@ -2754,7 +2754,7 @@ function renderInvestorCard(inv) {
       + assignedProps.map(function(p){
           var dateStr = p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—';
           var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥</span>' : '';
-          var rowClick = p.listingId ? 'style="cursor:pointer" onclick="openModal('+p.listingId+')"' : '';
+          var rowClick = p.listingId ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+p.listingId+')"' : 'style="color:var(--color-text-secondary)"';
           return '<tr '+rowClick+'>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
@@ -5292,20 +5292,43 @@ function calcPricePerM2(){
 }
 function saveClientProperty(){
   if(!_addPropInvestorId)return;
+  var developer = document.getElementById('apDeveloper').value.trim();
+  var city = document.getElementById('apCity').value.trim();
+  var price = document.getElementById('apPrice').value.trim();
+  var title = document.getElementById('apTitle').value.trim();
+
+  // Dedup: block if same developer + city + price already exists for this investor
+  var isDupe = clientProperties.some(function(p){
+    return +p.investorId === +_addPropInvestorId
+      && p.developer === developer
+      && p.city === city
+      && String(p.price) === String(price);
+  });
+  if(isDupe){ alert('This property is already in the list for this client.'); return; }
+
+  // Auto-match listingId from the live database
+  var matched = all.find(function(d){
+    var devMatch = developer && (d.developer||'').toLowerCase().includes(developer.toLowerCase());
+    var cityMatch = !city || (d.city||'').toLowerCase() === city.toLowerCase();
+    var priceMatch = !price || Math.abs((d.price||0) - (+price)) < 1000;
+    return devMatch && cityMatch && priceMatch;
+  });
+
   var prop={
     propertyId: nextPropertyId(),
     investorId: _addPropInvestorId,
-    developer: document.getElementById('apDeveloper').value.trim(),
-    title: document.getElementById('apTitle').value.trim(),
-    type: document.getElementById('apType').value,
-    city: document.getElementById('apCity').value.trim(),
-    district: document.getElementById('apDistrict').value.trim(),
+    listingId: matched ? matched.id : null,
+    developer: developer,
+    title: title || (matched ? matched.title : ''),
+    type: document.getElementById('apType').value || (matched ? matched.type : ''),
+    city: city,
+    district: document.getElementById('apDistrict').value.trim() || (matched ? matched.district : ''),
     complex: document.getElementById('apComplex').value.trim(),
-    bedrooms: document.getElementById('apBedrooms').value,
-    totalArea: document.getElementById('apTotalArea').value,
+    bedrooms: document.getElementById('apBedrooms').value || (matched ? matched.bedrooms : ''),
+    totalArea: document.getElementById('apTotalArea').value || (matched ? matched.area : ''),
     plotSize: document.getElementById('apPlotSize').value,
-    price: document.getElementById('apPrice').value,
-    pricePerM2: document.getElementById('apPricePerM2').value,
+    price: price || (matched ? matched.price : ''),
+    pricePerM2: document.getElementById('apPricePerM2').value || (matched ? matched.ppm : ''),
     addedAt: new Date().toISOString()
   };
   clientProperties.push(prop);
