@@ -2615,17 +2615,30 @@ let invPS = 25, invPage = 1;
 let pbPS = 25, pbPage = 1;
 
 function toggleCrit(btn, key) {
+  const wasOn = btn.classList.contains('on');
   const group = btn.parentElement;
   group.querySelectorAll('.crit-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  if (key === 'budget') {
-    cCriteria.budgetMin = btn.dataset.min !== undefined ? +btn.dataset.min : 0;
-    cCriteria.budgetMax = btn.dataset.max !== undefined ? +btn.dataset.max : 99000000;
-    const mx = document.getElementById('cBudgetMax'); if (mx) mx.value = '';
-  } else if (key === 'sea') {
-    cCriteria.maxSea = +btn.dataset.val || null;
+  if (!wasOn) {
+    btn.classList.add('on');
+    if (key === 'budget') {
+      cCriteria.budgetMin = btn.dataset.min !== undefined ? +btn.dataset.min : 0;
+      cCriteria.budgetMax = btn.dataset.max !== undefined ? +btn.dataset.max : 99000000;
+      const mx = document.getElementById('cBudgetMax'); if (mx) mx.value = '';
+    } else if (key === 'sea') {
+      cCriteria.maxSea = +btn.dataset.val || null;
+    } else {
+      cCriteria[key] = btn.textContent.trim();
+    }
   } else {
-    cCriteria[key] = btn.textContent.trim();
+    // Deselect — clear the value
+    if (key === 'budget') {
+      cCriteria.budgetMin = null; cCriteria.budgetMax = null;
+      const mx = document.getElementById('cBudgetMax'); if (mx) mx.value = '';
+    } else if (key === 'sea') {
+      cCriteria.maxSea = null;
+    } else {
+      cCriteria[key] = null;
+    }
   }
   applyClientFilter();
 }
