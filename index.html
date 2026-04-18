@@ -456,139 +456,265 @@ tr:hover td{background:var(--bg2)}
     <!-- CLIENTS -->
     <div id="pClients" style="display:none">
 
-      <!-- Client selector -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
-        <span style="font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap">Client</span>
-        <select id="cClientSelector" onchange="selectClientForCall(this.value)" style="flex:1;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-          <option value="">— Select a client —</option>
-        </select>
-        <button onclick="clearClientSelection()" class="btn" style="font-size:11px;padding:0 10px">✕ Clear</button>
+      <!-- ══════════════════════════════════════════
+           SECTION A — CLIENT PROFILE
+      ══════════════════════════════════════════ -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 20px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">A · Client Profile</div>
+          <div style="display:flex;gap:6px">
+            <button onclick="saveCurrentSession()" class="btn primary" style="font-size:11px;height:30px;padding:0 14px">💾 Save Session</button>
+            <button onclick="resetClient()" class="btn" style="font-size:11px;height:30px;padding:0 12px">✕ Reset</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px">
+          <span style="font-size:11px;font-weight:600;color:var(--mu);white-space:nowrap">Client</span>
+          <select id="cClientSelector" onchange="selectClientForCall(this.value)" style="flex:1;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">— Select a client —</option>
+          </select>
+          <button onclick="clearClientSelection()" class="btn" style="font-size:11px;padding:0 10px;height:32px">✕ Clear</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px" id="cContactRow">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Full Name</div>
+            <input type="text" id="cName" placeholder="— select a client —" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
+            <input type="text" id="cPhone" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div>
+            <input type="email" id="cEmail" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client Type</div>
+            <input type="text" id="cClientType" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
+          </div>
+        </div>
+        <!-- Hidden fields for JS compatibility -->
+        <div style="display:none">
+          <div id="cSourceGroup">
+            <button class="crit-btn" data-val="Outbound" onclick="cSelectSource(this)">Outbound</button>
+            <button class="crit-btn" data-val="Inbound" onclick="cSelectSource(this)">Inbound</button>
+            <button class="crit-btn" data-val="Network" onclick="cSelectSource(this)">Network</button>
+            <button class="crit-btn" data-val="Referrals" onclick="cSelectSource(this)">Referrals</button>
+            <button class="crit-btn" data-val="Agent Referral" onclick="cSelectSource(this)">Agent Referral</button>
+            <button class="crit-btn" data-val="SEO" onclick="cSelectSource(this)">SEO</button>
+          </div>
+          <div id="cStatusGroup">
+            <button class="crit-btn on" data-val="Active">Active</button>
+            <button class="crit-btn" data-val="Cold Lead">Cold Lead</button>
+            <button class="crit-btn" data-val="Closed">Closed</button>
+            <button class="crit-btn" data-val="Not Interested">Not Interested</button>
+          </div>
+          <div id="cAssignGroup">
+            <button class="crit-btn" data-val="Yaniv">Yaniv</button>
+            <button class="crit-btn" data-val="Sylvana">Sylvana</button>
+            <button class="crit-btn" data-val="Xenia">Xenia</button>
+          </div>
+          <div id="cAgentRow">
+            <input id="cAgentSelect" list="cAgentList" placeholder="Agent name" oninput="cLinkAgent(this.value)" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <datalist id="cAgentList"></datalist>
+            <div id="cAgentBadge" style="display:none;font-size:11px;color:var(--gold)"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- Row 1: Identity (locked, populated on client select) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px" id="cContactRow">
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Full Name</div>
-          <input type="text" id="cName" placeholder="— select a client —" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Phone</div>
-          <input type="text" id="cPhone" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div>
-          <input type="email" id="cEmail" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client type</div>
-          <input type="text" id="cClientType" placeholder="—" readonly style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px;cursor:default">
-        </div>
-      </div>
-
-      <!-- Criteria: two equal columns -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px">
-        <!-- LEFT COLUMN -->
-        <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- ══════════════════════════════════════════
+           SECTION B — INVESTMENT STRATEGY
+      ══════════════════════════════════════════ -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 20px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:14px">B · Investment Strategy</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:14px">
+          <!-- Purpose -->
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Purpose</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPurposeGroup">
-              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();applyClientFilter()">Own use</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();applyClientFilter()">Short-term rental</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();applyClientFilter()">Long-term rental</button>
+            <div style="display:flex;flex-direction:column;gap:4px" id="cPurposeGroup">
+              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();cUpdateDistanceLabel();applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">🏠 Own use</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();cUpdateDistanceLabel();applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">🏖 Short-term rental</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'purpose');cToggleObjective();cUpdateDistanceLabel();applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">🔑 Long-term rental</button>
             </div>
           </div>
+          <!-- Objective -->
           <div id="cObjectiveWrap">
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Objective</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cObjectiveGroup">
-              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Max yield</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Capital Growth</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter()">Balanced</button>
+            <div style="display:flex;flex-direction:column;gap:4px" id="cObjectiveGroup">
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">📈 Max yield</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">🏗 Capital Growth</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'objective');applyClientFilter();updateClientSummary()" style="text-align:left;justify-content:flex-start">⚖ Balanced</button>
             </div>
           </div>
+          <!-- Risk + Hold -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Risk Profile</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="cRiskGroup">
+                <button class="crit-btn" onclick="toggleCrit(this,'risk');applyClientFilter();updateClientSummary()">Conservative</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'risk');applyClientFilter();updateClientSummary()">Moderate</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'risk');applyClientFilter();updateClientSummary()">Aggressive</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Hold Period</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="cHoldGroup">
+                <button class="crit-btn" onclick="toggleCrit(this,'hold');updateClientSummary()" data-val="short">&lt;3 yr</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'hold');updateClientSummary()" data-val="medium">3–5 yr</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'hold');updateClientSummary()" data-val="long">5–10 yr</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'hold');updateClientSummary()" data-val="vlong">10+ yr</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Client Priorities -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Client Priorities <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--mu);opacity:.7">(select all that apply — feeds scoring)</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="cPrioritiesGroup">
+            <button class="crit-btn crit-multi" data-val="sea_view" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🌊 Sea view</button>
+            <button class="crit-btn crit-multi" data-val="pool" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">💦 Pool</button>
+            <button class="crit-btn crit-multi" data-val="quiet" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🌿 Quiet area</button>
+            <button class="crit-btn crit-multi" data-val="walkable" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🚶 Walkable</button>
+            <button class="crit-btn crit-multi" data-val="schools" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🏫 Near schools</button>
+            <button class="crit-btn crit-multi" data-val="cbd" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🏢 Near CBD</button>
+            <button class="crit-btn crit-multi" data-val="turnkey" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">✅ Turnkey / ready</button>
+            <button class="crit-btn crit-multi" data-val="new_build" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">🏗 New build only</button>
+            <button class="crit-btn crit-multi" data-val="luxury" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">💎 High-end / luxury</button>
+            <button class="crit-btn crit-multi" data-val="value" onclick="toggleMulti(this,'priorities');applyClientFilter();updateClientSummary()">💰 Under market value</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════
+           SECTION C — PROPERTY FILTERS
+      ══════════════════════════════════════════ -->
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:16px 20px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin-bottom:14px">C · Property Filters</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:14px">
+          <!-- Budget -->
           <div>
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Budget</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cBudgetGroup">
-              <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="0" data-max="200000">Under €200k</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="200000" data-max="500000">€200k–€500k</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="500000" data-max="1000000">€500k–€1M</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="1000000" data-max="2000000">€1M–€2M</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'budget')" data-min="2000000" data-max="99000000">€2M+</button>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px" id="cBudgetGroup">
+              <button class="crit-btn" onclick="toggleCrit(this,'budget');applyClientFilter();updateClientSummary()" data-min="0" data-max="200000" style="font-size:11px">Under €200k</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'budget');applyClientFilter();updateClientSummary()" data-min="200000" data-max="500000" style="font-size:11px">€200–500k</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'budget');applyClientFilter();updateClientSummary()" data-min="500000" data-max="1000000" style="font-size:11px">€500k–1M</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'budget');applyClientFilter();updateClientSummary()" data-min="1000000" data-max="2000000" style="font-size:11px">€1M–2M</button>
+              <button class="crit-btn" onclick="toggleCrit(this,'budget');applyClientFilter();updateClientSummary()" data-min="2000000" data-max="99000000" style="font-size:11px">€2M+</button>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
-              <label style="font-size:11px;color:var(--mu);white-space:nowrap">Max price (€)</label>
-              <input type="number" id="cBudgetMax" placeholder="e.g. 250000" min="0" step="10000"
-                style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"
-                oninput="applyClientFilter()">
+            <div id="cBudgetSelectedLabel" style="font-size:11px;color:var(--gold);font-weight:500;margin-bottom:6px;display:none"></div>
+            <div style="display:flex;gap:6px">
+              <div style="flex:1">
+                <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Min (€)</div>
+                <input type="number" id="cBudgetMin" placeholder="0" min="0" step="10000" oninput="applyClientFilter();updateClientSummary()" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+              </div>
+              <div style="flex:1">
+                <div style="font-size:10px;color:var(--mu);margin-bottom:3px">Max (€)</div>
+                <input type="number" id="cBudgetMax" placeholder="Any" min="0" step="10000" oninput="applyClientFilter();updateClientSummary()" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+              </div>
             </div>
           </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Bedrooms</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')">Studio</button>
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="1">1</button>
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="2">2</button>
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="3">3</button>
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="4">4</button>
-              <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="5">5+</button>
+          <!-- Cities + Property Type -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="crit-btn crit-multi" data-val="Nicosia" onclick="toggleMulti(this,'cities');applyClientFilter();updateClientSummary()">Nicosia</button>
+                <button class="crit-btn crit-multi" data-val="Limassol" onclick="toggleMulti(this,'cities');applyClientFilter();updateClientSummary()">Limassol</button>
+                <button class="crit-btn crit-multi" data-val="Larnaca" onclick="toggleMulti(this,'cities');applyClientFilter();updateClientSummary()">Larnaca</button>
+                <button class="crit-btn crit-multi" data-val="Paphos" onclick="toggleMulti(this,'cities');applyClientFilter();updateClientSummary()">Paphos</button>
+                <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cities');applyClientFilter();updateClientSummary()">Famagusta</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property Type</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="crit-btn crit-multi" data-val="Apartment" onclick="toggleMulti(this,'types');applyClientFilter()">Apartment</button>
+                <button class="crit-btn crit-multi" data-val="Villa" onclick="toggleMulti(this,'types');applyClientFilter()">Villa</button>
+                <button class="crit-btn crit-multi" data-val="House" onclick="toggleMulti(this,'types');applyClientFilter()">House</button>
+                <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'types');applyClientFilter()">Penthouse</button>
+              </div>
+            </div>
+          </div>
+          <!-- Bedrooms + Delivery + Distance -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Bedrooms</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')">Studio</button>
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="1">1</button>
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="2">2</button>
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="3">3</button>
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="4">4</button>
+                <button class="crit-btn crit-multi" onclick="toggleMulti(this,'beds')" data-val="5">5+</button>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Expected Delivery</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="cDeliveryGroup">
+                <button class="crit-btn" onclick="toggleCrit(this,'delivery');applyClientFilter()">Ready now</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'delivery');applyClientFilter()">2025</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'delivery');applyClientFilter()">2026</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'delivery');applyClientFilter()">2027+</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'delivery');applyClientFilter()">Any</button>
+              </div>
+            </div>
+            <!-- Dynamic distance filter -->
+            <div id="cDistanceWrap">
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px" id="cDistanceLabel">Distance to Sea</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap" id="cSeaGroup">
+                <button class="crit-btn" onclick="toggleCrit(this,'sea');applyClientFilter()" data-val="0.3">Beachfront</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'sea');applyClientFilter()" data-val="1">Under 1km</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'sea');applyClientFilter()" data-val="3">Under 3km</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'sea');applyClientFilter()" data-val="8">Under 8km</button>
+                <button class="crit-btn" onclick="toggleCrit(this,'sea');applyClientFilter()" data-val="999">Any</button>
+              </div>
             </div>
           </div>
         </div>
-        <!-- RIGHT COLUMN -->
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Property type</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="crit-btn crit-multi" data-val="Apartment" onclick="toggleMulti(this,'types')">Apartment</button>
-              <button class="crit-btn crit-multi" data-val="Villa" onclick="toggleMulti(this,'types')">Villa</button>
-              <button class="crit-btn crit-multi" data-val="House" onclick="toggleMulti(this,'types')">House</button>
-              <button class="crit-btn crit-multi" data-val="Penthouse" onclick="toggleMulti(this,'types')">Penthouse</button>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">City</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="crit-btn crit-multi" data-val="Nicosia" onclick="toggleMulti(this,'cities')">Nicosia</button>
-              <button class="crit-btn crit-multi" data-val="Limassol" onclick="toggleMulti(this,'cities')">Limassol</button>
-              <button class="crit-btn crit-multi" data-val="Larnaca" onclick="toggleMulti(this,'cities')">Larnaca</button>
-              <button class="crit-btn crit-multi" data-val="Paphos" onclick="toggleMulti(this,'cities')">Paphos</button>
-              <button class="crit-btn crit-multi" data-val="Famagusta" onclick="toggleMulti(this,'cities')">Famagusta</button>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Distance to sea</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cSeaGroup">
-              <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="0.3">Beachfront</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="1">Under 1km</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="3">Under 3km</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="8">Under 8km</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'sea')" data-val="999">Any</button>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Expected delivery</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap" id="cDeliveryGroup">
-              <button class="crit-btn" onclick="toggleCrit(this,'delivery')">Ready now</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2025</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2026</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'delivery')">2027+</button>
-              <button class="crit-btn" onclick="toggleCrit(this,'delivery')">Any</button>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Notes</div>
-            <input type="text" id="cNotes" placeholder="Sea view, pool, quiet area..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-          </div>
+        <!-- Adviser Notes -->
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Adviser Notes</div>
+          <input type="text" id="cNotes" placeholder="Additional context: preferred floor, parking, specific complex, client preferences..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
         </div>
       </div>
-            <!-- Results -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+
+      <!-- ══════════════════════════════════════════
+           SECTION D — DECISION OUTPUT
+      ══════════════════════════════════════════ -->
+
+      <!-- Action bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
-        <div style="display:flex;gap:8px">
-          <button onclick="saveCurrentSession()" class="btn primary" style="font-size:11px">💾 Save Session</button>
-          <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="runClientRecommendations()" class="btn primary" style="font-size:12px;height:36px;padding:0 18px">✦ Generate Recommendations</button>
+          <button onclick="compareSelected()" class="btn" style="font-size:11px;height:36px;padding:0 14px" id="cCompareBtn">⊞ Compare Selected (<span id="cCompareCount">0</span>)</button>
+          <button onclick="saveCurrentSession()" class="btn" style="font-size:11px;height:36px;padding:0 14px">💾 Save Session</button>
+          <button onclick="resetClient()" class="btn" style="font-size:11px;height:36px;padding:0 12px">✕ Reset</button>
         </div>
       </div>
-      <div class="twrap" id="cResults"><div class="empty">Select criteria above to see matching listings.</div></div>
+
+      <!-- Client Summary Box -->
+      <div id="cSummaryBox" style="display:none;margin-bottom:12px;padding:14px 18px;background:linear-gradient(135deg,rgba(26,26,26,.03),rgba(26,26,26,.06));border:1px solid var(--bd);border-left:3px solid var(--tx);border-radius:0 10px 10px 0">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:6px">Advisory Summary</div>
+        <div id="cSummaryText" style="font-size:12px;color:var(--tx);line-height:1.7;font-style:italic"></div>
+      </div>
+
+      <!-- Top Picks Panel -->
+      <div id="cTopPicksBox" style="display:none;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:8px">Top Recommendations</div>
+        <div id="cTopPicksCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
+      </div>
+
+      <!-- Comparison Panel -->
+      <div id="cComparePanel" style="display:none;margin-bottom:12px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd)">
+          <div style="font-size:12px;font-weight:600;color:var(--tx)">Property Comparison</div>
+          <button onclick="closeCompare()" class="btn" style="font-size:11px;height:28px;padding:0 10px">✕ Close</button>
+        </div>
+        <div id="cCompareContent" style="overflow-x:auto;padding:16px"></div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="twrap" id="cResults"><div class="empty">Configure strategy and filters above to see matching listings.</div></div>
 
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
@@ -596,7 +722,7 @@ tr:hover td{background:var(--bg2)}
       <!-- Session Log -->
       <div id="sessionLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
 
-      <!-- Comm log (shown when client is loaded) -->
+      <!-- Comm log -->
       <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
 
       <!-- Activity Log -->
@@ -1541,10 +1667,29 @@ function scoreProperty(listing, profile) {
 }
 
 function currentClientProfile() {
-  const purposeMap={'Own use':'own_use','Short-term rental':'short_term','Long-term rental':'long_term','Mixed':'mixed','Investment':'investment'};
-  const objectiveMap={'Max yield':'max_yield','Capital Growth':'appreciation','Balanced':'balanced','Diversified':'diversified','Max appreciation':'appreciation'};
+  const purposeMap={
+    'Own use':'own_use','🏠 Own use':'own_use',
+    'Short-term rental':'short_term','🏖 Short-term rental':'short_term',
+    'Long-term rental':'long_term','🔑 Long-term rental':'long_term',
+    'Mixed':'mixed','Investment':'investment'
+  };
+  const objectiveMap={
+    'Max yield':'max_yield','📈 Max yield':'max_yield',
+    'Capital Growth':'appreciation','🏗 Capital Growth':'appreciation',
+    'Balanced':'balanced','⚖ Balanced':'balanced',
+    'Diversified':'diversified','Max appreciation':'appreciation'
+  };
+  const riskMap={'Conservative':'conservative','Moderate':'moderate','Aggressive':'aggressive'};
   const beds=cCriteria.beds||[];const numBeds=beds.filter(b=>b!=='Studio'&&b!=='5+').map(Number);
-  return{purpose:purposeMap[cCriteria.purpose]||'mixed',objective:objectiveMap[cCriteria.objective]||'balanced',risk:'moderate',budgetMin:cCriteria.budgetMin,budgetMax:cCriteria.budgetMax,bedsMin:numBeds.length?Math.min(...numBeds):null,bedsMax:numBeds.length?Math.max(...numBeds):null,cities:cCriteria.cities||[],types:cCriteria.types||[],seaMaxKm:cCriteria.maxSea,weights:{sea:5,space:5,value:5,yield:5,growth:5,lifestyle:5}};
+  const risk = riskMap[cCriteria.risk] || 'moderate';
+  // Priority-based weight boosts
+  const priorities = cCriteria.priorities || [];
+  const weights = {sea:5, space:5, value:5, yield:5, growth:5, lifestyle:5};
+  if (priorities.includes('sea_view')) weights.sea = 9;
+  if (priorities.includes('value')) weights.value = 9;
+  if (priorities.includes('luxury')) { weights.lifestyle = 9; weights.space = 7; }
+  if (priorities.includes('pool') || priorities.includes('quiet')) weights.lifestyle = 7;
+  return {purpose:purposeMap[cCriteria.purpose]||'mixed', objective:objectiveMap[cCriteria.objective]||'balanced', risk, budgetMin:cCriteria.budgetMin, budgetMax:cCriteria.budgetMax, bedsMin:numBeds.length?Math.min(...numBeds):null, bedsMax:numBeds.length?Math.max(...numBeds):null, cities:cCriteria.cities||[], types:cCriteria.types||[], seaMaxKm:cCriteria.maxSea, weights};
 }
 
 function buildProfileFromStrategy(strategy, risk, portfolio, budget) {
@@ -2481,8 +2626,279 @@ function exportClientProperties(invId, invName, forClient) {
 }
 
 // ── Client Call ──────────────────────────────────────────────
-const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
+const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null, risk:null, hold:null, priorities:[] };
 let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
+let cSelectedForCompare = new Set();
+
+// ── Verdict + Confidence helpers ──────────────────────────────
+function getVerdict(score) {
+  if (score >= 85) return { label:'Priority Acquisition', cls:'verdict-priority' };
+  if (score >= 75) return { label:'Strong Opportunity',   cls:'verdict-strong'   };
+  if (score >= 65) return { label:'Selective',            cls:'verdict-selective' };
+  if (score >= 50) return { label:'Strategy-Specific',   cls:'verdict-strategy' };
+  return                  { label:'Pass',                 cls:'verdict-pass'     };
+}
+
+function getConfidence(score, d) {
+  const hasPpm = d.ppm > 0, hasArea = d.area > 0, hasPrice = d.price > 0;
+  const dataPoints = [hasPpm, hasArea, hasPrice, !!d.developer, !!d.city].filter(Boolean).length;
+  if (dataPoints >= 5 && score >= 70) return 'High Confidence';
+  if (dataPoints >= 4 && score >= 60) return 'Good Confidence';
+  if (dataPoints >= 3) return 'Moderate Confidence';
+  if (dataPoints >= 2) return 'Indicative Only';
+  return 'Estimate Only';
+}
+
+function verdictBadge(score) {
+  const v = getVerdict(score);
+  const colors = {
+    'verdict-priority':  'background:#dcfce7;color:#15803d',
+    'verdict-strong':    'background:#dbeafe;color:#1e40af',
+    'verdict-selective': 'background:#fef9c3;color:#854d0e',
+    'verdict-strategy':  'background:#fed7aa;color:#9a3412',
+    'verdict-pass':      'background:#fee2e2;color:#991b1b'
+  };
+  return `<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;white-space:nowrap;${colors[v.cls]}">${v.label}</span>`;
+}
+
+function confidenceBadge(score, d) {
+  const c = getConfidence(score, d);
+  const col = c==='High Confidence'?'#15803d':c==='Good Confidence'?'#1e40af':c==='Moderate Confidence'?'#92400e':'#6b7280';
+  return `<span style="font-size:10px;color:${col};white-space:nowrap">${c}</span>`;
+}
+
+// ── AI narrative for each property ────────────────────────────
+function generatePropertyNarrative(d, score, profile) {
+  const purpose = cCriteria.purpose || 'investment';
+  const isST = purpose.includes('Short');
+  const isLT = purpose.includes('Long');
+  const v = getVerdict(score.total);
+  const strengths = [], concerns = [];
+
+  if (d.seaDist != null && d.seaDist < 1) strengths.push('excellent coastal positioning');
+  else if (d.seaDist != null && d.seaDist < 3) strengths.push('good sea proximity');
+  if (d.ppm && d.ppm < 2500) strengths.push('attractive price per m²');
+  if (d.area && d.area > 120) strengths.push('generous living area');
+  if (d.delivery && d.delivery.toLowerCase().includes('ready')) strengths.push('immediately available');
+  if (score.total >= 80) strengths.push('strong overall profile');
+
+  if (d.seaDist != null && d.seaDist > 5 && isST) concerns.push('limited STR coastal appeal');
+  if (d.delivery && (d.delivery.includes('2027') || d.delivery.includes('2028'))) concerns.push('extended delivery timeline');
+  if (!d.developer) concerns.push('developer details unverified');
+  if (d.ppm && d.ppm > 4000) concerns.push('above-market pricing');
+
+  const bestFit = isST ? 'short-term rental investor' : isLT ? 'long-term income buyer' : 'owner-occupier or mixed-use investor';
+  const action = v.label === 'Priority Acquisition' ? 'Request developer meeting and verify availability immediately.' :
+                 v.label === 'Strong Opportunity'   ? 'Shortlist and arrange a viewing.' :
+                 v.label === 'Selective'             ? 'Review with client — may suit specific requirements.' :
+                                                      'Note for reference; prioritise higher-scoring options first.';
+
+  const strText = strengths.length ? `Strengths include ${strengths.slice(0,2).join(' and ')}.` : '';
+  const conText = concerns.length  ? `Main concern: ${concerns[0]}.` : 'No significant concerns identified.';
+
+  return `${strText} ${conText} Best suited for a ${bestFit}. ${action}`.trim();
+}
+
+// ── Client Summary ─────────────────────────────────────────────
+function updateClientSummary() {
+  const box = document.getElementById('cSummaryBox');
+  const txt = document.getElementById('cSummaryText');
+  if (!box || !txt) return;
+
+  const name = document.getElementById('cName')?.value || '';
+  const purpose = cCriteria.purpose;
+  const objective = cCriteria.objective;
+  const risk = cCriteria.risk;
+  const hold = cCriteria.hold;
+  const cities = cCriteria.cities || [];
+  const types = cCriteria.types || [];
+  const priorities = cCriteria.priorities || [];
+
+  const budgetBtn = document.querySelector('#cBudgetGroup .crit-btn.on');
+  const budgetLabel = budgetBtn ? budgetBtn.textContent.trim() : null;
+  const manualMax = document.getElementById('cBudgetMax')?.value;
+  const budget = budgetLabel || (manualMax ? 'up to €'+Number(manualMax).toLocaleString() : null);
+
+  const holdLabels = { short:'less than 3 years', medium:'3–5 years', long:'5–10 years', vlong:'10+ years' };
+  const riskLabel = risk ? risk.toLowerCase() + ' risk tolerance' : null;
+  const holdLabel = hold ? `${holdLabels[hold]} hold` : null;
+
+  const parts = [];
+  if (name) parts.push(`${name} is`);
+  else parts.push('Client is');
+
+  if (purpose) parts.push(`seeking ${purpose.toLowerCase()}`);
+  if (types.length) parts.push(`${types.join(' / ').toLowerCase()}${types.length > 1 ? 's' : ''}`);
+  if (cities.length) parts.push(`in ${cities.join(' and ')}`);
+  if (budget) parts.push(`with a ${budget} budget`);
+
+  const extras = [];
+  if (objective) extras.push(objective.toLowerCase() + ' objective');
+  if (riskLabel) extras.push(riskLabel);
+  if (holdLabel) extras.push(holdLabel);
+
+  const priorityLabels = {
+    sea_view:'sea view', pool:'pool access', quiet:'quiet setting', walkable:'walkable location',
+    schools:'proximity to schools', cbd:'CBD access', turnkey:'turnkey condition',
+    new_build:'new build', luxury:'luxury finish', value:'below-market value'
+  };
+  if (priorities.length) extras.push('prioritising ' + priorities.map(p => priorityLabels[p] || p).join(', '));
+
+  let summary = parts.join(' ');
+  if (extras.length) summary += '. ' + extras[0].charAt(0).toUpperCase() + extras[0].slice(1);
+  if (extras.length > 1) summary += ', ' + extras.slice(1).join(', ');
+  summary += '.';
+
+  if (purpose || cities.length || budget) {
+    box.style.display = '';
+    txt.textContent = summary;
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+// ── Top Picks Panel ────────────────────────────────────────────
+function runClientRecommendations() {
+  applyClientFilter();
+  const results = getClientMatches();
+  if (!results.length) return;
+  const profile = currentClientProfile();
+  const scored = results.map(d => ({ d, score: scoreProperty(d, profile) }))
+    .sort((a,b) => b.score.total - a.score.total);
+  renderTopPicks(scored.slice(0, 3));
+}
+
+function renderTopPicks(items) {
+  const box = document.getElementById('cTopPicksBox');
+  const cards = document.getElementById('cTopPicksCards');
+  if (!box || !cards) return;
+  if (!items.length) { box.style.display = 'none'; return; }
+  const ranks = ['🥇', '🥈', '🥉'];
+  const profile = currentClientProfile();
+  cards.innerHTML = items.map((item, i) => {
+    const { d, score } = item;
+    const v = getVerdict(score.total);
+    const conf = getConfidence(score.total, d);
+    const narrative = generatePropertyNarrative(d, score, profile);
+    const verdictColors = {
+      'verdict-priority':'#15803d','verdict-strong':'#1e40af',
+      'verdict-selective':'#854d0e','verdict-strategy':'#9a3412','verdict-pass':'#991b1b'
+    };
+    const borderColor = verdictColors[v.cls] || 'var(--bd)';
+    return `<div style="background:var(--bg);border:1px solid ${borderColor};border-radius:10px;padding:14px;cursor:pointer" onclick="openModal(${d.id})">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--mu);margin-bottom:2px">${ranks[i]} Rank #${i+1}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--tx);line-height:1.3">${d.title||d.developer||'Property #'+d.id}</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:1px">${d.developer||''} · ${d.city||''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:22px;font-weight:700;color:var(--tx)">${score.total}</div>
+          <div style="font-size:10px;color:var(--mu)">score</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+        ${verdictBadge(score.total)}
+        <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:var(--bg2);color:var(--mu)">${conf}</span>
+        ${d.price ? `<span style="font-size:10px;font-weight:600;color:var(--tx)">€${d.price.toLocaleString()}</span>` : ''}
+      </div>
+      <div style="font-size:11px;color:var(--mu);line-height:1.55;border-top:1px solid var(--bd);padding-top:8px;margin-top:4px">${narrative}</div>
+    </div>`;
+  }).join('');
+  box.style.display = '';
+}
+
+// ── Dynamic distance label ─────────────────────────────────────
+function cUpdateDistanceLabel() {
+  const lbl = document.getElementById('cDistanceLabel');
+  if (!lbl) return;
+  const purpose = cCriteria.purpose || '';
+  if (purpose.includes('Short')) lbl.textContent = 'Distance to Sea / Tourist Zone';
+  else if (purpose.includes('Long')) lbl.textContent = 'Distance to CBD / Schools';
+  else lbl.textContent = 'Distance to Sea';
+}
+
+// ── Budget label ───────────────────────────────────────────────
+function cUpdateBudgetLabel() {
+  const lbl = document.getElementById('cBudgetSelectedLabel');
+  if (!lbl) return;
+  const btn = document.querySelector('#cBudgetGroup .crit-btn.on');
+  if (btn) { lbl.textContent = 'Selected: ' + btn.textContent.trim(); lbl.style.display = ''; }
+  else { lbl.style.display = 'none'; }
+}
+
+// ── Comparison tool ────────────────────────────────────────────
+function toggleCompare(id, checkbox) {
+  if (checkbox && checkbox.checked) cSelectedForCompare.add(id);
+  else cSelectedForCompare.delete(id);
+  const countEl = document.getElementById('cCompareCount');
+  if (countEl) countEl.textContent = cSelectedForCompare.size;
+}
+
+function compareSelected() {
+  if (cSelectedForCompare.size < 2) { alert('Select at least 2 properties to compare.'); return; }
+  const items = Array.from(cSelectedForCompare).map(id => all.find(d => d.id === id)).filter(Boolean);
+  const profile = currentClientProfile();
+  const scored = items.map(d => ({ d, score: scoreProperty(d, profile) }));
+  const panel = document.getElementById('cComparePanel');
+  const content = document.getElementById('cCompareContent');
+  if (!panel || !content) return;
+
+  const metrics = [
+    { key:'score',      label:'Score',      fmt: (d,s) => `<b>${s.total}</b> ${verdictBadge(s.total)}` },
+    { key:'price',      label:'Price',      fmt: (d,s) => d.price ? '€'+d.price.toLocaleString() : '—' },
+    { key:'ppm',        label:'€/m²',       fmt: (d,s) => d.ppm  ? '€'+d.ppm.toLocaleString()  : '—' },
+    { key:'area',       label:'Area',       fmt: (d,s) => d.area ? d.area+' m²' : '—' },
+    { key:'bedrooms',   label:'Beds',       fmt: (d,s) => d.bedrooms != null ? d.bedrooms : '—' },
+    { key:'city',       label:'City',       fmt: (d,s) => d.city || '—' },
+    { key:'developer',  label:'Developer',  fmt: (d,s) => d.developer || '—' },
+    { key:'delivery',   label:'Delivery',   fmt: (d,s) => d.delivery || '—' },
+    { key:'seaDist',    label:'Sea dist.',  fmt: (d,s) => d.seaDist != null ? (d.seaDist<0.3?'Beachfront':d.seaDist<1?Math.round(d.seaDist*1000)+'m':d.seaDist.toFixed(1)+'km') : '—' },
+    { key:'confidence', label:'Confidence', fmt: (d,s) => getConfidence(s.total, d) },
+  ];
+
+  // Find best value per numeric metric
+  const numericKeys = ['score','price','ppm','area','bedrooms','seaDist'];
+  const bestMap = {};
+  numericKeys.forEach(key => {
+    let best = null, bestVal = key === 'ppm' || key === 'seaDist' || key === 'price' ? Infinity : -Infinity;
+    scored.forEach(({d, score}) => {
+      const val = key === 'score' ? score.total : d[key];
+      if (val == null) return;
+      const isBetter = (key === 'ppm' || key === 'seaDist') ? val < bestVal : val > bestVal;
+      if (isBetter) { bestVal = val; best = d.id; }
+    });
+    bestMap[key] = best;
+  });
+
+  const thStyle = 'padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd);white-space:nowrap;text-align:left';
+  const tdStyle = 'padding:9px 12px;font-size:12px;border-bottom:1px solid var(--bd);vertical-align:top';
+
+  const headerCells = scored.map(({d}) =>
+    `<th style="${thStyle};min-width:180px">${d.title||d.developer||'#'+d.id}<div style="font-size:10px;color:var(--mu);font-weight:400">${d.city||''}</div></th>`
+  ).join('');
+
+  const rows = metrics.map(m => {
+    const cells = scored.map(({d, score}) => {
+      const isBest = bestMap[m.key] === d.id;
+      const highlight = isBest ? 'background:rgba(21,128,61,.06);' : '';
+      const badge = isBest ? ' <span style="font-size:9px;color:#15803d;font-weight:700">★ BEST</span>' : '';
+      return `<td style="${tdStyle};${highlight}">${m.fmt(d, score)}${badge}</td>`;
+    }).join('');
+    return `<tr><td style="${tdStyle};font-weight:600;color:var(--mu);font-size:11px;background:var(--bg2);white-space:nowrap">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  content.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:500px">
+    <thead><tr><th style="${thStyle};background:var(--bg2)">Metric</th>${headerCells}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  panel.style.display = '';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function closeCompare() {
+  const p = document.getElementById('cComparePanel'); if(p) p.style.display = 'none';
+}
 
 // ── Session Management ─────────────────────────────────────────
 // clientSessions[clientId] = [{sessionId, name, savedAt, criteria, shortlistedIds:[]}]
@@ -2532,6 +2948,9 @@ function saveCurrentSession() {
       sea: seaBtn ? seaBtn.textContent.trim() : '',
       seaVal: seaBtn ? seaBtn.dataset.val : '',
       delivery: deliveryBtn ? deliveryBtn.textContent.trim() : '',
+      risk: cCriteria.risk || '',
+      hold: cCriteria.hold || '',
+      priorities: (cCriteria.priorities || []).slice(),
       notes: document.getElementById('cNotes') ? document.getElementById('cNotes').value : ''
     },
     shortlistedIds: sessionShortlistIds
@@ -2583,11 +3002,11 @@ function reloadSession(sessionId) {
   if (!s) return;
   if (!confirm('Reload criteria from "' + s.name + '"? This will replace current filter settings.')) return;
   var cr = s.criteria;
-  // Reset
+  // Reset all
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){ b.classList.remove('on'); });
-  Object.assign(cCriteria, {purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null});
+  Object.assign(cCriteria, {purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null,risk:null,hold:null,priorities:[]});
   // Purpose
-  if(cr.purpose) document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.purpose){b.classList.add('on');cCriteria.purpose=cr.purpose;} });
+  if(cr.purpose) document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.purpose||b.textContent.trim().replace(/^[^\w]/,'').trim()===cr.purpose.replace(/^[^\w]/,'').trim()){b.classList.add('on');cCriteria.purpose=cr.purpose;} });
   // Budget
   if(cr.budget) document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.budget){b.classList.add('on');cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;} });
   // Types
@@ -2601,9 +3020,19 @@ function reloadSession(sessionId) {
   else if(cr.sea) document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.sea){b.classList.add('on');cCriteria.maxSea=+b.dataset.val||null;} });
   // Delivery
   if(cr.delivery) document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.delivery){b.classList.add('on');cCriteria.delivery=cr.delivery;} });
+  // Risk
+  if(cr.risk) document.querySelectorAll('#cRiskGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.risk){b.classList.add('on');cCriteria.risk=cr.risk;} });
+  // Hold
+  if(cr.hold) document.querySelectorAll('#cHoldGroup .crit-btn').forEach(function(b){ if(b.dataset.val===cr.hold){b.classList.add('on');cCriteria.hold=cr.hold;} });
+  // Priorities
+  if(cr.priorities&&cr.priorities.length){cCriteria.priorities=cr.priorities.slice();document.querySelectorAll('#cPrioritiesGroup .crit-multi').forEach(function(b){if(cr.priorities.includes(b.dataset.val))b.classList.add('on');});}
   // Notes
   var cn = document.getElementById('cNotes'); if(cn) cn.value = cr.notes||'';
+  cUpdateBudgetLabel();
+  cUpdateDistanceLabel();
+  cToggleObjective();
   applyClientFilter();
+  updateClientSummary();
   showToast('↺ Criteria restored from "' + s.name + '"');
 }
 let devPS = 25, devPage = 1, currentDevFilter = null;
@@ -2620,13 +3049,13 @@ function toggleCrit(btn, key) {
       cCriteria.budgetMin = btn.dataset.min !== undefined ? +btn.dataset.min : 0;
       cCriteria.budgetMax = btn.dataset.max !== undefined ? +btn.dataset.max : 99000000;
       const mx = document.getElementById('cBudgetMax'); if (mx) mx.value = '';
+      const mn = document.getElementById('cBudgetMin'); if (mn) mn.value = '';
     } else if (key === 'sea') {
       cCriteria.maxSea = +btn.dataset.val || null;
     } else {
-      cCriteria[key] = btn.textContent.trim();
+      cCriteria[key] = btn.dataset.val || btn.textContent.trim().replace(/^[^\w]/,'').trim();
     }
   } else {
-    // Deselect — clear the value
     if (key === 'budget') {
       cCriteria.budgetMin = null; cCriteria.budgetMax = null;
       const mx = document.getElementById('cBudgetMax'); if (mx) mx.value = '';
@@ -2636,6 +3065,7 @@ function toggleCrit(btn, key) {
       cCriteria[key] = null;
     }
   }
+  cUpdateBudgetLabel();
   applyClientFilter();
 }
 
@@ -2652,14 +3082,14 @@ function toggleMulti(btn, key) {
 
 function getClientMatches() {
   const manualMax = +document.getElementById('cBudgetMax')?.value || null;
+  const manualMin = +document.getElementById('cBudgetMin')?.value || null;
   const effectiveBudgetMax = manualMax || cCriteria.budgetMax;
+  const effectiveBudgetMin = manualMin || cCriteria.budgetMin;
   return all.filter(d => {
-    if (cCriteria.budgetMin !== null && effectiveBudgetMax !== null) {
+    if (effectiveBudgetMin !== null || effectiveBudgetMax !== null) {
       const p = d.price || 0;
-      if (p < cCriteria.budgetMin || p > effectiveBudgetMax) return false;
-    } else if (manualMax) {
-      const p = d.price || 0;
-      if (p > manualMax) return false;
+      if (effectiveBudgetMin !== null && p < effectiveBudgetMin) return false;
+      if (effectiveBudgetMax !== null && p > effectiveBudgetMax) return false;
     }
     if (cCriteria.types.length > 0) {
       if (!cCriteria.types.some(ct => (d.type||'').toLowerCase().includes(ct.toLowerCase()))) return false;
@@ -2679,6 +3109,13 @@ function getClientMatches() {
     }
     if (cCriteria.maxSea !== null && cCriteria.maxSea < 999) {
       if (d.seaDist == null || d.seaDist > cCriteria.maxSea) return false;
+    }
+    // Priority filters — turnkey/ready now
+    if ((cCriteria.priorities||[]).includes('turnkey')) {
+      if (!d.delivery || !d.delivery.toLowerCase().includes('ready')) return false;
+    }
+    if ((cCriteria.priorities||[]).includes('new_build')) {
+      if (!d.delivery || d.delivery.toLowerCase().includes('ready')) return false;
     }
     return true;
   });
@@ -2727,46 +3164,62 @@ function applyClientFilter(resetPg) {
   } else {
     results.sort((a, b) => scoreProperty(b, clientProfile).total - scoreProperty(a, clientProfile).total);
   }
-  const showYield = cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === 'Long-term rental';
+  const showYield = cCriteria.purpose === '🏖 Short-term rental' || cCriteria.purpose === 'Short-term rental' || cCriteria.purpose === '🔑 Long-term rental' || cCriteria.purpose === 'Long-term rental';
   const cTot = Math.ceil(results.length / cPS) || 1;
   const top = results.slice((cPage-1)*cPS, cPage*cPS);
   const arrow = k => cSortKey===k?(cSortAsc?'↑':'↓'):'↕';
   const yieldHeader = showYield
-    ? `<th onclick="sortClientBy('yield')" style="cursor:pointer">Rental / Yield ${arrow('yield')}</th>`
-    : '<th>€/m²</th>';
+    ? `<th onclick="sortClientBy('yield')" style="cursor:pointer;white-space:nowrap">Yield ${arrow('yield')}</th>`
+    : `<th style="white-space:nowrap">€/m²</th>`;
   const rows = top.map(d => {
     const score = scoreProperty(d, clientProfile);
-    const scoreBadge = renderScoreBreakdown(score, true);
+    const v = getVerdict(score.total);
+    const conf = getConfidence(score.total, d);
+    const confColor = conf==='High Confidence'?'#15803d':conf==='Good Confidence'?'#1e40af':conf==='Moderate Confidence'?'#92400e':'#6b7280';
+    const verdictColors = {'verdict-priority':'#dcfce7;color:#15803d','verdict-strong':'#dbeafe;color:#1e40af','verdict-selective':'#fef9c3;color:#854d0e','verdict-strategy':'#fed7aa;color:#9a3412','verdict-pass':'#fee2e2;color:#991b1b'};
+    const vc = verdictColors[v.cls]||'#f3f4f6;color:#374151';
+    const isChecked = cSelectedForCompare.has(d.id);
     const yieldCell = showYield ? (() => {
-      const r = estimateRentRange(d, cCriteria.purpose);
-      if (!r) return '<td>—</td>';
-      return `<td style="font-size:11px;white-space:nowrap"><div style="font-weight:500">€${r.low.toLocaleString()}–€${r.high.toLocaleString()}/mo</div><div style="color:#15803d;font-size:10px">€${r.netLow.toLocaleString()}–€${r.netHigh.toLocaleString()} net</div><div style="color:var(--mu);font-size:10px">${r.grossYield.toFixed(1)}% gross · ${r.yPct.toFixed(1)}% net</div></td>`;
+      const purpose = cCriteria.purpose.replace(/^[^\w]/,'').trim();
+      const r = estimateRentRange(d, purpose);
+      if (!r) return '<td style="color:var(--mu)">—</td>';
+      return `<td style="font-size:11px;white-space:nowrap"><div style="font-weight:500">€${r.low.toLocaleString()}–€${r.high.toLocaleString()}/mo</div><div style="color:#15803d;font-size:10px">${r.grossYield.toFixed(1)}% gross</div></td>`;
     })() : `<td style="text-align:right;color:var(--mu)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</td>`;
     return `<tr style="cursor:pointer" onclick="openModal(${d.id})">
-      <td style="white-space:nowrap">${scoreBadge}</td>
+      <td style="text-align:center;padding:8px 6px" onclick="event.stopPropagation()">
+        <input type="checkbox" ${isChecked?'checked':''} onchange="toggleCompare(${d.id},this)" style="cursor:pointer;accent-color:var(--tx)">
+      </td>
+      <td style="white-space:nowrap;text-align:center">
+        <div style="font-size:15px;font-weight:700;color:var(--tx)">${score.total}</div>
+      </td>
+      <td style="white-space:nowrap">
+        <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:${vc}">${v.label}</span>
+      </td>
+      <td style="white-space:nowrap">
+        <span style="font-size:10px;color:${confColor}">${conf}</span>
+      </td>
       <td title="${d.developer||''}">${d.developer||'—'}</td>
-      <td title="${d.title||''}">${d.title||'—'}</td>
+      <td title="${d.title||''}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title||'—'}</td>
       <td>${tagBadge(d.type)}</td>
       <td>${d.city||'—'}</td>
-      <td>${d.district||'—'}</td>
       <td style="text-align:center">${d.bedrooms!=null?d.bedrooms:'—'}</td>
-      <td style="text-align:right">${d.area!=null?d.area.toLocaleString()+' m²':'—'}</td>
-      <td style="font-weight:600">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
+      <td style="font-weight:600;white-space:nowrap">${d.price!=null?'€'+d.price.toLocaleString():'—'}</td>
       ${yieldCell}
-      <td style="text-align:center"><button class="hb ${sl.has(d.id)?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
+      <td style="text-align:center" onclick="event.stopPropagation()"><button class="hb ${sl.has(d.id)?'on':''}" onclick="heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button></td>
     </tr>`;
   }).join('');
   document.getElementById('cResults').innerHTML = `
-    <table style="min-width:960px"><thead><tr>
-      <th onclick="sortClientBy('score')" style="cursor:pointer">Score ${arrow('score')}</th>
+    <table style="min-width:900px"><thead><tr>
+      <th style="width:32px"></th>
+      <th onclick="sortClientBy('score')" style="cursor:pointer;white-space:nowrap">Score ${arrow('score')}</th>
+      <th>Verdict</th>
+      <th>Confidence</th>
       <th onclick="sortClientBy('developer')" style="cursor:pointer">Developer ${arrow('developer')}</th>
       <th onclick="sortClientBy('title')" style="cursor:pointer">Title ${arrow('title')}</th>
-      <th onclick="sortClientBy('type')" style="cursor:pointer">Type ${arrow('type')}</th>
+      <th>Type</th>
       <th onclick="sortClientBy('city')" style="cursor:pointer">City ${arrow('city')}</th>
-      <th onclick="sortClientBy('district')" style="cursor:pointer">District ${arrow('district')}</th>
-      <th onclick="sortClientBy('bedrooms')" style="cursor:pointer">Beds ${arrow('bedrooms')}</th>
-      <th onclick="sortClientBy('area')" style="cursor:pointer">Area ${arrow('area')}</th>
-      <th onclick="sortClientBy('price')" style="cursor:pointer">Price ${arrow('price')}</th>
+      <th onclick="sortClientBy('bedrooms')" style="cursor:pointer;text-align:center">Beds ${arrow('bedrooms')}</th>
+      <th onclick="sortClientBy('price')" style="cursor:pointer;white-space:nowrap">Price ${arrow('price')}</th>
       ${yieldHeader}<th></th>
     </tr></thead><tbody>${rows}</tbody></table>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;padding:0 4px">
@@ -3516,12 +3969,18 @@ function resetClient() {
   var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
   var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
   var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
-  Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null });
+  Object.assign(cCriteria, { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null, risk:null, hold:null, priorities:[] });
   document.getElementById('cMatchCount').textContent = '—';
-  document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
+  document.getElementById('cResults').innerHTML = '<div class="empty">Configure strategy and filters above to see matching listings.</div>';
   const cs = document.getElementById('cSaveStatus'); if(cs) cs.textContent = '';
+  const sb = document.getElementById('cSummaryBox'); if(sb) sb.style.display = 'none';
+  const tb = document.getElementById('cTopPicksBox'); if(tb) tb.style.display = 'none';
+  const cp = document.getElementById('cComparePanel'); if(cp) cp.style.display = 'none';
+  const bl = document.getElementById('cBudgetSelectedLabel'); if(bl) bl.style.display = 'none';
+  cSelectedForCompare.clear();
+  const mn = document.getElementById('cBudgetMin'); if(mn) mn.value = '';
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
-  // Session log stays visible after reset so agent can reload previous sessions
+  // Session log stays visible after reset
 }
 let intelLoaded = false;
 async function loadIntelligence(force) {
@@ -5563,7 +6022,7 @@ function loadInvestorToClientCall(name){
   currentClientCallId = +(inv.investorId||inv.id);
   // Reset all criteria first
   document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){b.classList.remove('on');});
-  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null,risk:null,hold:null,priorities:[]});
   // Fill contact fields (locked)
   var el=document.getElementById('cName');if(el)el.value=inv.name;
   var ep=document.getElementById('cPhone');if(ep)ep.value=inv.phone||'';
@@ -5581,7 +6040,7 @@ function loadInvestorToClientCall(name){
   var sel=document.getElementById('cClientSelector');if(sel)sel.value=currentClientCallId||'';
   var cr=inv.criteria||{};
   // Purpose
-  if(cr.purpose)document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.purpose){b.classList.add('on');cCriteria.purpose=cr.purpose;}});
+  if(cr.purpose)document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.purpose||b.textContent.replace(/^[^\w]/,'').trim()===cr.purpose.replace(/^[^\w]/,'').trim()){b.classList.add('on');cCriteria.purpose=cr.purpose;}});
   // Budget
   var budgetLabel=cr.budget||inv.budget||'';
   if(budgetLabel)document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){
@@ -5598,6 +6057,12 @@ function loadInvestorToClientCall(name){
   if(cr.sea)document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.sea){b.classList.add('on');cCriteria.maxSea=+b.dataset.val||null;}});
   // Delivery
   if(cr.delivery)document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.delivery){b.classList.add('on');cCriteria.delivery=cr.delivery;}});
+  // Risk
+  if(cr.risk)document.querySelectorAll('#cRiskGroup .crit-btn').forEach(function(b){if(b.textContent.trim()===cr.risk){b.classList.add('on');cCriteria.risk=cr.risk;}});
+  // Hold
+  if(cr.hold)document.querySelectorAll('#cHoldGroup .crit-btn').forEach(function(b){if(b.dataset.val===cr.hold){b.classList.add('on');cCriteria.hold=cr.hold;}});
+  // Priorities
+  if(cr.priorities&&cr.priorities.length){cCriteria.priorities=cr.priorities.slice();document.querySelectorAll('#cPrioritiesGroup .crit-multi').forEach(function(b){if(cr.priorities.includes(b.dataset.val))b.classList.add('on');});}
   // Notes
   var cn=document.getElementById('cNotes');if(cn)cn.value=cr.notes||inv.generalNotes||'';
   // Comm log
@@ -5607,7 +6072,11 @@ function loadInvestorToClientCall(name){
   logCommunication(inv.investorId||inv.id,inv.name,'session','Client Call session started',null,null,'');
   if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   gotoTab('clients',document.querySelectorAll('.tab')[4]);
+  cUpdateBudgetLabel();
+  cUpdateDistanceLabel();
+  cToggleObjective();
   applyClientFilter();
+  updateClientSummary();
   renderSessionLog();
 }
 
@@ -5757,11 +6226,17 @@ function clearClientSelection(){
   var ar=document.getElementById('cAgentRow');if(ar)ar.style.display='none';
   var ab=document.getElementById('cAgentSelect');if(ab)ab.value='';
   var abd=document.getElementById('cAgentBadge');if(abd){abd.style.display='none';abd.textContent='';}
-  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null});
+  Object.assign(cCriteria,{purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null,risk:null,hold:null,priorities:[]});
   var mc=document.getElementById('cMatchCount');if(mc)mc.textContent='—';
-  var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
+  var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Configure strategy and filters above to see matching listings.</div>';
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
   var slw=document.getElementById('sessionLogWrap');if(slw)slw.style.display='none';
+  var sb=document.getElementById('cSummaryBox');if(sb)sb.style.display='none';
+  var tb=document.getElementById('cTopPicksBox');if(tb)tb.style.display='none';
+  var cp=document.getElementById('cComparePanel');if(cp)cp.style.display='none';
+  var bl=document.getElementById('cBudgetSelectedLabel');if(bl)bl.style.display='none';
+  var mn=document.getElementById('cBudgetMin');if(mn)mn.value='';
+  cSelectedForCompare.clear();
 }
 
 function selectClientForPortfolio(id){
@@ -5872,6 +6347,9 @@ function autoSaveInvestor(){
     cities:locations,
     sea:seaBtn?seaBtn.textContent.trim():'',seaVal:seaBtn?seaBtn.dataset.val:'',
     delivery:deliveryBtn?deliveryBtn.textContent.trim():'',
+    risk:cCriteria.risk||'',
+    hold:cCriteria.hold||'',
+    priorities:(cCriteria.priorities||[]).slice(),
     notes:document.getElementById('cNotes')?document.getElementById('cNotes').value:''
   };
   // Source, agent, status, assignedTo
