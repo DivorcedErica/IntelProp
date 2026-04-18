@@ -2142,7 +2142,7 @@ function exportXLSX(){
 }
 
 function exportClientProperties(invId, invName, forClient) {
-  var props = clientProperties.filter(function(p){ return p.investorId === invId; });
+  var props = clientProperties.filter(function(p){ return +p.investorId === +invId; });
   if (!props.length) { alert('No properties to export for this client.'); return; }
   var safe = (invName||'client').replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'_');
   var date = new Date().toISOString().slice(0,10);
@@ -2474,7 +2474,7 @@ function renderInvestorCard(inv) {
   }
 
   const invId = inv.investorId || inv.id;
-  const assignedProps = clientProperties.filter(function(p){ return p.investorId === invId; });
+  const assignedProps = clientProperties.filter(function(p){ return +p.investorId === +invId; });
   const thStyle = 'text-align:left;padding:6px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)';
   const tdStyle = 'padding:6px 8px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--bd)';
   let assignedPropsHtml = assignedProps.length
