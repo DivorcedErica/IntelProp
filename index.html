@@ -1289,6 +1289,85 @@ function buildCityBenchmarks() {
   });
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// DISTRICT CLASSIFICATION TABLE
+// Each district scored 0-100 for LTR urban quality and STR tourist quality
+// char: urban_residential | tourist_coastal | mixed | suburban | rural | resort
+// Based on: employment access, CBD proximity, schools, hospitals,
+//           amenities (LTR) and beach/tourist infrastructure (STR)
+// ══════════════════════════════════════════════════════════════════
+const DISTRICT_SCORES = {
+  // ── LIMASSOL ──────────────────────────────────────────────
+  'Mesa Geitonia':        {ltr:88, str:52, char:'urban_residential'},   // Central Limassol, CUT, hospitals, commercial core
+  'Agios Athanasios':     {ltr:84, str:55, char:'urban_residential'},   // Established residential, schools, Limassol General nearby
+  'Potamos Germasogeias': {ltr:80, str:65, char:'urban_residential'},   // Dense practical residential, supermarkets, transport
+  'Germasogeia':          {ltr:72, str:72, char:'mixed'},               // Upper=family villas; lower=tourist corridor
+  'Ypsonas':              {ltr:70, str:35, char:'suburban'},            // Growing suburb, industrial employment zone
+  'Polemidia':            {ltr:68, str:30, char:'suburban'},            // CUT campus nearby, student/professional demand
+  'Zakaki':               {ltr:62, str:30, char:'suburban'},            // Port/industrial adjacent, affordable
+  'Amathus':              {ltr:60, str:82, char:'tourist_coastal'},     // Luxury hotel corridor, beach access, Amathus Beach
+  "Governor's Beach":     {ltr:42, str:65, char:'tourist_coastal'},     // Isolated coastal, seasonal
+  'Kolossi':              {ltr:58, str:38, char:'suburban'},            // Quiet suburban, limited amenities
+  'Erimi':                {ltr:52, str:32, char:'suburban'},            // Rural/semi-rural
+  'Episkopi':             {ltr:50, str:40, char:'suburban'},            // Near British base
+  'Paramali':             {ltr:40, str:42, char:'rural'},               // Rural coastal, very thin market
+  'Evdimou':              {ltr:38, str:40, char:'rural'},               // Rural coastal village
+
+  // ── LARNACA ───────────────────────────────────────────────
+  'Aradippou':            {ltr:85, str:38, char:'urban_residential'},   // Largest Larnaca suburb, Metropolis Mall, hospital, employment
+  'Metropolis Mall Area': {ltr:80, str:42, char:'urban_residential'},   // Commercial node, transport, employment
+  'Vergina':              {ltr:74, str:45, char:'urban_residential'},   // Established residential, families, professionals
+  'Oroklini':             {ltr:65, str:62, char:'mixed'},               // Growing, airport corridor, beach access
+  'Meneou':               {ltr:55, str:55, char:'mixed'},               // Airport adjacent, professional/expat demand
+  'Pervolia':             {ltr:52, str:68, char:'tourist_coastal'},     // Seaside, summer visitor demand
+  'Kiti':                 {ltr:50, str:65, char:'tourist_coastal'},     // Beach, Hala Sultan Tekke, holiday demand
+  'Perivolia':            {ltr:50, str:65, char:'tourist_coastal'},     // Beach proximity, holiday rentals
+  'Mazotos':              {ltr:42, str:58, char:'tourist_coastal'},     // Rural coastal, Camel Park, holiday demand
+
+  // ── PAPHOS ────────────────────────────────────────────────
+  'Chlorakas':            {ltr:72, str:60, char:'mixed'},               // Practical suburb, expat/professional, schools
+  'Emba':                 {ltr:68, str:45, char:'urban_residential'},   // Established suburb, families, schools
+  'Tala':                 {ltr:60, str:55, char:'suburban'},            // Hillside, expat community, good schools
+  'Kato Paphos':          {ltr:55, str:88, char:'tourist_coastal'},     // Harbour, UNESCO, promenade, highest tourist density
+  'Pegeia':               {ltr:52, str:65, char:'mixed'},               // Near Coral Bay, sea views, villa demand
+  'Aphrodite Hills':      {ltr:50, str:75, char:'resort'},              // Golf resort, managed holiday lets
+  'Coral Bay':            {ltr:45, str:82, char:'tourist_coastal'},     // Popular beach, strong summer STR demand
+  'Kouklia':              {ltr:45, str:62, char:'rural'},               // Aphrodite birthplace, cultural tourism
+  'Polis':                {ltr:42, str:65, char:'tourist_coastal'},     // Polis bay, Akamas, eco-tourism
+  'Latchi':               {ltr:38, str:70, char:'tourist_coastal'},     // Marina, fishing port, holiday rentals
+
+  // ── FAMAGUSTA ─────────────────────────────────────────────
+  'Paralimni':            {ltr:72, str:48, char:'urban_residential'},   // Administrative centre, hospital, schools, year-round
+  'Sotira':               {ltr:60, str:42, char:'suburban'},            // Quiet residential, year-round families
+  'Frenaros':             {ltr:55, str:38, char:'suburban'},            // Agricultural/residential
+  'Protaras':             {ltr:35, str:90, char:'tourist_coastal'},     // Fig Tree Bay, crystal water, peak summer STR
+  'Ayia Napa':            {ltr:28, str:92, char:'tourist_coastal'},     // Nissi Beach, nightlife, #1 STR destination Cyprus
+  'Cape Greco':           {ltr:25, str:72, char:'tourist_coastal'},     // Nature park, snorkelling, proximity premium
+
+  // ── NICOSIA ───────────────────────────────────────────────
+  'Strovolos':            {ltr:90, str:18, char:'urban_residential'},   // Largest suburb, Mall of Cyprus, hospital, deepest LTR pool
+  'Engomi':               {ltr:87, str:18, char:'urban_residential'},   // University of Cyprus, embassies, city centre adjacent
+  'Aglandjia':            {ltr:84, str:15, char:'urban_residential'},   // University of Cyprus campus, student + family demand
+  'Makedonitissa':        {ltr:80, str:18, char:'urban_residential'},   // Established, embassy zone adjacent
+  'Lakatameia':           {ltr:76, str:15, char:'urban_residential'},   // Large residential suburb, families, transport
+  'Agios Dometios':       {ltr:74, str:15, char:'urban_residential'},   // Mixed residential/commercial
+  'Anthoupolis':          {ltr:72, str:15, char:'urban_residential'},   // Modern suburb, growing, families
+  'Latsia':               {ltr:70, str:15, char:'urban_residential'},   // Practical, affordable, professionals
+  'Tseri':                {ltr:65, str:15, char:'suburban'},            // Semi-rural suburb, quieter
+  'Geri':                 {ltr:55, str:15, char:'suburban'},            // Suburban village
+  'Dali':                 {ltr:58, str:12, char:'suburban'},            // Industrial zone adjacent
+  'Pera Chorio':          {ltr:52, str:18, char:'suburban'},            // Village character, limited amenities
+};
+
+// City-level fallback scores when district not in table
+const CITY_LTR_SCORES = {
+  Nicosia:72, Limassol:65, Larnaca:62, Paphos:55, Famagusta:50
+};
+const CITY_STR_SCORES = {
+  Nicosia:15, Limassol:58, Larnaca:55, Paphos:60, Famagusta:65
+};
+
 function scoreProperty(listing, profile) {
   const d = listing;
   const p = profile || {};
@@ -1310,17 +1389,40 @@ function scoreProperty(listing, profile) {
     valueScore = ratio<0.65?100:ratio<0.75?90:ratio<0.85?78:ratio<0.95?65:ratio<1.05?52:ratio<1.20?38:ratio<1.40?22:10;
   }
 
-  // SEA
+  // LOCATION QUALITY — purpose-differentiated
+  // STR: sea/tourist proximity curve
+  // LTR: district urban quality score (employment, schools, amenities) — sea is irrelevant
+  // Own Use: blend based on sea weight preference
+  const distScore = DISTRICT_SCORES[d.district];
+  const cityLtrFallback = CITY_LTR_SCORES[d.city] || 55;
+  const cityStrFallback = CITY_STR_SCORES[d.city] || 50;
+
   let seaScore = 40;
-  if (d.seaDist != null) {
-    const sd = d.seaDist;
-    const stC = sd<0.3?100:sd<0.5?97:sd<1?90:sd<2?78:sd<5?55:sd<10?30:12;
-    const ltC = sd<0.3?80:sd<1?70:sd<3?60:sd<8?50:sd<20?38:25;
-    if      (purpose==='short_term')                       seaScore = stC;
-    else if (purpose==='long_term'||purpose==='investment') seaScore = ltC;
-    else if (purpose==='own_use') { const w=(p.weights&&p.weights.sea!=null?p.weights.sea:5)/10; seaScore=Math.round(ltC+(stC-ltC)*w); }
-    else seaScore = Math.round(stC*0.6+ltC*0.4);
+  if (purpose === 'long_term' || purpose === 'investment') {
+    // LTR: use district urban quality score — sea distance irrelevant
+    seaScore = distScore ? distScore.ltr : cityLtrFallback;
+  } else if (purpose === 'short_term') {
+    // STR: use district tourist score blended with sea distance curve
+    const sd = d.seaDist != null ? d.seaDist : 5;
+    const seaCurve = sd<0.3?100:sd<0.5?97:sd<1?90:sd<2?78:sd<5?55:sd<10?30:12;
+    const distSTR = distScore ? distScore.str : cityStrFallback;
+    seaScore = Math.round(seaCurve * 0.55 + distSTR * 0.45); // blend actual distance + district character
+  } else if (purpose === 'own_use') {
+    // Own use: blend urban quality with sea preference weight
+    const sd = d.seaDist != null ? d.seaDist : 5;
+    const seaCurve = sd<0.3?100:sd<0.5?97:sd<1?90:sd<2?78:sd<5?55:sd<10?30:12;
+    const urbanQuality = distScore ? Math.round(distScore.ltr*0.6+distScore.str*0.4) : cityLtrFallback;
+    const seaWeight = (p.weights&&p.weights.sea!=null?p.weights.sea:5)/10;
+    seaScore = Math.round(urbanQuality*(1-seaWeight*0.4) + seaCurve*seaWeight*0.4);
+  } else {
+    // Mixed: blend all three
+    const sd = d.seaDist != null ? d.seaDist : 5;
+    const seaCurve = sd<0.3?100:sd<0.5?97:sd<1?90:sd<2?78:sd<5?55:sd<10?30:12;
+    const distLTR = distScore ? distScore.ltr : cityLtrFallback;
+    const distSTR = distScore ? distScore.str : cityStrFallback;
+    seaScore = Math.round(seaCurve*0.30 + distLTR*0.35 + distSTR*0.35);
   }
+  seaScore = Math.max(0, Math.min(100, seaScore));
 
   // YIELD
   let yieldScore = 0;
@@ -1428,6 +1530,7 @@ function scoreProperty(listing, profile) {
   }
   const total=Math.max(0,Math.min(100,rawScore*mod));
 
+  const distChar = distScore ? distScore.char : 'unknown';
   const flags={
     prEligible:(d.price||0)>=300000,beachfront:d.seaDist!=null&&d.seaDist<0.3,
     belowMarket:!!(cityMedianPpm&&d.ppm!=null&&d.ppm<cityMedianPpm*0.85),
@@ -1436,7 +1539,7 @@ function scoreProperty(listing, profile) {
     highYield:yieldData.grossYieldPct>=7,sweetSpot:false,
   };
   flags.sweetSpot=flags.belowMarket&&(flags.highYield||flags.prEligible);
-  return{total,breakdown:{location:Math.round(locationScore),value:Math.round(valueScore),sea:Math.round(seaScore),yield:Math.round(yieldScore),growth:Math.round(growthScore),lifestyle:Math.round(lifestyleScore)},yieldData,flags};
+  return{total,breakdown:{location:Math.round(locationScore),value:Math.round(valueScore),sea:Math.round(seaScore),yield:Math.round(yieldScore),growth:Math.round(growthScore),lifestyle:Math.round(lifestyleScore)},yieldData,flags,distChar};
 }
 
 function currentClientProfile() {
@@ -1469,7 +1572,8 @@ function renderScoreBreakdown(scoreResult, compact) {
     flags.sweetSpot?'<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#fce7f3;color:#9d174d;border:1px solid #fbcfe8">★ Sweet Spot</span>':'',
   ].filter(Boolean).join(' ');
   if(compact){return `<div style="display:inline-flex;align-items:center;gap:5px;font-size:11px"><span style="font-weight:700;color:${color};min-width:22px">${Math.round(total)}</span><div style="width:50px;height:4px;border-radius:99px;background:var(--bd)"><div style="width:${Math.min(100,total)}%;height:100%;border-radius:99px;background:${color}"></div></div>${yieldData.grossYieldPct>0?`<span style="color:var(--mu);font-size:10px">${yieldData.grossYieldPct.toFixed(1)}%</span>`:''}${flags.beachfront?'<span style="font-size:10px">🌊</span>':''}${flags.sweetSpot?'<span style="font-size:10px">★</span>':''}</div>`;}
-  const rows=[['Location',breakdown.location,'#1d4ed8',''],['Value vs Market',breakdown.value,'#15803d',flags.belowMarket?'Below market — good entry price':flags.aboveMarket?'Above market — premium pricing':'At market rate'],['Sea Access',breakdown.sea,'#0369a1',''],['Yield Potential',breakdown.yield,'#6b21a8',yieldData.grossYieldPct>0?`${yieldData.grossYieldPct.toFixed(1)}% gross · ${yieldData.netYieldPct.toFixed(1)}% net · €${yieldData.monthlyRentLow.toLocaleString()}–€${yieldData.monthlyRentHigh.toLocaleString()}/mo est.`:'Own use — yield not applicable'],['Capital Growth',breakdown.growth,'#92400e',''],['Lifestyle',breakdown.lifestyle,'#6b7280','']];
+  const locLabel = yieldData.purpose==='long_term'||yieldData.purpose==='investment' ? 'Urban Location' : yieldData.purpose==='short_term' ? 'Tourist Location' : 'Location / Sea';
+    const rows=[['City Match',breakdown.location,'#1d4ed8',''],['Value vs Market',breakdown.value,'#15803d',flags.belowMarket?'Below market — good entry price':flags.aboveMarket?'Above market — premium pricing':'At market rate'],[locLabel,breakdown.sea,'#0369a1',''],['Yield Potential',breakdown.yield,'#6b21a8',yieldData.grossYieldPct>0?`${yieldData.grossYieldPct.toFixed(1)}% gross · ${yieldData.netYieldPct.toFixed(1)}% net · €${yieldData.monthlyRentLow.toLocaleString()}–€${yieldData.monthlyRentHigh.toLocaleString()}/mo est.`:'Own use — yield not applicable'],['Capital Growth',breakdown.growth,'#92400e',''],['Lifestyle',breakdown.lifestyle,'#6b7280','']];
   return `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Property Score</div><div style="font-size:28px;font-weight:700;color:${color}">${Math.round(total)}<span style="font-size:12px;color:var(--mu);font-weight:400"> / 100</span></div></div>${rows.map(([label,val,clr,note])=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px"><span style="color:var(--mu)">${label}</span><span style="font-weight:600">${val}</span></div>${bar(val,clr)}${note?`<div style="font-size:10px;color:var(--mu);margin-top:2px">${note}</div>`:''}</div>`).join('')}${flagBadges?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:10px">${flagBadges}</div>`:''}</div>`;
 }
 
