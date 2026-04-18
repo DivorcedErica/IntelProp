@@ -4808,15 +4808,66 @@ function renderAgentDetail(ag) {
     ? '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thS+'">ID</th><th style="'+thS+'">Name</th><th style="'+thS+'">Phone</th><th style="'+thS+'">Source</th><th style="'+thS+'">Status</th><th style="'+thS+'">Budget</th><th style="'+thS+'">Cities</th><th style="'+thS+'">Added</th></tr></thead><tbody>'+clientRows+'</tbody></table>'
     : '<div style="font-size:12px;color:var(--mu);padding:8px 0">No clients referred yet.</div>';
   return '<div style="padding:14px;background:var(--bg2);border-top:1px solid var(--bd)">'
+    + '<div id="agview-'+ag.agentId+'">'
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">'
     + '<div style="font-size:12px"><span style="color:var(--mu)">Phone: </span>'+(ag.phone||'—')+'</div>'
     + '<div style="font-size:12px"><span style="color:var(--mu)">Email: </span>'+(ag.email?'<a href="mailto:'+ag.email+'" style="color:inherit">'+ag.email+'</a>':'—')+'</div>'
     + '<div style="font-size:12px"><span style="color:var(--mu)">Commission: </span>'+(ag.commissionPct?ag.commissionPct+'%':'—')+'</div>'
     + (ag.notes?'<div style="font-size:12px;grid-column:span 3"><span style="color:var(--mu)">Notes: </span>'+ag.notes+'</div>':'')
     + '</div>'
+    + '<div style="display:flex;gap:6px;margin-bottom:12px">'
+    + '<button onclick="showAgentEdit(\''+ag.agentId+'\')" class="btn" style="font-size:11px;height:28px;padding:0 12px">✏ Edit</button>'
+    + '<button onclick="deleteAgentById(\''+ag.agentId+'\')" style="font-size:11px;height:28px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer">✕ Remove</button>'
+    + '</div>'
+    + '</div>'
+    + '<div id="agedit-'+ag.agentId+'" style="display:none;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:12px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Name</div><input id="aeName-'+ag.agentId+'" value="'+ag.name.replace(/"/g,'&quot;')+'" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Firm</div><input id="aeFirm-'+ag.agentId+'" value="'+(ag.firm||'').replace(/"/g,'&quot;')+'" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Comm %</div><input id="aeComm-'+ag.agentId+'" value="'+(ag.commissionPct||'')+'" type="number" min="0" max="100" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Phone</div><input id="aePhone-'+ag.agentId+'" value="'+(ag.phone||'').replace(/"/g,'&quot;')+'" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Email</div><input id="aeEmail-'+ag.agentId+'" value="'+(ag.email||'').replace(/"/g,'&quot;')+'" type="email" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Notes</div><input id="aeNotes-'+ag.agentId+'" value="'+(ag.notes||'').replace(/"/g,'&quot;')+'" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg2);color:var(--tx);font-size:12px"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:6px">'
+    + '<button onclick="saveAgentEdit(\''+ag.agentId+'\')" class="btn primary" style="font-size:11px;height:28px;padding:0 12px">Save</button>'
+    + '<button onclick="document.getElementById(\'agedit-'+ag.agentId+'\').style.display=\'none\';document.getElementById(\'agview-'+ag.agentId+'\').style.display=\'\'" class="btn" style="font-size:11px;height:28px;padding:0 12px">Cancel</button>'
+    + '</div>'
+    + '</div>'
     + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Referred Clients</div>'
     + clientTable
     + '</div>';
+}
+
+function showAgentEdit(agentId) {
+  var view = document.getElementById('agview-'+agentId);
+  var edit = document.getElementById('agedit-'+agentId);
+  if (view) view.style.display = 'none';
+  if (edit) edit.style.display = '';
+}
+
+function saveAgentEdit(agentId) {
+  var ag = agents.find(function(a){ return a.agentId === agentId; });
+  if (!ag) return;
+  ag.name         = (document.getElementById('aeName-'+agentId)||{}).value||ag.name;
+  ag.firm         = (document.getElementById('aeFirm-'+agentId)||{}).value||'';
+  ag.commissionPct= (document.getElementById('aeComm-'+agentId)||{}).value||'';
+  ag.phone        = (document.getElementById('aePhone-'+agentId)||{}).value||'';
+  ag.email        = (document.getElementById('aeEmail-'+agentId)||{}).value||'';
+  ag.notes        = (document.getElementById('aeNotes-'+agentId)||{}).value||'';
+  saveAgents();
+  syncAgentToSheets(ag);
+  populateAgentSelector();
+  renderAgentsTab();
+  showToast('✓ Agent updated');
+}
+
+function deleteAgentById(agentId) {
+  if (!confirm('Remove this agent?')) return;
+  agents = agents.filter(function(a){ return a.agentId !== agentId; });
+  saveAgents();
+  populateAgentSelector();
+  renderAgentsTab();
 }
 
 // ── Investor Profiles — Google Sheets is the only source of truth ──
