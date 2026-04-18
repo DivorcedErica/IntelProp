@@ -639,6 +639,15 @@ tr:hover td{background:var(--bg2)}
 
       <!-- Comm log (shown when client is loaded) -->
       <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
+
+      <!-- Activity Log -->
+      <div id="activityLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Activity Log</div>
+          <button onclick="refreshActivityLog()" class="btn" style="font-size:11px;padding:3px 10px">↻ Refresh</button>
+        </div>
+        <div id="activityLogList"></div>
+      </div>
     </div>
 
     <!-- AI SEARCH -->
@@ -5635,6 +5644,185 @@ function toggleAIDistrict(dist) {
 }
 
 function aiPg(d) { aiPage += d; renderAIResults(); }
+
+// ── Activity Log (Client Communications sheet) ────────────────
+const COMMS_WEBHOOK = ''; // n8n append webhook URL
+
+function parseSheetDate(raw) {
+  if (!raw) return null;
+  // Handles "DD/MM/YYYY, HH:MM:SS" format
+  var m = String(raw).match(/^(\d{2})\/(\d{2})\/(\d{4}),?\s*(\d{2}):(\d{2}):(\d{2})/);
+  if (m) return new Date(m[3]+'-'+m[2]+'-'+m[1]+'T'+m[4]+':'+m[5]+':'+m[6]);
+  return new Date(raw);
+}
+
+function fmtActivityDate(raw) {
+  var d = parseSheetDate(raw);
+  if (!d || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+}
+
+function parseCommsCSV(text) {
+  var rows = [], cur = [], field = '', inQ = false;
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQ = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQ = true; }
+      else if (ch === ',') { cur.push(field); field = ''; }
+      else if (ch === '\n') { cur.push(field); rows.push(cur); cur = []; field = ''; }
+      else if (ch === '\r') { /* skip */ }
+      else { field += ch; }
+    }
+  }
+  if (field || cur.length) { cur.push(field); rows.push(cur); }
+  return rows;
+}
+
+async function loadActivityLog(clientID) {
+  var r = await fetch('https://docs.google.com/spreadsheets/d/'+SID+'/gviz/tq?tqx=out:csv&gid='+COMMS_GID);
+  var text = await r.text();
+  var rows = parseCommsCSV(text);
+  if (!rows.length) return [];
+  var hdr = rows[0].map(function(h){ return h.toLowerCase().replace(/\s+/g,''); });
+  var iClientID    = hdr.indexOf('clientid');
+  var iDate        = hdr.indexOf('date');
+  var iInvName     = hdr.indexOf('investorname');
+  var iType        = hdr.indexOf('type');
+  var iAction      = hdr.indexOf('action');
+  var iPropID      = hdr.indexOf('propertyid');
+  var iPropTitle   = hdr.indexOf('propertytitle');
+  var iNotes       = hdr.indexOf('notes');
+  var cid = String(clientID);
+  return rows.slice(1).filter(function(row){ return String(row[iClientID]||'').trim() === cid; })
+    .map(function(row){
+      var raw = iDate >= 0 ? row[iDate] : '';
+      return {
+        clientID:      row[iClientID]||'',
+        date:          raw,
+        dateFormatted: fmtActivityDate(raw),
+        investorName:  iInvName   >= 0 ? row[iInvName]   : '',
+        type:          iType      >= 0 ? row[iType]       : 'general',
+        action:        iAction    >= 0 ? row[iAction]     : '',
+        propertyID:    iPropID    >= 0 ? row[iPropID]     : '',
+        propertyTitle: iPropTitle >= 0 ? row[iPropTitle]  : '',
+        notes:         iNotes     >= 0 ? row[iNotes]      : ''
+      };
+    });
+}
+
+async function renderActivityLog(clientID) {
+  var wrap = document.getElementById('activityLogWrap');
+  var list = document.getElementById('activityLogList');
+  if (!wrap || !list) return;
+  if (!clientID) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  list.innerHTML = '<div style="font-size:11px;color:var(--mu)">Loading…</div>';
+  try {
+    var entries = await loadActivityLog(clientID);
+    if (!entries.length) { list.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">No activity yet.</div>'; return; }
+    entries.reverse();
+    list.innerHTML = entries.map(function(e){
+      var icon = e.type === 'session'    ? '<span style="color:var(--blue)">●</span>'
+               : e.type === 'shortlist'  ? '<span style="color:#ef4444">♥</span>'
+               : '<span style="color:var(--gold)">📝</span>';
+      var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
+      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
+        +'<div style="flex-shrink:0;margin-top:1px">'+icon+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:12px;color:var(--tx)">'+e.action+'</div>'
+          +(sub?'<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sub+'</div>':'')
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">'+e.dateFormatted+'</div>'
+        +'</div>';
+    }).join('');
+  } catch(ex) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--mu)">Could not load activity log.</div>';
+    console.error('[activityLog]', ex);
+  }
+}
+
+function getCurrentClientID() {
+  var nameEl = document.getElementById('cName');
+  if (!nameEl || !nameEl.value.trim()) return null;
+  var name = nameEl.value.trim().toLowerCase();
+  var inv = investorProfiles.find(function(i){ return i.name.toLowerCase() === name; });
+  return inv ? (inv.investorId || inv.id) : null;
+}
+
+function refreshActivityLog() {
+  var id = getCurrentClientID();
+  renderActivityLog(id);
+}
+
+async function logActivity(opts) {
+  var clientID = opts.clientID, action = opts.action;
+  if (action === 'Profile created') {
+    var existing = await loadActivityLog(clientID);
+    if (existing.some(function(e){ return e.action === 'Profile created'; })) return;
+  }
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var dateStr = pad(now.getDate())+'/'+pad(now.getMonth()+1)+'/'+now.getFullYear()+', '
+              + pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  var payload = {
+    clientID:      String(clientID),
+    investorName:  opts.investorName || '',
+    date:          dateStr,
+    type:          opts.type || 'general',
+    action:        action,
+    propertyID:    opts.propertyID || '',
+    propertyTitle: opts.propertyTitle || '',
+    notes:         opts.notes || ''
+  };
+  if (!COMMS_WEBHOOK) { console.log('[logActivity]', payload); return; }
+  try { await fetch(COMMS_WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); }
+  catch(ex) { console.error('[logActivity]', ex); }
+}
+
+(function(){
+  var _origGetOrCreate = typeof getOrCreateInvestor === 'function' ? getOrCreateInvestor : null;
+  if (_origGetOrCreate) {
+    getOrCreateInvestor = function(name, phone, email, clientType, budget, locations) {
+      var wasNew = !investorProfiles.find(function(i){ return i.name.toLowerCase() === (name||'').toLowerCase(); });
+      var inv = _origGetOrCreate.apply(this, arguments);
+      if (wasNew && inv) {
+        logActivity({clientID: inv.investorId||inv.id, investorName: inv.name, type:'session', action:'Profile created'});
+        renderActivityLog(inv.investorId||inv.id);
+      }
+      return inv;
+    };
+  }
+
+  var _origGotoTab = typeof gotoTab === 'function' ? gotoTab : null;
+  if (_origGotoTab) {
+    gotoTab = function(t, el) {
+      _origGotoTab.apply(this, arguments);
+      if (t === 'clients') {
+        var id = getCurrentClientID();
+        if (id) renderActivityLog(id);
+      }
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var cNameEl = document.getElementById('cName');
+    if (!cNameEl) return;
+    var debTimer;
+    cNameEl.addEventListener('input', function(){
+      clearTimeout(debTimer);
+      debTimer = setTimeout(function(){
+        var val = cNameEl.value.trim();
+        if (!val) { var w=document.getElementById('activityLogWrap'); if(w) w.style.display='none'; return; }
+        var inv = investorProfiles.find(function(i){ return i.name.toLowerCase() === val.toLowerCase(); });
+        if (inv) renderActivityLog(inv.investorId||inv.id);
+      }, 600);
+    });
+  });
+})();
 
 init();
 readInvestorsFromSheets();
