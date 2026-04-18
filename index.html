@@ -2168,8 +2168,8 @@ async function triggerModalRental(id) {
 function heartFromModal(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
   const on = sl.has(id);
-  document.getElementById('slBadge').textContent=sl.size;
-  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  const badge = document.getElementById('slBadge'); if(badge) badge.textContent=sl.size;
+  const info = document.getElementById('slInfo'); if(info) info.textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   const btn=document.getElementById('modalHeartBtn');
   if(btn)btn.textContent=on?'♥ Remove from shortlist':'♡ Add to shortlist';
   document.querySelectorAll('.hb, .card-heart').forEach(b => {
@@ -2284,8 +2284,8 @@ function render() {
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
   const on = sl.has(id);
-  document.getElementById('slBadge').textContent=sl.size;
-  document.getElementById('slInfo').textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
+  const badge = document.getElementById('slBadge'); if(badge) badge.textContent=sl.size;
+  const info = document.getElementById('slInfo'); if(info) info.textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
   document.querySelectorAll('.hb, .card-heart').forEach(btn => {
     const oc = btn.getAttribute('onclick') || '';
     if (oc.includes('heart(' + id + ')')) { btn.classList.toggle('on', on); btn.textContent = on ? '♥' : '♡'; }
