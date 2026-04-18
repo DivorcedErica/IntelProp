@@ -590,6 +590,7 @@ tr:hover td{background:var(--bg2)}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:12px;color:var(--mu)">Matching listings: <b id="cMatchCount" style="color:var(--tx)">—</b></div>
         <div style="display:flex;gap:8px">
+          <button onclick="saveCurrentSession()" class="btn primary" style="font-size:11px">💾 Save Session</button>
           <button onclick="resetClient()" class="btn" style="font-size:11px">✕ Reset</button>
         </div>
       </div>
@@ -597,6 +598,9 @@ tr:hover td{background:var(--bg2)}
 
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
+
+      <!-- Session Log -->
+      <div id="sessionLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
 
       <!-- Comm log (shown when client is loaded) -->
       <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
@@ -2483,6 +2487,129 @@ function exportClientProperties(invId, invName, forClient) {
 // ── Client Call ──────────────────────────────────────────────
 const cCriteria = { purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null };
 let cSortKey = null, cSortAsc = false, cPS = 25, cPage = 1;
+
+// ── Session Management ─────────────────────────────────────────
+// clientSessions[clientId] = [{sessionId, name, savedAt, criteria, shortlistedIds:[]}]
+var clientSessions = {};
+try { var _ss = localStorage.getItem('ip_sessions'); if(_ss) clientSessions = JSON.parse(_ss); } catch(e) {}
+function saveClientSessions() { try { localStorage.setItem('ip_sessions', JSON.stringify(clientSessions)); } catch(e) {} }
+
+function saveCurrentSession() {
+  if (!currentClientCallId) { alert('Please select a client first.'); return; }
+  var defaultName = 'Session ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  var name = prompt('Session name:', defaultName);
+  if (name === null) return; // cancelled
+  if (!name.trim()) name = defaultName;
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; });
+  var cid = String(currentClientCallId);
+  if (!clientSessions[cid]) clientSessions[cid] = [];
+  // Snapshot criteria
+  var purposeBtn = document.querySelector('#cPurposeGroup .crit-btn.on');
+  var seaBtn = document.querySelector('#cSeaGroup .crit-btn.on');
+  var budgetBtn = document.querySelector('#cBudgetGroup .crit-btn.on');
+  var deliveryBtn = document.querySelector('#cDeliveryGroup .crit-btn.on');
+  var types=[], beds=[], cities=[];
+  document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Apartment','Villa','House','Penthouse'].includes(b.dataset.val))types.push(b.dataset.val);});
+  document.querySelectorAll('#pClients .crit-multi.on').forEach(function(b){var v=b.dataset.val||b.textContent.trim();if(['Studio','1','2','3','4','5+'].includes(v)&&!types.includes(v))beds.push(v);});
+  document.querySelectorAll('#pClients .crit-multi.on[data-val]').forEach(function(b){if(['Nicosia','Limassol','Larnaca','Paphos','Famagusta'].includes(b.dataset.val))cities.push(b.dataset.val);});
+  // Collect currently shortlisted IDs for this client
+  var shortlistedIds = [];
+  sl.forEach(function(id){
+    var prop = clientProperties.find(function(p){ return p.investorId === currentClientCallId && p.listingId === id; });
+    if (prop) shortlistedIds.push(id);
+  });
+  // Also include all clientProperties for this client in current session
+  var allClientPropIds = clientProperties.filter(function(p){ return p.investorId === currentClientCallId; }).map(function(p){ return p.listingId; }).filter(Boolean);
+  // Merge: session shortlist = anything currently in sl that belongs to this client + anything added this session
+  var sessionShortlistIds = [];
+  sl.forEach(function(id){ if(allClientPropIds.includes(id) || shortlistedIds.includes(id)) sessionShortlistIds.push(id); });
+  var session = {
+    sessionId: 'S' + Date.now(),
+    name: name.trim(),
+    savedAt: new Date().toISOString(),
+    criteria: {
+      purpose: purposeBtn ? purposeBtn.textContent.trim() : '',
+      budget: budgetBtn ? budgetBtn.textContent.trim() : '',
+      budgetMin: cCriteria.budgetMin,
+      budgetMax: cCriteria.budgetMax,
+      types: types, beds: beds, cities: cities,
+      sea: seaBtn ? seaBtn.textContent.trim() : '',
+      seaVal: seaBtn ? seaBtn.dataset.val : '',
+      delivery: deliveryBtn ? deliveryBtn.textContent.trim() : '',
+      notes: document.getElementById('cNotes') ? document.getElementById('cNotes').value : ''
+    },
+    shortlistedIds: sessionShortlistIds
+  };
+  clientSessions[cid].unshift(session);
+  saveClientSessions();
+  if (inv) logCommunication(inv.investorId||inv.id, inv.name, 'session', 'Session saved: ' + name.trim(), null, null, sessionShortlistIds.length + ' units shortlisted');
+  showToast('✓ Session "' + name.trim() + '" saved — ' + sessionShortlistIds.length + ' unit(s) recorded');
+  renderSessionLog();
+}
+
+function renderSessionLog() {
+  var wrap = document.getElementById('sessionLogWrap');
+  if (!wrap) return;
+  if (!currentClientCallId) { wrap.style.display = 'none'; return; }
+  var cid = String(currentClientCallId);
+  var sessions = clientSessions[cid] || [];
+  if (!sessions.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  wrap.innerHTML = '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Session Log</div>'
+    + sessions.map(function(s){
+      var d = new Date(s.savedAt);
+      var ds = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+      var crit = [];
+      if(s.criteria.purpose) crit.push(s.criteria.purpose);
+      if(s.criteria.budget) crit.push(s.criteria.budget);
+      if(s.criteria.cities && s.criteria.cities.length) crit.push(s.criteria.cities.join(', '));
+      if(s.criteria.types && s.criteria.types.length) crit.push(s.criteria.types.join(', '));
+      if(s.criteria.sea) crit.push(s.criteria.sea);
+      var critStr = crit.join(' · ');
+      return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:2px">' + s.name + '</div>'
+        + '<div style="font-size:10px;color:var(--mu);margin-bottom:4px">' + ds + '</div>'
+        + (critStr ? '<div style="font-size:11px;color:var(--mu);margin-bottom:4px">' + critStr + '</div>' : '')
+        + '<div style="font-size:11px;color:#ef4444">♥ ' + (s.shortlistedIds||[]).length + ' unit(s) shortlisted</div>'
+        + '</div>'
+        + '<button onclick="reloadSession(\'' + s.sessionId + '\')" class="btn" style="font-size:11px;padding:0 10px;height:28px;white-space:nowrap;flex-shrink:0">↺ Reload</button>'
+        + '</div></div>';
+    }).join('');
+}
+
+function reloadSession(sessionId) {
+  if (!currentClientCallId) return;
+  var cid = String(currentClientCallId);
+  var sessions = clientSessions[cid] || [];
+  var s = sessions.find(function(x){ return x.sessionId === sessionId; });
+  if (!s) return;
+  if (!confirm('Reload criteria from "' + s.name + '"? This will replace current filter settings.')) return;
+  var cr = s.criteria;
+  // Reset
+  document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){ b.classList.remove('on'); });
+  Object.assign(cCriteria, {purpose:null, budgetMin:null, budgetMax:null, types:[], beds:[], cities:[], maxSea:null, delivery:null});
+  // Purpose
+  if(cr.purpose) document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.purpose){b.classList.add('on');cCriteria.purpose=cr.purpose;} });
+  // Budget
+  if(cr.budget) document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.budget){b.classList.add('on');cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;} });
+  // Types
+  if(cr.types&&cr.types.length){cCriteria.types=cr.types.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(cr.types.includes(b.dataset.val))b.classList.add('on');});}
+  // Beds
+  if(cr.beds&&cr.beds.length){cCriteria.beds=cr.beds.slice();document.querySelectorAll('#pClients .crit-multi').forEach(function(b){var v=b.dataset.val||b.textContent.trim();if(cr.beds.includes(v))b.classList.add('on');});}
+  // Cities
+  if(cr.cities&&cr.cities.length){cCriteria.cities=cr.cities.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(cr.cities.includes(b.dataset.val))b.classList.add('on');});}
+  // Sea
+  if(cr.seaVal) document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){ if(b.dataset.val===cr.seaVal){b.classList.add('on');cCriteria.maxSea=+cr.seaVal||null;} });
+  else if(cr.sea) document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.sea){b.classList.add('on');cCriteria.maxSea=+b.dataset.val||null;} });
+  // Delivery
+  if(cr.delivery) document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.delivery){b.classList.add('on');cCriteria.delivery=cr.delivery;} });
+  // Notes
+  var cn = document.getElementById('cNotes'); if(cn) cn.value = cr.notes||'';
+  applyClientFilter();
+  showToast('↺ Criteria restored from "' + s.name + '"');
+}
 let devPS = 25, devPage = 1, currentDevFilter = null;
 let invPS = 25, invPage = 1;
 let pbPS = 25, pbPage = 1;
@@ -2683,6 +2810,93 @@ function closeInvestorCard() {
   document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
 }
 
+function renderSessionShortlistsForCard(invId) {
+  var cid = String(invId);
+  var sessions = clientSessions[cid] || [];
+  if (!sessions.length) return '';
+  // Collect ALL shortlisted IDs across all sessions (deduplicated)
+  var allIds = [];
+  sessions.forEach(function(s){ (s.shortlistedIds||[]).forEach(function(id){ if(!allIds.includes(id)) allIds.push(id); }); });
+  if (!allIds.length) return '';
+  var tdStyle = 'padding:8px 10px;font-size:12px;border-bottom:1px solid var(--bd)';
+  var thStyle = 'text-align:left;padding:8px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);border-bottom:1px solid var(--bd)';
+
+  // Combined view HTML
+  var combinedRows = allIds.map(function(id){
+    var d = all.find(function(x){ return x.id === id; });
+    if (!d) return '';
+    // Which sessions include this ID?
+    var inSessions = sessions.filter(function(s){ return (s.shortlistedIds||[]).includes(id); }).map(function(s){ return s.name; });
+    return '<tr style="cursor:pointer" onclick="openModal('+id+')">'
+      + '<td style="'+tdStyle+';font-weight:500">'+(d.title||d.developer||'#'+id)+'</td>'
+      + '<td style="'+tdStyle+'">'+(d.developer||'—')+'</td>'
+      + '<td style="'+tdStyle+'">'+(d.city||'—')+'</td>'
+      + '<td style="'+tdStyle+'">'+(d.type||'—')+'</td>'
+      + '<td style="'+tdStyle+';white-space:nowrap">'+(d.price?'€'+d.price.toLocaleString():'—')+'</td>'
+      + '<td style="'+tdStyle+';font-size:10px;color:var(--mu)">'+inSessions.join(', ')+'</td>'
+      + '</tr>';
+  }).join('');
+  var combinedTable = '<div class="twrap" style="margin-bottom:12px"><table style="width:100%;border-collapse:collapse;min-width:0">'
+    + '<thead><tr><th style="'+thStyle+'">Unit</th><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">Price</th><th style="'+thStyle+'">Session(s)</th></tr></thead>'
+    + '<tbody>'+combinedRows+'</tbody></table></div>';
+
+  // Per-session view HTML
+  var perSessionHtml = sessions.filter(function(s){ return (s.shortlistedIds||[]).length > 0; }).map(function(s){
+    var d2 = new Date(s.savedAt);
+    var ds = d2.toLocaleDateString('en-GB') + ' ' + d2.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    var crit = [];
+    if(s.criteria&&s.criteria.purpose) crit.push(s.criteria.purpose);
+    if(s.criteria&&s.criteria.budget) crit.push(s.criteria.budget);
+    if(s.criteria&&s.criteria.cities&&s.criteria.cities.length) crit.push(s.criteria.cities.join(', '));
+    if(s.criteria&&s.criteria.types&&s.criteria.types.length) crit.push(s.criteria.types.join(', '));
+    var critStr = crit.join(' · ');
+    var sRows = (s.shortlistedIds||[]).map(function(id){
+      var d = all.find(function(x){ return x.id === id; });
+      if (!d) return '';
+      return '<tr style="cursor:pointer" onclick="openModal('+id+')">'
+        + '<td style="'+tdStyle+';font-weight:500">'+(d.title||d.developer||'#'+id)+'</td>'
+        + '<td style="'+tdStyle+'">'+(d.developer||'—')+'</td>'
+        + '<td style="'+tdStyle+'">'+(d.city||'—')+'</td>'
+        + '<td style="'+tdStyle+'">'+(d.type||'—')+'</td>'
+        + '<td style="'+tdStyle+';white-space:nowrap">'+(d.price?'€'+d.price.toLocaleString():'—')+'</td>'
+        + '</tr>';
+    }).join('');
+    return '<div style="margin-bottom:10px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">'
+      + '<div style="padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:8px">'
+      + '<div><div style="font-size:12px;font-weight:600;color:var(--tx)">'+s.name+'</div>'
+      + '<div style="font-size:10px;color:var(--mu)">'+ds+(critStr?' · '+critStr:'')+'</div></div>'
+      + '<span style="font-size:11px;color:#ef4444;white-space:nowrap">♥ '+(s.shortlistedIds||[]).length+' units</span>'
+      + '</div>'
+      + '<div class="twrap" style="border:none;border-radius:0"><table style="width:100%;border-collapse:collapse;min-width:0">'
+      + '<thead><tr><th style="'+thStyle+'">Unit</th><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">Price</th></tr></thead>'
+      + '<tbody>'+sRows+'</tbody></table></div></div>';
+  }).join('');
+
+  return '<div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between;margin-top:20px">'
+    + '<span>Shortlisted Units ('+allIds.length+') — '+sessions.length+' session(s)</span>'
+    + '<div style="display:flex;gap:4px">'
+    + '<button onclick="toggleSessionView(\'combined\',this)" id="svCombined" class="vtb on" style="height:26px;font-size:11px">All</button>'
+    + '<button onclick="toggleSessionView(\'sessions\',this)" id="svSessions" class="vtb" style="height:26px;font-size:11px">By Session</button>'
+    + '</div></div>'
+    + '<div id="svCombinedView">'+combinedTable+'</div>'
+    + '<div id="svSessionsView" style="display:none">'+perSessionHtml+'</div>';
+}
+
+function toggleSessionView(mode, btn) {
+  var combined = document.getElementById('svCombinedView');
+  var sessions = document.getElementById('svSessionsView');
+  var btnC = document.getElementById('svCombined');
+  var btnS = document.getElementById('svSessions');
+  if (!combined || !sessions) return;
+  if (mode === 'combined') {
+    combined.style.display = ''; sessions.style.display = 'none';
+    if(btnC) btnC.classList.add('on'); if(btnS) btnS.classList.remove('on');
+  } else {
+    combined.style.display = 'none'; sessions.style.display = '';
+    if(btnS) btnS.classList.add('on'); if(btnC) btnC.classList.remove('on');
+  }
+}
+
 function renderInvestorCard(inv) {
   const statusColors = {
     'Active': 'background:#dcfce7;color:#15803d',
@@ -2844,6 +3058,7 @@ function renderInvestorCard(inv) {
       </div>
     </div>
     ${assignedPropsHtml}
+    ${renderSessionShortlistsForCard(invId)}
 
     <div class="inv-section-title">Listings noted (${noteProps.length})</div>
     ${propsHtml}
@@ -3172,9 +3387,8 @@ function resetClient() {
   document.getElementById('cResults').innerHTML = '<div class="empty">Select criteria above to see matching listings.</div>';
   const cs = document.getElementById('cSaveStatus'); if(cs) cs.textContent = '';
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
+  // Session log stays visible after reset so agent can reload previous sessions
 }
-
-// ── Market Intelligence ──────────────────────────────────────
 let intelLoaded = false;
 async function loadIntelligence(force) {
   if (intelLoaded && !force) return;
@@ -5256,6 +5470,7 @@ function loadInvestorToClientCall(name){
   if(APPS_SCRIPT_URL)syncInvestorToSheets(inv);
   gotoTab('clients',document.querySelectorAll('.tab')[4]);
   applyClientFilter();
+  renderSessionLog();
 }
 
 function renderClientCommLog(investorId){
@@ -5393,7 +5608,6 @@ function selectClientForCall(id){
   if(!inv)return;
   loadInvestorToClientCall(inv.name);
 }
-
 function clearClientSelection(){
   currentClientCallId=null;
   cSelectedAgentId=null;
@@ -5410,9 +5624,8 @@ function clearClientSelection(){
   var mc=document.getElementById('cMatchCount');if(mc)mc.textContent='—';
   var cr=document.getElementById('cResults');if(cr)cr.innerHTML='<div class="empty">Select criteria above to see matching listings.</div>';
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
+  var slw=document.getElementById('sessionLogWrap');if(slw)slw.style.display='none';
 }
-
-function selectClientForPortfolio(id){
   if(!id){clearPortfolioClient();return;}
   var invId=+id;
   var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===invId;});
