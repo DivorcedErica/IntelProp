@@ -6393,6 +6393,129 @@ function scoreAsset(d, strategy, risk, portfolio, budget) {
   return { total: result.total, yPct: result.yieldData?.netYieldPct || 0 };
 }
 
+// ── Portfolio construction intelligence layer ─────────────────
+// Shared role assigner — used by buildPortfolio, pbSwapAsset, pbReplaceAsset
+function _pbAssignRole(d) {
+  const isUndervalued = ['Undervalued','Attractive'].includes(d._valueLabel);
+  const isHighYield   = (d._netYield || 0) >= 5.0;
+  const isHighGrowth  = (d._growthScore || 0) >= 68;
+  const isLowRisk     = (d._risk?.label || 'Med') === 'Low';
+  const isHighScore   = (d._score || 0) >= 70;
+  const isGoodConf    = (d._conf?.score || 0) >= 62;
+  const isMedConf     = (d._conf?.score || 0) >= 45;
+  // Priority: Core anchor first, then specialised roles
+  if (isLowRisk && isHighScore && isGoodConf)  return 'Core';
+  if (isHighYield && (d._score||0) >= 50 && isMedConf) return 'Income Driver';
+  if (isHighGrowth && (d._score||0) >= 50)     return 'Growth Asset';
+  if (isUndervalued && (d._score||0) >= 45)    return 'Opportunistic';
+  return 'Core';
+}
+
+// Strategy → target role mix weights (how many of each role to prefer)
+// Returns {Core, 'Income Driver', 'Growth Asset', 'Opportunistic'} desired counts
+function _pbTargetRoleMix(risk, objective, maxAssets) {
+  const r = (risk || 'Moderate').toLowerCase();
+  const o = (objective || 'Balanced').toLowerCase();
+  // Base template by risk
+  const template = r.includes('conserv')
+    ? { 'Core': 0.55, 'Income Driver': 0.35, 'Growth Asset': 0.05, 'Opportunistic': 0.05 }
+    : r.includes('aggress')
+    ? { 'Core': 0.20, 'Income Driver': 0.20, 'Growth Asset': 0.35, 'Opportunistic': 0.25 }
+    : { 'Core': 0.35, 'Income Driver': 0.30, 'Growth Asset': 0.25, 'Opportunistic': 0.10 }; // Moderate
+  // Tilt by objective
+  if (o.includes('yield') || o.includes('income')) {
+    template['Income Driver'] = Math.min(0.60, template['Income Driver'] + 0.20);
+    template['Growth Asset']  = Math.max(0.05, template['Growth Asset']  - 0.10);
+    template['Opportunistic'] = Math.max(0.05, template['Opportunistic'] - 0.10);
+  } else if (o.includes('growth') || o.includes('appreciation') || o.includes('capital')) {
+    template['Growth Asset']    = Math.min(0.55, template['Growth Asset']    + 0.20);
+    template['Opportunistic']   = Math.min(0.30, template['Opportunistic']   + 0.10);
+    template['Income Driver']   = Math.max(0.05, template['Income Driver']   - 0.15);
+    template['Core']            = Math.max(0.15, template['Core']            - 0.15);
+  } else if (o.includes('diversif')) {
+    // Spread evenly — push toward all 4 roles
+    Object.keys(template).forEach(k => { template[k] = 0.25; });
+  }
+  // Convert fractions to target counts
+  const out = {};
+  let remaining = maxAssets;
+  const sorted = Object.entries(template).sort((a,b)=>b[1]-a[1]);
+  sorted.forEach(([role, frac], i) => {
+    const count = i === sorted.length-1 ? remaining : Math.round(frac * maxAssets);
+    out[role] = Math.max(0, count);
+    remaining -= out[role];
+  });
+  return out;
+}
+
+// Role-based combo score: how well does this combo match the target mix?
+function _pbRoleFitScore(combo, targetMix) {
+  let penalty = 0;
+  const actualCounts = {};
+  combo.forEach(d => { actualCounts[d._role] = (actualCounts[d._role]||0)+1; });
+  for (const [role, target] of Object.entries(targetMix)) {
+    const actual = actualCounts[role] || 0;
+    penalty += Math.abs(actual - target) * 8; // 8 pts per unit off
+  }
+  return Math.max(0, 30 - penalty); // max 30 pts bonus for perfect role fit
+}
+
+// Deep confidence propagation: additional portfolio-level degradation signals
+function _pbConfidencePenalty(combo) {
+  let penalty = 0;
+  const n = combo.length;
+  if (!n) return 0;
+
+  // Too many proxy-heavy assets
+  const proxyCount = combo.filter(d => d._conf?.is_proxy_heavy).length;
+  if (proxyCount / n > 0.5) penalty += 12;
+  else if (proxyCount / n > 0.25) penalty += 6;
+
+  // Missing rental data (no net yield signal)
+  const noYieldCount = combo.filter(d => (d._netYield||0) < 0.5).length;
+  if (noYieldCount / n > 0.5) penalty += 8;
+  else if (noYieldCount > 0) penalty += 4;
+
+  // Over-reliance on same district
+  const districtCounts = {};
+  combo.forEach(d => { const dist = d.district||d.city||'?'; districtCounts[dist] = (districtCounts[dist]||0)+1; });
+  const maxDistConc = Math.max(...Object.values(districtCounts));
+  if (n >= 2 && maxDistConc / n >= 0.75) penalty += 10;
+  else if (n >= 3 && maxDistConc / n >= 0.60) penalty += 5;
+
+  // Weak micro-location (no district data)
+  const noDistrictCount = combo.filter(d => !d.district).length;
+  if (noDistrictCount / n > 0.5) penalty += 6;
+
+  // Low-confidence individual assets dragging portfolio
+  const lowConfCount = combo.filter(d => (d._conf?.score||50) < 50).length;
+  if (lowConfCount >= 2) penalty += 8;
+  else if (lowConfCount === 1 && n <= 2) penalty += 5;
+
+  return penalty;
+}
+
+// Capital allocation strategy: max budget fraction per single asset by risk profile
+function _pbMaxSingleAssetFraction(risk) {
+  const r = (risk||'Moderate').toLowerCase();
+  if (r.includes('conserv')) return 0.75; // conservative → can put most in one quality asset
+  if (r.includes('aggress')) return 0.50; // aggressive → spread more
+  return 0.65; // moderate
+}
+
+// Target number of assets adjusted by capital allocation strategy
+function _pbStrategyAssetCount(risk, objective, maxAssets, budget, pool) {
+  const r = (risk||'Moderate').toLowerCase();
+  const o = (objective||'Balanced').toLowerCase();
+  // Conservative: fewer, higher quality; Aggressive: more, spread
+  let target = maxAssets;
+  if (r.includes('conserv')) target = Math.max(1, Math.min(maxAssets, 2));
+  if (r.includes('aggress')) target = Math.min(4, maxAssets + 1);
+  // Income objective on large budget: allow 3-4 units for spread
+  if ((o.includes('yield')||o.includes('income')) && budget >= 1500000) target = Math.min(4, target+1);
+  return Math.max(1, Math.min(4, target));
+}
+
 function buildPortfolio() {
   const status = document.getElementById('pbStatus');
   if (!pbCriteria.budget) { status.textContent = '⚠ Select a budget.'; return; }
@@ -6403,14 +6526,14 @@ function buildPortfolio() {
   const strategy  = pbCriteria.rental + ' | ' + pbCriteria.objective;
   const risk      = pbCriteria.risk || 'Moderate';
   const budget    = pbCriteria.budget;
-  const maxAssets = Math.max(1, Math.min(4, pbCriteria.assets || 2));
-  const minAssets = Math.max(1, maxAssets - 1); // allow one fewer if budget tight
+  const objective = pbCriteria.objective || 'Balanced';
 
-  // ── STEP 1: Candidate pool ──────────────────────────────────
+  // ── STEP 1: Candidate pool — respect locked/excluded flags ──
   let pool = all.filter(d => {
+    if (d.excluded === true) return false;                          // hard exclude
     if (!d.price || d.price > budget * 0.97) return false;
     if (pbCriteria.cities.length > 0 && !pbCriteria.cities.some(c=>(d.city||'').toLowerCase()===c.toLowerCase())) return false;
-    if (pbCriteria.types.length > 0  && !pbCriteria.types.some(t=>(d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
+    if (pbCriteria.types.length  > 0 && !pbCriteria.types.some(t=>(d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
     if (pbCriteria.sea && pbCriteria.sea < 999 && (d.seaDist==null||d.seaDist>pbCriteria.sea)) return false;
     return true;
   });
@@ -6421,58 +6544,71 @@ function buildPortfolio() {
     return;
   }
 
-  // ── STEP 2: Score all candidates ────────────────────────────
+  // ── STEP 2: Capital allocation — derive maxAssets from strategy ─
+  const maxAssets = _pbStrategyAssetCount(risk, objective, Math.max(1, Math.min(4, pbCriteria.assets||2)), budget, pool);
+  const minAssets = Math.max(1, maxAssets - 1);
+
+  // ── STEP 3: Score all candidates ────────────────────────────
   const profile = buildProfileFromStrategy(strategy, risk, [], budget);
-  const scored  = pool.map(d => {
+  const scored = pool.map(d => {
     const sr = safeScore(d, profile);
     return {
       ...d,
-      _score:       sr.total,
-      _conf:        sr.confidence || {},
-      _valueLabel:  sr.value_label || getValueLabel(d)?.label || 'Unknown',
-      _valueRatio:  sr.value_ratio || null,
-      _netYield:    sr.yieldData?.netYieldPct || 0,
-      _grossYield:  sr.yieldData?.grossYieldPct || 0,
-      _annualIncome:(d.price||0) * ((sr.yieldData?.netYieldPct||0)/100),
-      _growthScore: sr.subscores?.growth?.score || 0,
-      _incomeScore: sr.subscores?.income?.score || 0,
-      _risk:        getListingRisk(d),
-      _sr:          sr,
+      _score:        sr.total,
+      _conf:         sr.confidence || {},
+      _valueLabel:   sr.value_label || getValueLabel(d)?.label || 'Unknown',
+      _valueRatio:   sr.value_ratio || null,
+      _netYield:     sr.yieldData?.netYieldPct || 0,
+      _grossYield:   sr.yieldData?.grossYieldPct || 0,
+      _annualIncome: (d.price||0) * ((sr.yieldData?.netYieldPct||0)/100),
+      _growthScore:  sr.subscores?.growth?.score || 0,
+      _incomeScore:  sr.subscores?.income?.score || 0,
+      _risk:         getListingRisk(d),
+      _sr:           sr,
     };
   }).sort((a,b) => b._score - a._score);
 
-  // ── STEP 3: Role assignment ─────────────────────────────────
-  // Deterministic: each candidate gets ONE role based on its strongest characteristic
-  function assignRole(d) {
-    const isUndervalued = ['Undervalued','Attractive'].includes(d._valueLabel);
-    const isHighYield   = d._netYield >= 5.0;
-    const isHighGrowth  = d._growthScore >= 68;
-    const isLowRisk     = d._risk.label === 'Low';
-    const isHighScore   = d._score >= 70;
-    const isGoodConf    = (d._conf?.score||0) >= 62;
-    // Priority order: Core first (stability anchor), then specialised roles
-    if (isLowRisk && isHighScore && isGoodConf)  return 'Core';
-    if (isHighYield && d._score >= 54)           return 'Income Driver';
-    if (isHighGrowth && d._score >= 54)          return 'Growth Asset';
-    if (isUndervalued && d._score >= 48)         return 'Opportunistic';
-    return 'Core'; // fallback — most stable available
+  // Assign roles to all candidates
+  const withRoles = scored.map(d => ({ ...d, _role: _pbAssignRole(d) }));
+
+  // ── STEP 4: Locked assets — must appear in every valid combo ─
+  const lockedAssets  = withRoles.filter(d => d.locked === true);
+  const lockedIds     = new Set(lockedAssets.map(d=>d.id));
+  const lockedCost    = lockedAssets.reduce((s,d)=>s+(d.price||0),0);
+  const remainingBudget = budget - lockedCost;
+
+  if (lockedCost > budget) {
+    status.textContent = '';
+    document.getElementById('pbOutput').innerHTML = `<div class="empty" style="padding:2.5rem"><div class="empty-title">Locked assets exceed budget</div><div class="empty-sub">Locked properties cost €${lockedCost.toLocaleString()} which exceeds the budget of €${budget.toLocaleString()}.</div></div>`;
+    return;
   }
 
-  const withRoles = scored.map(d => ({ ...d, _role: assignRole(d) }));
+  // Free candidates: not locked, not excluded
+  const freeCandidates = withRoles.filter(d => !lockedIds.has(d.id));
 
-  // ── STEP 4: Constraint checker ──────────────────────────────
-  const MAX_CITY_PCT = 0.60;
+  // ── STEP 5: Role-based target mix ───────────────────────────
+  const targetMix = _pbTargetRoleMix(risk, objective, maxAssets);
+
+  // ── STEP 6: Constraint checker (soft — hard blocks only on budget/dupe) ─
+  const MAX_CITY_PCT         = 0.60;
+  const MAX_SINGLE_ASSET_PCT = _pbMaxSingleAssetFraction(risk);
+
   function checkConstraints(combo) {
     const total = combo.reduce((s,x)=>s+(x.price||0),0);
     if (total > budget) return { ok:false, reason:'Exceeds budget' };
-    // City concentration
+    // Single asset concentration
+    for (const x of combo) {
+      if (combo.length >= 2 && (x.price||0)/budget > MAX_SINGLE_ASSET_PCT)
+        return { ok:false, reason:`Single asset >${ Math.round(MAX_SINGLE_ASSET_PCT*100)}% of budget` };
+    }
+    // City concentration (hard block >80%, soft penalty above 60%)
     const cities = [...new Set(combo.map(x=>x.city).filter(Boolean))];
     for (const city of cities) {
       const spend = combo.filter(x=>x.city===city).reduce((s,x)=>s+(x.price||0),0);
-      if (combo.length >= 2 && spend/budget > MAX_CITY_PCT)
-        return { ok:false, reason:`City concentration >60% in ${city}` };
+      if (combo.length >= 2 && spend/budget > 0.80)
+        return { ok:false, reason:`City concentration >80% in ${city}` };
     }
-    // No duplicate project (same title+developer, or same complex+city)
+    // No duplicate project
     for (let i=0; i<combo.length; i++) {
       for (let j=i+1; j<combo.length; j++) {
         const a=combo[i], b=combo[j];
@@ -6482,46 +6618,68 @@ function buildPortfolio() {
           return { ok:false, reason:`Same complex: ${a.complex}` };
       }
     }
-    // Minimum 2 roles for multi-asset portfolios
+    // Min 2 roles for multi-asset (hard)
     if (combo.length >= 2) {
       const roles = new Set(combo.map(x=>x._role));
-      if (roles.size < 2) return { ok:false, reason:'All assets have the same role — insufficient diversification' };
+      if (roles.size < 2) return { ok:false, reason:'Insufficient role diversification — all assets have same role' };
     }
     return { ok:true };
   }
 
-  // ── STEP 5: Portfolio scorer ────────────────────────────────
+  // ── STEP 7: Portfolio scorer (strategy-aware) ────────────────
   function scoreCombo(combo) {
     if (!combo.length) return 0;
     const total       = combo.reduce((s,x)=>s+(x.price||0),0);
-    const blendedScr  = combo.reduce((s,x)=>s+x._score,0)/combo.length;
-    // Diversification: unique cities + unique roles + budget spread
+    const blendedScr  = combo.reduce((s,x)=>s+(x._score||0),0)/combo.length;
+
+    // Diversification
     const cityCount   = new Set(combo.map(x=>x.city).filter(Boolean)).size;
     const roleCount   = new Set(combo.map(x=>x._role)).size;
     const typeCount   = new Set(combo.map(x=>(x.type||'').split(' ')[0]).filter(Boolean)).size;
     const divScore    = Math.min(100, cityCount*18 + roleCount*14 + typeCount*8);
-    // Value vs market (avg)
+
+    // City concentration penalty (soft — reduces div score if >60%)
+    const maxCitySpend = Math.max(...[...new Set(combo.map(x=>x.city).filter(Boolean))].map(c=>
+      combo.filter(x=>x.city===c).reduce((s,x)=>s+(x.price||0),0)));
+    const cityConcPenalty = total && maxCitySpend/total > MAX_CITY_PCT
+      ? Math.round((maxCitySpend/total - MAX_CITY_PCT) * 120) : 0;
+
+    // Value vs market
     const valuePts    = {'Undervalued':92,'Attractive':80,'Around Market':64,'Premium':42,'Expensive':22,'Unknown':55};
     const avgValueScr = combo.reduce((s,x)=>s+(valuePts[x._valueLabel]||55),0)/combo.length;
-    // Income strength
-    const blendedYield= total ? combo.reduce((s,x)=>s+(x._annualIncome||0),0)/total*100 : 0;
-    const incomeScr   = Math.min(100, blendedYield*14);
+
+    // Income
+    const blendedYield = total ? combo.reduce((s,x)=>s+(x._annualIncome||0),0)/total*100 : 0;
+    const incomeScr    = Math.min(100, blendedYield*14);
+
     // Growth
     const growthScr   = combo.reduce((s,x)=>s+(x._growthScore||55),0)/combo.length;
-    // Confidence
-    const confScr     = combo.reduce((s,x)=>s+(x._conf?.score||50),0)/combo.length;
+
+    // Confidence with deep propagation penalty
+    const rawConf     = combo.reduce((s,x)=>s+(x._conf?.score||50),0)/combo.length;
+    const confPenalty = _pbConfidencePenalty(combo);
+    const confScr     = Math.max(0, rawConf - confPenalty);
+
+    // Role fit bonus (how well does combo match target mix?)
+    const roleFit     = _pbRoleFitScore(combo, targetMix);
+
+    // Low-confidence asset penalty
+    const lowConfPenalty = combo.filter(d=>(d._conf?.score||50)<48).length * 4;
+
     return Math.round(
-      blendedScr * 0.30 + divScore * 0.20 + avgValueScr * 0.15 +
-      incomeScr  * 0.15 + growthScr * 0.10 + confScr * 0.10
+      blendedScr  * 0.28 +
+      divScore    * 0.18 +
+      avgValueScr * 0.13 +
+      incomeScr   * 0.13 +
+      growthScr   * 0.10 +
+      confScr     * 0.10 +
+      roleFit     * 0.08 -
+      cityConcPenalty   -
+      lowConfPenalty
     );
   }
 
-  // ── STEP 6: Combination evaluation (smart, not brute-force) ─
-  // Pre-filter top candidates to keep combinations manageable
-  // Use top 20 by score; cap at C(20,4) = 4845 combos max
-  const candidates = withRoles.slice(0, 20);
-  let bestCombo = null, bestScore = -1;
-
+  // ── STEP 8: Combination evaluation ──────────────────────────
   function* combinations(arr, k) {
     if (k === 0) { yield []; return; }
     if (arr.length < k) return;
@@ -6532,27 +6690,39 @@ function buildPortfolio() {
     }
   }
 
-  // Try each target size from maxAssets down to minAssets
-  for (let sz = maxAssets; sz >= minAssets; sz--) {
-    if (sz > candidates.length) continue;
-    for (const combo of combinations(candidates, sz)) {
-      const { ok } = checkConstraints(combo);
+  // Top 20 free candidates — combination search space
+  const candidatePool = freeCandidates.slice(0, 20);
+  let bestCombo = null, bestScore = -1;
+
+  // Number of free slots after locking
+  const freeSlots = Math.max(1, maxAssets - lockedAssets.length);
+  const minFreeSlots = Math.max(1, freeSlots - 1);
+
+  for (let sz = freeSlots; sz >= minFreeSlots; sz--) {
+    if (sz > candidatePool.length) continue;
+    for (const combo of combinations(candidatePool, sz)) {
+      const fullCombo = [...lockedAssets, ...combo];
+      const { ok } = checkConstraints(fullCombo);
       if (!ok) continue;
-      const ps = scoreCombo(combo);
-      if (ps > bestScore) { bestScore = ps; bestCombo = combo; }
+      const ps = scoreCombo(fullCombo);
+      if (ps > bestScore) { bestScore = ps; bestCombo = fullCombo; }
     }
-    if (bestCombo) break; // found valid combo at this size
+    if (bestCombo) break;
   }
 
-  // ── STEP 7: If no valid combo, relax concentration constraint ─
+  // ── STEP 9: Relax city concentration if no valid combo ───────
   if (!bestCombo) {
-    for (let sz = maxAssets; sz >= 1; sz--) {
-      if (sz > candidates.length) continue;
-      for (const combo of combinations(candidates, sz)) {
-        const total = combo.reduce((s,x)=>s+(x.price||0),0);
+    for (let sz = freeSlots; sz >= 1; sz--) {
+      if (sz > candidatePool.length) continue;
+      for (const combo of combinations(candidatePool, sz)) {
+        const fullCombo = [...lockedAssets, ...combo];
+        const total = fullCombo.reduce((s,x)=>s+(x.price||0),0);
         if (total > budget) continue;
-        const ps = scoreCombo(combo);
-        if (ps > bestScore) { bestScore = ps; bestCombo = combo; }
+        // Relax: only keep duplicate + budget constraints
+        const hasDupe = fullCombo.some((a,i)=>fullCombo.some((b,j)=>i!==j&&a.title===b.title&&a.developer===b.developer));
+        if (hasDupe) continue;
+        const ps = scoreCombo(fullCombo);
+        if (ps > bestScore) { bestScore = ps; bestCombo = fullCombo; }
       }
       if (bestCombo) break;
     }
@@ -6566,136 +6736,179 @@ function buildPortfolio() {
 
   const selected = bestCombo;
 
-  // ── STEP 8: Rejected assets with specific reasons ───────────
+  // ── STEP 10: Rejected assets — specific, role-aware reasons ──
   const selectedIds = new Set(selected.map(x=>x.id));
   const rejected = withRoles
-    .filter(d => !selectedIds.has(d.id))
+    .filter(d => !selectedIds.has(d.id) && !d.excluded)
     .slice(0, 10)
     .map(d => {
-      // Try adding to the selected combo to find the specific constraint
+      // Constraint check
       const testCombo = [...selected, d];
-      const { ok, reason: constraintReason } = checkConstraints(testCombo);
-      if (!ok) return { ...d, _rejectReason: constraintReason };
+      const { ok, reason: cReason } = checkConstraints(testCombo);
+      if (!ok) return { ...d, _rejectReason: cReason };
 
-      // Determine why it lost vs selected assets
-      const myScore    = scoreCombo([d]);
+      // Role already saturated in selected set?
+      const roleCountInSelected = selected.filter(x=>x._role===d._role).length;
+      const targetForRole = targetMix[d._role] || 0;
+      if (roleCountInSelected >= targetForRole && roleCountInSelected > 0 && selected.length >= maxAssets)
+        return { ...d, _rejectReason: `Role quota met: ${d._role} (${roleCountInSelected}/${Math.round(targetForRole)} target) — lower diversification contribution` };
+
+      // Score comparison
       const worstInSet = Math.min(...selected.map(x=>x._score));
       if (d._score < worstInSet - 8)
         return { ...d, _rejectReason: `Lower advisory score (${d._score} vs min ${worstInSet} in selected set)` };
 
-      const myRole = d._role;
-      const roleAlreadyCovered = selected.filter(x=>x._role===myRole).length >= 1;
-      if (roleAlreadyCovered && selected.length >= maxAssets)
-        return { ...d, _rejectReason: `Role already covered: ${myRole} — weaker diversification contribution` };
-
-      const myConf = d._conf?.score || 50;
+      // Confidence
+      const myConf  = d._conf?.score || 50;
       const avgConf = selected.reduce((s,x)=>s+(x._conf?.score||50),0)/selected.length;
       if (myConf < avgConf - 12)
-        return { ...d, _rejectReason: `Lower confidence (${d._conf?.label||'Indicative'}) — weaker data quality` };
+        return { ...d, _rejectReason: `Lower confidence (${d._conf?.label||'Indicative'}) — data quality below portfolio average` };
 
+      // Value position
       if (['Premium','Expensive'].includes(d._valueLabel) && !['Premium','Expensive'].includes(selected[0]?._valueLabel))
         return { ...d, _rejectReason: `Above-market pricing — lower value contribution vs selected assets` };
 
-      const myYield = d._netYield;
-      const avgYield = selected.reduce((s,x)=>s+x._netYield,0)/selected.length;
-      if (myYield < avgYield - 1.5)
-        return { ...d, _rejectReason: `Lower income contribution (${myYield.toFixed(1)}% net vs ${avgYield.toFixed(1)}% avg)` };
+      // Yield
+      const myYield  = d._netYield || 0;
+      const avgYield = selected.reduce((s,x)=>s+(x._netYield||0),0)/selected.length;
+      if (myYield < avgYield - 1.5 && (objective.toLowerCase().includes('yield')||objective.toLowerCase().includes('income')))
+        return { ...d, _rejectReason: `Lower income contribution (${myYield.toFixed(1)}% net vs ${avgYield.toFixed(1)}% portfolio avg)` };
 
-      return { ...d, _rejectReason: 'Lower overall portfolio contribution score — not selected in optimal combination' };
+      // Growth
+      const myGrowth  = d._growthScore || 0;
+      const avgGrowth = selected.reduce((s,x)=>s+(x._growthScore||0),0)/selected.length;
+      if (myGrowth < avgGrowth - 10 && (objective.toLowerCase().includes('growth')||objective.toLowerCase().includes('capital')))
+        return { ...d, _rejectReason: `Lower growth potential (score ${myGrowth} vs avg ${Math.round(avgGrowth)})` };
+
+      return { ...d, _rejectReason: 'Lower combined portfolio contribution in optimal combination' };
     });
 
-  // ── STEP 9: Alternative portfolio ──────────────────────────
-  // True alternative: different objective dimension
-  // Try: higher-yield focus, lower-risk focus, growth focus, best-diversification
-  const altDimensions = [
-    { label:'Yield Focus',       sortKey: d => -d._netYield },
-    { label:'Lower Risk Focus',  sortKey: d => (d._risk.level||0)*10 - d._score*0.1 },
-    { label:'Growth Focus',      sortKey: d => -d._growthScore },
-    { label:'Value Focus',       sortKey: d => d._valueRatio||1 },
-  ];
+  // ── STEP 11: True alternative portfolio ─────────────────────
+  // Must be meaningfully different in strategy dimension
+  // Derives from objective: balanced→yield, income→lower risk, growth→stable, else→diversified
+  const obj = objective.toLowerCase();
+  let altObjective, altSortFn, altAnchorLabel;
+  if (obj.includes('balanced') || obj.includes('diversif')) {
+    altObjective = 'Max yield';
+    altSortFn    = d => -((d._netYield||0)*0.6 + (d._incomeScore||0)*0.004);
+    altAnchorLabel = 'Yield Focus';
+  } else if (obj.includes('yield') || obj.includes('income')) {
+    altObjective = 'Lower risk';
+    altSortFn    = d => (d._risk?.level||1) - (d._score||0)*0.005;
+    altAnchorLabel = 'Lower Risk Focus';
+  } else if (obj.includes('growth') || obj.includes('capital') || obj.includes('appreciation')) {
+    altObjective = 'More stable';
+    altSortFn    = d => -((d._score||0)*0.5 + (d._conf?.score||50)*0.5);
+    altAnchorLabel = 'Stability Focus';
+  } else {
+    altObjective = 'Diversified';
+    altSortFn    = d => { const cities=new Set(withRoles.map(x=>x.city)); return -cities.size; };
+    altAnchorLabel = 'Diversification Focus';
+  }
+
+  const altStrategy = pbCriteria.rental + ' | ' + altObjective;
+  const altProfile  = buildProfileFromStrategy(altStrategy, risk, [], budget);
+  const altScored   = pool.map(d => {
+    const sr = safeScore(d, altProfile);
+    return { ...d,
+      _score: sr.total, _netYield: sr.yieldData?.netYieldPct||0,
+      _annualIncome: (d.price||0)*((sr.yieldData?.netYieldPct||0)/100),
+      _conf: sr.confidence||{}, _valueLabel: sr.value_label||getValueLabel(d)?.label||'Unknown',
+      _growthScore: sr.subscores?.growth?.score||0, _incomeScore: sr.subscores?.income?.score||0,
+      _risk: getListingRisk(d), _sr: sr,
+    };
+  });
+  const altWithRoles = altScored.map(d=>({...d, _role:_pbAssignRole(d)})).sort(altSortFn);
+  const altTarget    = _pbTargetRoleMix(risk, altObjective, Math.max(2, maxAssets-1));
 
   let altPortfolio = null, altLabel = '';
-  for (const dim of altDimensions) {
-    const altCandidates = [...withRoles].sort(dim.sortKey).slice(0, 20);
-    let altBest = null, altBestScore = -1;
-    const altSz = Math.max(2, maxAssets - 1);
-    if (altCandidates.length >= altSz) {
-      for (const combo of combinations(altCandidates, altSz)) {
-        const { ok } = checkConstraints(combo);
-        if (!ok) continue;
-        const ids = combo.map(x=>x.id).sort().join(',');
-        const selIds = selected.map(x=>x.id).sort().join(',');
-        if (ids === selIds) continue; // must differ
-        // Require ≥1 different asset
-        const overlap = combo.filter(x=>selectedIds.has(x.id)).length;
-        if (overlap === combo.length) continue;
-        const ps = scoreCombo(combo);
-        if (ps > altBestScore) { altBestScore = ps; altBest = combo; }
-      }
+  const altCandidates = altWithRoles.slice(0, 20);
+  const altSz = Math.max(2, maxAssets - 1);
+  let altBestScore = -1;
+
+  if (altCandidates.length >= altSz) {
+    for (const combo of combinations(altCandidates, altSz)) {
+      const { ok } = checkConstraints(combo);
+      if (!ok) continue;
+      // Require ≥1 asset that differs from primary selection
+      const overlap = combo.filter(x=>selectedIds.has(x.id)).length;
+      if (overlap === combo.length) continue;
+      // Score with alt target mix
+      const altTargetLocal = altTarget;
+      const roleFitAlt = _pbRoleFitScore(combo, altTargetLocal);
+      const ps = scoreCombo(combo) + roleFitAlt * 0.5; // extra weight on alt role fit
+      if (ps > altBestScore) { altBestScore = ps; altPortfolio = combo; altLabel = altAnchorLabel; }
     }
-    if (altBest) { altPortfolio = altBest; altLabel = dim.label; break; }
   }
   if (altPortfolio) altPortfolio = altPortfolio.map(d=>({...d, _altLabel:altLabel}));
 
-  // ── STEP 10: Feasibility check ──────────────────────────────
+  // ── STEP 12: Feasibility check ───────────────────────────────
   const totalDeployed  = selected.reduce((s,x)=>s+(x.price||0),0);
   const deployedRatio  = totalDeployed / budget;
-  const cityConcentration = Math.max(...[...new Set(selected.map(x=>x.city))].map(city=>
-    selected.filter(x=>x.city===city).reduce((s,x)=>s+(x.price||0),0)/totalDeployed
-  ));
-  const hasHighRisk    = selected.some(x=>x._risk.label==='High');
+  const maxCityConc    = (() => {
+    const cs = [...new Set(selected.map(x=>x.city).filter(Boolean))];
+    if (!cs.length || !totalDeployed) return 0;
+    return Math.max(...cs.map(c=>selected.filter(x=>x.city===c).reduce((s,x)=>s+(x.price||0),0)/totalDeployed));
+  })();
+  const hasHighRisk    = selected.some(x=>x._risk?.label==='High');
   const isProxyHeavy   = selected.some(x=>x._conf?.is_proxy_heavy);
   const lowConfCount   = selected.filter(x=>(x._conf?.score||50)<55).length;
+  const confPenalty    = _pbConfidencePenalty(selected);
 
   let feasibility = 'Feasible';
   const feasibilityReasons = [];
-  if (deployedRatio < 0.55) { feasibility = 'Needs Structuring'; feasibilityReasons.push(`Only ${Math.round(deployedRatio*100)}% of budget deployed`); }
-  if (cityConcentration > 0.75) { feasibility = 'Needs Structuring'; feasibilityReasons.push(`${Math.round(cityConcentration*100)}% in one city`); }
-  if (hasHighRisk) { feasibility = 'High Friction'; feasibilityReasons.push('One or more assets carry high risk'); }
-  if (isProxyHeavy && lowConfCount >= 2) { if (feasibility==='Feasible') feasibility='Needs Structuring'; feasibilityReasons.push('Heavy proxy reliance — low data confidence on 2+ assets'); }
+  if (deployedRatio < 0.55)   { feasibility='Needs Structuring'; feasibilityReasons.push(`Only ${Math.round(deployedRatio*100)}% of budget deployed`); }
+  if (maxCityConc > 0.75)     { feasibility='Needs Structuring'; feasibilityReasons.push(`${Math.round(maxCityConc*100)}% in one city`); }
+  if (hasHighRisk)             { feasibility='High Friction';     feasibilityReasons.push('One or more assets carry high risk'); }
+  if (isProxyHeavy && lowConfCount >= 2) { if (feasibility==='Feasible') feasibility='Needs Structuring'; feasibilityReasons.push('Heavy proxy reliance on 2+ assets'); }
+  if (confPenalty >= 20)       { if (feasibility==='Feasible') feasibility='Needs Structuring'; feasibilityReasons.push('Portfolio confidence reduced by data gaps'); }
 
-  // ── STEP 11: Strategy mix ───────────────────────────────────
-  const incomeRoles  = ['Income Driver', 'Core'];
-  const growthRoles  = ['Growth Asset', 'Opportunistic'];
+  // ── STEP 13: Strategy mix ────────────────────────────────────
+  const incomeRoles   = ['Income Driver','Core'];
+  const growthRoles   = ['Growth Asset','Opportunistic'];
   const incomeCapital = selected.filter(x=>incomeRoles.includes(x._role)).reduce((s,x)=>s+(x.price||0),0);
   const growthCapital = selected.filter(x=>growthRoles.includes(x._role)).reduce((s,x)=>s+(x.price||0),0);
-  const strategyMix = {
+  const strategyMix   = {
     income: totalDeployed ? Math.round(incomeCapital/totalDeployed*100) : 0,
     growth: totalDeployed ? Math.round(growthCapital/totalDeployed*100) : 0,
   };
 
-  // ── STEP 12: Verification items ─────────────────────────────
+  // ── STEP 14: Verification items ──────────────────────────────
   const verifyItems = [];
   selected.forEach(d => {
-    const qa = d._norm?._data_quality;
+    const qa  = d._norm?._data_quality;
     const toV = qa?.missing?.filter(f=>!['Furnishing','Title deed'].includes(f)).slice(0,2)||[];
     if (toV.length) verifyItems.push(`${d.title||d.city}: ${toV.join(', ')}`);
   });
-  if (isProxyHeavy) verifyItems.push('Confirm sea distance and district context direct with developer for proxy-heavy assets');
+  if (isProxyHeavy) verifyItems.push('Confirm sea distance and district context direct with developers');
   if (hasHighRisk)  verifyItems.push('Developer credentials and title status on high-risk assets');
-  if (strategy.includes('Short-term')) verifyItems.push('STR permit eligibility (municipal authority confirmation required)');
+  if (strategy.includes('STR')||strategy.includes('Short-term')) verifyItems.push('STR permit eligibility — municipal authority confirmation required');
+  if (confPenalty >= 15) verifyItems.push('Rental income assumptions are indicative — verify with local letting agents');
 
-  // ── STEP 13: Commit ─────────────────────────────────────────
-  pbPortfolio.selected     = selected;
-  pbPortfolio.rejected     = rejected;
-  pbPortfolio.alt          = altPortfolio;
-  pbPortfolio.altLabel     = altLabel;
-  pbPortfolio.pool         = pool;
-  pbPortfolio.scoredPool   = withRoles;
-  pbPortfolio.strategy     = strategy;
-  pbPortfolio.risk         = risk;
-  pbPortfolio.budget       = budget;
-  pbPortfolio.portfolioScore = bestScore;
-  pbPortfolio.feasibility  = feasibility;
+  // ── STEP 15: Commit to state ─────────────────────────────────
+  pbPortfolio.selected           = selected;
+  pbPortfolio.rejected           = rejected;
+  pbPortfolio.alt                = altPortfolio;
+  pbPortfolio.altLabel           = altLabel;
+  pbPortfolio.pool               = pool;
+  pbPortfolio.scoredPool         = withRoles;
+  pbPortfolio.strategy           = strategy;
+  pbPortfolio.risk               = risk;
+  pbPortfolio.budget             = budget;
+  pbPortfolio.portfolioScore     = bestScore;
+  pbPortfolio.feasibility        = feasibility;
   pbPortfolio.feasibilityReasons = feasibilityReasons;
-  pbPortfolio.strategyMix  = strategyMix;
-  pbPortfolio.verifyItems  = verifyItems;
+  pbPortfolio.strategyMix        = strategyMix;
+  pbPortfolio.verifyItems        = verifyItems;
   pbPage = 1;
   status.textContent = '';
   pbRebuildOutput();
 }
 
 function pbRemoveAsset(id) {
+  // Never remove a locked asset
+  const asset = pbPortfolio.selected.find(x=>x.id===id);
+  if (asset && asset.locked) return;
   pbPortfolio.selected = pbPortfolio.selected.filter(x => x.id !== id);
   pbPortfolio.portfolioScore = null; // force live recalc
   pbRebuildOutput();
@@ -6705,8 +6918,9 @@ function pbSwapAsset(id) {
   const { selected, pool, strategy, risk, budget } = pbPortfolio;
   const asset = selected.find(x => x.id === id);
   if (!asset) return;
+  // Locked assets cannot be swapped
+  if (asset.locked) { alert('This asset is locked and cannot be swapped.'); return; }
 
-  // Toggle off if already showing
   const existingAlt = document.getElementById('alt-panel-'+id);
   if (existingAlt) { existingAlt.remove(); return; }
 
@@ -6716,12 +6930,16 @@ function pbSwapAsset(id) {
   const profile    = buildProfileFromStrategy(strategy, risk, remaining, budget);
 
   const alternatives = pool
-    .filter(d => !selected.find(x=>x.id===d.id) && (d.price||0) <= maxPrice)
+    .filter(d => !selected.find(x=>x.id===d.id) && (d.price||0) <= maxPrice && !d.excluded)
     .map(d => {
       const sr = safeScore(d, profile);
-      return { ...d, _score: sr.total, _netYield: sr.yieldData?.netYieldPct||0, _annualIncome: (d.price||0)*((sr.yieldData?.netYieldPct||0)/100),
-               _conf: sr.confidence||{}, _valueLabel: sr.value_label||'Unknown', _growthScore: sr.subscores?.growth?.score||0,
-               _risk: getListingRisk(d), _sr: sr };
+      return { ...d,
+        _score: sr.total, _netYield: sr.yieldData?.netYieldPct||0,
+        _annualIncome: (d.price||0)*((sr.yieldData?.netYieldPct||0)/100),
+        _conf: sr.confidence||{}, _valueLabel: sr.value_label||getValueLabel(d)?.label||'Unknown',
+        _growthScore: sr.subscores?.growth?.score||0, _incomeScore: sr.subscores?.income?.score||0,
+        _risk: getListingRisk(d), _sr: sr,
+      };
     })
     .sort((a,b) => b._score - a._score)
     .slice(0, 3);
@@ -6742,7 +6960,7 @@ function pbSwapAsset(id) {
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:15px;font-weight:700">€${(a.price||0).toLocaleString()}</div>
             <div style="font-size:12px;font-weight:700;color:${a._score>=75?'#15803d':a._score>=55?'#b45309':'#991b1b'}">${a._score}</div>
-            <div style="font-size:10px;color:#15803d;font-weight:500">${a._netYield.toFixed(1)}% net est.</div>
+            <div style="font-size:10px;color:#15803d;font-weight:500">${(a._netYield||0).toFixed(1)}% net est.</div>
           </div>
         </div>
         <div style="margin-top:8px;text-align:center;font-size:11px;color:var(--gold);font-weight:500">↻ Use this instead</div>
@@ -6758,32 +6976,29 @@ function pbReplaceAsset(oldId, newId) {
   const { selected, pool, strategy, risk, budget } = pbPortfolio;
   const newAsset = pool.find(x => x.id === newId);
   if (!newAsset) return;
-  const idx      = selected.findIndex(x => x.id === oldId);
+  const idx = selected.findIndex(x => x.id === oldId);
   if (idx === -1) return;
   const remaining = selected.filter(x => x.id !== oldId);
   const profile   = buildProfileFromStrategy(strategy, risk, remaining, budget);
   const sr        = safeScore(newAsset, profile);
 
-  // Re-use assignRole logic via inline heuristic
-  const isUndervalued = ['Undervalued','Attractive'].includes(sr.value_label);
-  const isHighYield   = (sr.yieldData?.netYieldPct||0) >= 5.0;
-  const isHighGrowth  = (sr.subscores?.growth?.score||0) >= 70;
-  const isLowRisk     = getListingRisk(newAsset).label === 'Low';
-  let role = 'Core';
-  if (isLowRisk && sr.total >= 72 && (sr.confidence?.score||0)>=65) role = 'Core';
-  else if (isHighYield && sr.total >= 55) role = 'Income Driver';
-  else if (isHighGrowth && sr.total >= 55) role = 'Growth Asset';
-  else if (isUndervalued && sr.total >= 50) role = 'Opportunistic';
-
   const enriched = {
-    ...newAsset, _role: role,
-    _score: sr.total, _netYield: sr.yieldData?.netYieldPct||0,
+    ...newAsset,
+    _score:        sr.total,
+    _netYield:     sr.yieldData?.netYieldPct||0,
     _annualIncome: (newAsset.price||0)*((sr.yieldData?.netYieldPct||0)/100),
-    _conf: sr.confidence||{}, _valueLabel: sr.value_label||'Unknown',
-    _growthScore: sr.subscores?.growth?.score||0,
-    _risk: getListingRisk(newAsset), _sr: sr,
+    _conf:         sr.confidence||{},
+    _valueLabel:   sr.value_label||getValueLabel(newAsset)?.label||'Unknown',
+    _valueRatio:   sr.value_ratio||null,
+    _growthScore:  sr.subscores?.growth?.score||0,
+    _incomeScore:  sr.subscores?.income?.score||0,
+    _risk:         getListingRisk(newAsset),
+    _sr:           sr,
   };
+  enriched._role = _pbAssignRole(enriched); // use shared role assigner
+
   pbPortfolio.selected = [...remaining.slice(0, idx), enriched, ...remaining.slice(idx)];
+  pbPortfolio.portfolioScore = null; // force live recalc
   pbRebuildOutput();
 }
 
