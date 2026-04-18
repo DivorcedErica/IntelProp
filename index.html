@@ -2426,9 +2426,6 @@ function renderInvestorCard(inv) {
     return p ? { ...p, clientNote: n.note, savedAt: n.savedAt } : null;
   }).filter(Boolean).sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt));
 
-  // Communication log for this investor
-  const myComms = communicationLog.filter(c => +c.investorId === +(inv.investorId||inv.id)).sort((a,b) => new Date(b.date) - new Date(a.date));
-
   const propsHtml = noteProps.length ? noteProps.map(p => `
     <div class="inv-prop-row" onclick="openModal(${p.id})">
       <div style="flex:1;min-width:0">
@@ -2439,16 +2436,6 @@ function renderInvestorCard(inv) {
       ${p.seaDist!=null?`<div style="flex-shrink:0">${seaBadge(p.seaDist)}</div>`:''}
     </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties noted yet — open a listing modal and save a note to track it here.</div>';
 
-  const dotClass = { session:'session', note:'note', shortlist:'shortlist', general:'general' };
-  const timelineHtml = myComms.length ? myComms.slice(0,40).map(c => `
-    <div class="inv-tl-item">
-      <div class="inv-tl-dot ${dotClass[c.type]||''}"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;color:var(--tx)">${c.action}${c.agent?` <span style="font-size:10px;color:var(--mu)">by ${c.agent}</span>`:''}</div>
-        ${c.note?`<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.note.slice(0,120)}</div>`:''}
-      </div>
-      <div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px">${new Date(c.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'})}</div>
-    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No activity yet.</div>';
 
   // Build criteria section
   const cr = inv.criteria || {};
@@ -2537,7 +2524,7 @@ function renderInvestorCard(inv) {
       <!-- Stats on the right -->
       <div style="display:flex;gap:8px;flex-shrink:0">
         <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
-        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${myComms.length}</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
+        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700" id="invActCount">…</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
       </div>
       <div id="invContactEdit" style="display:none;width:100%">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
@@ -2574,14 +2561,46 @@ function renderInvestorCard(inv) {
     <div class="inv-section-title">Listings noted (${noteProps.length})</div>
     ${propsHtml}
 
-    <div class="inv-section-title">Activity log (${myComms.length})</div>
-    ${timelineHtml}
+    <div class="inv-section-title" id="invActTitle">Activity log</div>
+    <div id="invTimeline"><div class="empty" style="padding:8px 0;font-size:12px">Loading…</div></div>
 
     <div class="inv-section-title">General notes</div>
     <textarea class="inv-general-notes" id="invGenNotes" placeholder="Notes about this client — preferences, feedback, budget details…">${inv.generalNotes||''}</textarea>
     <button onclick="saveInvGeneralNotes(${inv.investorId||inv.id})" class="btn primary" style="font-size:11px;margin-top:6px">Save notes</button>
     ${inv.generalNotes?`<button onclick="logInvMeeting(${inv.investorId||inv.id})" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px">+ Log activity</button>`:''}
   `;
+  // Async-load activity log from Google Sheets
+  (async function(){
+    try {
+      var entries = await loadActivityLog(inv.investorId||inv.id);
+      var countEl = document.getElementById('invActCount');
+      var titleEl = document.getElementById('invActTitle');
+      var tlEl    = document.getElementById('invTimeline');
+      if (!tlEl) return;
+      if (countEl) countEl.textContent = entries.length;
+      if (titleEl) titleEl.textContent = 'Activity log (' + entries.length + ')';
+      if (!entries.length) { tlEl.innerHTML = '<div class="empty" style="padding:8px 0;font-size:12px">No activity yet.</div>'; return; }
+      entries.slice().reverse();
+      tlEl.innerHTML = entries.map(function(e){
+        var icon = e.type === 'session'   ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-top:3px;flex-shrink:0"></span>'
+                 : e.type === 'shortlist' ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-top:3px;flex-shrink:0"></span>'
+                 : '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;margin-top:3px;flex-shrink:0"></span>';
+        var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
+        return '<div class="inv-tl-item">'
+          + icon
+          + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:12px;color:var(--tx)">' + (e.action||'Activity') + '</div>'
+            + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+          + '</div>'
+          + '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + e.dateFormatted + '</div>'
+          + '</div>';
+      }).join('');
+    } catch(ex) {
+      var tlEl = document.getElementById('invTimeline');
+      if (tlEl) tlEl.innerHTML = '<div class="empty" style="padding:8px 0;font-size:12px">Could not load activity.</div>';
+      console.error('[invCard activityLog]', ex);
+    }
+  })();
 }
 
 function updateInvStatus(id, status) {
