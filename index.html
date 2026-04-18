@@ -3229,17 +3229,25 @@ function gvizJsonp(sid, sheetParam) {
   return new Promise(function(resolve, reject) {
     var cbName = 'gvizCb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
     var script = document.createElement('script');
+    var done = false;
     var timer = setTimeout(function() {
-      delete window[cbName]; document.head.removeChild(script);
+      if (done) return; done = true;
+      delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
       reject(new Error('gviz timeout'));
-    }, 10000);
+    }, 12000);
     window[cbName] = function(json) {
+      if (done) return; done = true;
       clearTimeout(timer); delete window[cbName];
       try { document.head.removeChild(script); } catch(e) {}
       resolve(json);
     };
-    script.src = 'https://docs.google.com/spreadsheets/d/' + sid + '/gviz/tq?tqx=out:json;handler:' + cbName + '&' + sheetParam;
+    // Google gviz JSONP: tqx must be reqId:0;out:json;handler:cbName
+    script.src = 'https://docs.google.com/spreadsheets/d/' + sid
+      + '/gviz/tq?tqx=reqId:0;out:json;handler:' + cbName
+      + '&' + sheetParam;
     script.onerror = function() {
+      if (done) return; done = true;
       clearTimeout(timer); delete window[cbName];
       try { document.head.removeChild(script); } catch(e) {}
       reject(new Error('gviz script load failed'));
@@ -3248,11 +3256,35 @@ function gvizJsonp(sid, sheetParam) {
   });
 }
 
+// Fetch-based gviz fallback (works when sheet is public, may fail on CORS)
+async function gvizFetch(sid, sheetParam) {
+  const url = 'https://docs.google.com/spreadsheets/d/' + sid + '/gviz/tq?tqx=out:json&' + sheetParam;
+  const r = await fetch(url);
+  const t = await r.text();
+  const m = t.match(/setResponse\(([\s\S]*)\)/);
+  if (!m) throw new Error('No setResponse in gviz response');
+  return JSON.parse(m[1]);
+}
+
+// Try JSONP first, fall back to fetch
+async function gvizLoad(sid, sheetParam) {
+  try {
+    return await gvizJsonp(sid, sheetParam);
+  } catch(e1) {
+    try {
+      return await gvizFetch(sid, sheetParam);
+    } catch(e2) {
+      throw new Error('gviz failed: ' + e1.message + ' / ' + e2.message);
+    }
+  }
+}
+
 async function readInvestorsFromSheets() {
   const clientsParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients';
   try {
-    const json = await gvizJsonp(SID, clientsParam);
-    if (!json.table || !json.table.rows) return;
+    const json = await gvizLoad(SID, clientsParam);
+    if (!json.table || !json.table.rows) { console.warn('[investors] no table/rows', json); return; }
+    console.log('[investors] rows from sheet:', json.table.rows.length);
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
       const invId = +g(0); const name = g(1);
@@ -3280,12 +3312,12 @@ async function readInvestorsFromSheets() {
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
     await readPropertiesFromSheets();
-  } catch(e) { /* sheet unavailable — continue with local data */ }
+  } catch(e) { console.warn('[investors] sheet load failed:', e.message); }
 }
 
 async function readPropertiesFromSheets() {
   try {
-    const json = await gvizJsonp(SID, 'sheet=Properties');
+    const json = await gvizLoad(SID, 'sheet=Properties');
     if (!json.table || !json.table.rows) return;
     let added = 0;
     json.table.rows.forEach(row => {
@@ -3318,7 +3350,7 @@ async function readPropertiesFromSheets() {
 async function readAgentsFromSheets() {
   const sheetParam = AGENTS_GID ? `gid=${AGENTS_GID}` : 'sheet=Agents';
   try {
-    const json = await gvizJsonp(SID, sheetParam);
+    const json = await gvizLoad(SID, sheetParam);
     if (!json.table || !json.table.rows) return;
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
@@ -3338,7 +3370,7 @@ async function readAgentsFromSheets() {
 async function readClientsFromSheets() {
   const sheetParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients_CRM';
   try {
-    const json = await gvizJsonp(SID, sheetParam);
+    const json = await gvizLoad(SID, sheetParam);
     if (!json.table || !json.table.rows) return;
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
@@ -3364,7 +3396,7 @@ function parseGvizDate(val) {
 async function readCommsFromSheets() {
   const sheetParam = COMMS_GID ? `gid=${COMMS_GID}` : 'sheet=Client+Communications';
   try {
-    const json = await gvizJsonp(SID, sheetParam);
+    const json = await gvizLoad(SID, sheetParam);
     if (!json.table || !json.table.rows) return;
     const existingIds = new Set(communicationLog.map(c => c.commId));
     json.table.rows.forEach(row => {
@@ -6183,7 +6215,7 @@ async function loadActivityLog(clientID) {
   // Fallback: try sheet directly via JSONP
   try {
     var sheetParam = COMMS_GID ? 'gid='+COMMS_GID : 'sheet=Client+Communications';
-    var json = await gvizJsonp(SID, sheetParam);
+    var json = await gvizLoad(SID, sheetParam);
     if (!json.table || !json.table.rows) return [];
     var entries = [];
     json.table.rows.forEach(function(row){
