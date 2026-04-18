@@ -802,27 +802,98 @@ tr:hover td{background:var(--bg2)}
 
     <!-- AI SEARCH -->
     <div id="pAisearch" style="display:none">
+
+      <!-- ── Search Input ── -->
       <div class="ai-wrap">
-        <div class="ai-header">
-          <div class="ai-header-icon">✦</div>
-          <div class="ai-header-title">AI Property Search</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+          <div class="ai-header">
+            <div class="ai-header-icon">✦</div>
+            <div class="ai-header-title">AI Property Intelligence</div>
+          </div>
+          <!-- Investment Mode toggle -->
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--tx)">
+            <div id="aiModeToggle" onclick="toggleAIMode()" style="width:36px;height:20px;border-radius:99px;background:var(--tx);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0">
+              <div style="position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;background:var(--bg);transition:right .2s"></div>
+            </div>
+            <span id="aiModeLabel" style="font-weight:500">Investment Mode</span>
+          </label>
         </div>
-        <div class="ai-header-sub">Describe what you're looking for — type freely, press Enter or Search</div>
+        <div class="ai-header-sub" id="aiModeDesc">Scoring, ranking and advisory output active — results are ranked by investment quality</div>
         <div class="ai-input-row">
           <input type="text" id="aiQuery" class="ai-input" placeholder="villa in Paphos, 3 bedrooms, close to sea, max €600k…" onkeydown="if(event.key==='Enter')runAISearch()">
-          <button class="ai-go" onclick="runAISearch()">Search</button>
+          <button class="ai-go" onclick="runAISearch()" id="aiGoBtn">✦ Analyse</button>
           <button class="btn" onclick="resetAISearch()" style="height:46px;padding:0 16px;border-radius:10px;font-size:13px">Reset</button>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          <span style="font-size:11px;color:var(--mu)">Quick examples:</span>
-          <button class="ai-ex" onclick="aiExample(this)">Villa · Paphos · 3 beds · sea · max €600k</button>
-          <button class="ai-ex" onclick="aiExample(this)">2 bed apartment Limassol under €300k</button>
-          <button class="ai-ex" onclick="aiExample(this)">Beachfront villa Protaras 4 bedrooms</button>
-          <button class="ai-ex" onclick="aiExample(this)">Studio or 1 bed Larnaca under €150k</button>
+        <!-- Quick examples -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <span style="font-size:11px;color:var(--mu)">Try:</span>
+          <button class="ai-ex" onclick="aiExample(this)">STR villa Paphos 3 beds sea max €600k</button>
+          <button class="ai-ex" onclick="aiExample(this)">LTR apartment Limassol under €300k yield</button>
+          <button class="ai-ex" onclick="aiExample(this)">Beachfront Protaras 4 bedrooms investment</button>
+          <button class="ai-ex" onclick="aiExample(this)">Low risk Larnaca under €200k</button>
+        </div>
+        <!-- Result type selector -->
+        <div id="aiGoalRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span style="font-size:11px;color:var(--mu);white-space:nowrap">I want:</span>
+          <button class="crit-btn on" id="aiGoalBest"    onclick="setAIGoal('best',this)">Best overall</button>
+          <button class="crit-btn"    id="aiGoalYield"   onclick="setAIGoal('yield',this)">Highest yield</button>
+          <button class="crit-btn"    id="aiGoalRisk"    onclick="setAIGoal('risk',this)">Lowest risk</button>
+          <button class="crit-btn"    id="aiGoalSTR"     onclick="setAIGoal('str',this)">Best for STR</button>
+          <button class="crit-btn"    id="aiGoalLTR"     onclick="setAIGoal('ltr',this)">Best for LTR</button>
         </div>
         <div id="aiCrumbs" class="ai-crumbs" style="display:none"></div>
       </div>
 
+      <!-- ── Loading state ── -->
+      <div id="aiLoadingWrap" style="display:none;padding:28px 0;text-align:center">
+        <div style="font-size:22px;margin-bottom:12px"><span class="spin">◈</span></div>
+        <div id="aiLoadingStep" style="font-size:13px;color:var(--tx);font-weight:500;margin-bottom:6px">Analysing your request…</div>
+        <div style="font-size:11px;color:var(--mu)">Applying scoring model · Ranking best opportunities</div>
+      </div>
+
+      <!-- ── Interpretation Panel ── -->
+      <div id="aiInterpretPanel" style="display:none;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <!-- Interpreted criteria -->
+          <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px 16px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:10px">Interpreted Criteria</div>
+            <div id="aiCriteriaList" style="display:flex;flex-direction:column;gap:5px"></div>
+          </div>
+          <!-- Strategy + confidence -->
+          <div style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px 16px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:10px">Detected Strategy</div>
+            <div id="aiStrategyList" style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px"></div>
+            <div style="border-top:1px solid var(--bd);padding-top:10px">
+              <div id="aiConfidenceBar"></div>
+              <div id="aiMissingList" style="margin-top:8px"></div>
+            </div>
+          </div>
+        </div>
+        <!-- AI Assumptions + Refinements -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+          <div id="aiAssumptionsBox" style="display:none;background:rgba(184,134,11,.05);border:1px solid rgba(184,134,11,.2);border-radius:10px;padding:12px 16px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--gold);margin-bottom:8px">AI Assumptions</div>
+            <div id="aiAssumptionsList" style="font-size:11px;color:var(--tx);line-height:1.8"></div>
+          </div>
+          <div id="aiRefinementsBox" style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px 16px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:8px">Suggested Refinements</div>
+            <div id="aiRefinementsList" style="display:flex;flex-direction:column;gap:5px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Error state ── -->
+      <div id="aiErrorWrap" style="display:none;padding:20px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:8px">⚠ I couldn't fully interpret your request.</div>
+        <div style="font-size:12px;color:var(--mu);margin-bottom:10px">Try being more specific, for example:</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="ai-ex" onclick="aiExample(this)" style="text-align:left">2 bed apartment Limassol under €300k</button>
+          <button class="ai-ex" onclick="aiExample(this)" style="text-align:left">Villa Paphos sea view STR investment max €700k</button>
+          <button class="ai-ex" onclick="aiExample(this)" style="text-align:left">Low risk LTR apartment Larnaca 1-2 beds</button>
+        </div>
+      </div>
+
+      <!-- ── Results ── -->
       <div id="aiResultsWrap" style="display:none">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="aiAreaPills"></div>
         <div class="ai-sea-legend">
@@ -837,10 +908,13 @@ tr:hover td{background:var(--bg2)}
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;color:var(--mu)">Sort by:</span>
             <select id="aiSortSel" onchange="aiSetSort(this.value)" style="font-size:11px;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx)">
+              <option value="score_desc">✦ Best score</option>
               <option value="seaDist_asc">Closest to sea</option>
               <option value="price_asc">Price ↑ low to high</option>
               <option value="price_desc">Price ↓ high to low</option>
               <option value="area_desc">Largest size</option>
+              <option value="yield_desc">Highest yield</option>
+              <option value="risk_asc">Lowest risk</option>
             </select>
           </div>
         </div>
@@ -6809,17 +6883,55 @@ function exportPropertyPDF(id){
 
 
 // ── AI Search ─────────────────────────────────────────────────
-let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc', excluded:[] };
+let aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'score_desc', excluded:[], strategy:null, goal:'best' };
 let aiPage = 1, aiPS = 20;
+let aiInvestmentMode = true;
+let aiGoal = 'best'; // best | yield | risk | str | ltr
+
+function toggleAIMode() {
+  aiInvestmentMode = !aiInvestmentMode;
+  const toggle = document.getElementById('aiModeToggle');
+  const label  = document.getElementById('aiModeLabel');
+  const desc   = document.getElementById('aiModeDesc');
+  const ball   = toggle.querySelector('div');
+  if (aiInvestmentMode) {
+    toggle.style.background = 'var(--tx)';
+    ball.style.right = '3px';
+    label.textContent = 'Investment Mode';
+    desc.textContent = 'Scoring, ranking and advisory output active — results are ranked by investment quality';
+    aiState.sort = 'score_desc';
+  } else {
+    toggle.style.background = '#9ca3af';
+    ball.style.right = 'calc(100% - 17px)';
+    label.textContent = 'Simple Search';
+    desc.textContent = 'Basic filter mode — results ordered by sea distance';
+    aiState.sort = 'seaDist_asc';
+  }
+  if (document.getElementById('aiResultsWrap').style.display !== 'none') renderAIResults();
+}
+
+function setAIGoal(goal, btn) {
+  aiGoal = goal;
+  document.querySelectorAll('#aiGoalRow .crit-btn').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  // Adjust sort to match goal
+  const sortMap = { best:'score_desc', yield:'yield_desc', risk:'risk_asc', str:'score_desc', ltr:'score_desc' };
+  aiState.sort = sortMap[goal] || 'score_desc';
+  const sortEl = document.getElementById('aiSortSel');
+  if (sortEl) sortEl.value = aiState.sort;
+  if (document.getElementById('aiResultsWrap').style.display !== 'none') renderAIResults();
+}
 
 function resetAISearch() {
   document.getElementById('aiQuery').value = '';
-  aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort:'seaDist_asc', excluded:[] };
+  aiState = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, districtFilter:[], sort: aiInvestmentMode ? 'score_desc' : 'seaDist_asc', excluded:[], strategy:null, goal:'best' };
+  aiGoal = 'best';
   aiPage = 1;
-  const crumbsEl = document.getElementById('aiCrumbs');
-  crumbsEl.innerHTML = '';
-  crumbsEl.style.display = 'none';
-  document.getElementById('aiResultsWrap').style.display = 'none';
+  ['aiCrumbs','aiResultsWrap','aiInterpretPanel','aiLoadingWrap','aiErrorWrap'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.style.display = 'none';
+  });
+  document.querySelectorAll('#aiGoalRow .crit-btn').forEach(b => b.classList.remove('on'));
+  const best = document.getElementById('aiGoalBest'); if(best) best.classList.add('on');
 }
 
 function aiExample(btn) {
@@ -6827,14 +6939,19 @@ function aiExample(btn) {
   runAISearch();
 }
 
+// ── Enhanced NLP Parser ────────────────────────────────────────
 function parseAIQuery(text) {
-  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null, excluded:[] };
+  const s = { types:[], cities:[], beds:[], maxPrice:null, maxSea:null, sort:null, excluded:[],
+              strategy:null, objective:null, risk:null, features:[] };
 
+  // Property types
   if (/\bvillas?\b/i.test(text)) s.types.push('Villa');
-  if (/\bapartments?\b|\bapt\b/i.test(text)) s.types.push('Apartment');
+  if (/\bapartments?\b|\bapt\b|\bflats?\b/i.test(text)) s.types.push('Apartment');
   if (/\bhouses?\b|\bbungalows?\b/i.test(text)) s.types.push('House');
   if (/\bpenthouses?\b/i.test(text)) s.types.push('Penthouse');
+  if (/\bstudios?\b/i.test(text)) s.beds.push('Studio');
 
+  // Cities
   const cityMap = {
     'Paphos':    /\bpaphos\b|coral\s*bay|geroskipou|kato\s*paphos|peyia|pegeia|chlorakas|konia|tala/i,
     'Limassol':  /\blimassol\b|agios\s*tychonas|mouttagiaka|parekklisia|germasogeia/i,
@@ -6846,7 +6963,7 @@ function parseAIQuery(text) {
     if (rx.test(text)) s.cities.push(city);
   }
 
-  if (/\bstudio\b/i.test(text)) s.beds.push('Studio');
+  // Bedrooms
   const bedsM = text.match(/(\d)\s*(?:or\s*(\d)\s*)?(?:bed(?:room)?s?|br\b)/i);
   if (bedsM) {
     [bedsM[1], bedsM[2]].filter(Boolean).forEach(n => {
@@ -6855,7 +6972,8 @@ function parseAIQuery(text) {
     });
   }
 
-  const priceM = text.match(/(?:max(?:imum)?(?:\s+price)?|under|up\s*to|below|budget|no\s*more\s*than)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
+  // Price
+  const priceM = text.match(/(?:max(?:imum)?(?:\s+price)?|under|up\s*to|below|budget|no\s*more\s*than|max)\s*[€]?\s*(\d[\d,.]*)\s*(k|m|million)?/i);
   if (priceM) {
     let v = parseFloat(priceM[1].replace(/,/g, ''));
     const suf = (priceM[2] || '').toLowerCase();
@@ -6865,79 +6983,209 @@ function parseAIQuery(text) {
     if (v > 10000) s.maxPrice = v;
   }
 
+  // Sea distance
   if (/beachfront|beach\s*front|on\s*the\s*beach|right\s*(on|by)\s*the\s*(beach|sea)/i.test(text)) s.maxSea = 0.3;
   else if (/walking\s*distance|steps?\s*from\s*(the\s*)?(sea|beach)|right\s*on\s*(the\s*)?sea/i.test(text)) s.maxSea = 0.5;
   else if (/close\s*to\s*(the\s*)?(sea|beach)|near\s*(the\s*)?(sea|beach)|seaview|sea\s*view|seafront|sea\s*front|by\s*the\s*(sea|beach)/i.test(text)) s.maxSea = 1;
   else { const kmM = text.match(/within\s*(\d+)\s*km/i); if (kmM) s.maxSea = +kmM[1]; }
 
-  if (/sort\s*(by\s*)?(distance|sea|closest|nearest)|nearest\s*(to\s*the?\s*)?(sea|beach)|closest\s*(to\s*the?\s*)?(sea|beach)/i.test(text)) s.sort = 'seaDist_asc';
-  else if (/sort\s*(by\s*)?price\s*(asc|low|cheap)|cheapest|lowest\s*price/i.test(text)) s.sort = 'price_asc';
-  else if (/sort\s*(by\s*)?price\s*(desc|high|exp)|most\s*expensive|highest\s*price/i.test(text)) s.sort = 'price_desc';
-  else if (/sort\s*(by\s*)?(size|area|largest)|biggest|largest/i.test(text)) s.sort = 'area_desc';
+  // Strategy detection
+  if (/\bstr\b|short.?term|airbnb|holiday\s*let|tourist/i.test(text)) { s.strategy = 'short_term'; s.objective = 'yield'; }
+  else if (/\bltr\b|long.?term|rental\s*income|tenant|steady\s*income/i.test(text)) { s.strategy = 'long_term'; s.objective = 'yield'; }
+  else if (/\binvestment\b|\binvest\b|\byield\b|\bincome\b/i.test(text)) { s.strategy = 'mixed'; s.objective = 'yield'; }
+  else if (/\bown\s*use\b|\bpersonal\b|\bholiday\s*home\b|\bvacation\b/i.test(text)) { s.strategy = 'own_use'; s.objective = 'lifestyle'; }
+  else if (/\bgrowth\b|\bappreciation\b|\bcapital/i.test(text)) { s.strategy = 'mixed'; s.objective = 'growth'; }
 
-  // Exclusions: "avoid X", "not X", "exclude X", "except X", "without X", "no X", "skip X", "but not X"
+  // Risk
+  if (/\blow\s*risk\b|\bsafe\b|\bconservative\b/i.test(text)) s.risk = 'conservative';
+  else if (/\baggressive\b|\bhigh\s*risk\b/i.test(text)) s.risk = 'aggressive';
+
+  // Features
+  if (/\bpool\b/i.test(text)) s.features.push('pool');
+  if (/\bparking\b/i.test(text)) s.features.push('parking');
+  if (/\bfurnish/i.test(text)) s.features.push('furnished');
+  if (/\bready\s*now\b|\bimmediate\b|\bcompleted\b/i.test(text)) s.features.push('ready');
+  if (/\boff.?plan\b|\bnew\s*build\b/i.test(text)) s.features.push('off-plan');
+
+  // Sort
+  if (/sort\s*(by\s*)?(distance|sea|closest)/i.test(text)) s.sort = 'seaDist_asc';
+  else if (/sort\s*(by\s*)?price\s*(asc|low)|cheapest|lowest\s*price/i.test(text)) s.sort = 'price_asc';
+  else if (/sort\s*(by\s*)?price\s*(desc|high)|expensive|highest\s*price/i.test(text)) s.sort = 'price_desc';
+  else if (/sort\s*(by\s*)?(size|area)|biggest|largest/i.test(text)) s.sort = 'area_desc';
+  else if (/\byield\b/i.test(text)) s.sort = 'yield_desc';
+
+  // Exclusions
   const exclRx = /\b(?:avoid|not\s+in|without|except|exclude|skip|but\s+not|don'?t\s+want|no)\s+([A-Za-z][A-Za-z\s]{1,25}?)(?=\s*(?:[,\.!]|\band\b|\bor\b|\bbut\b|$))/gi;
   let em;
   while ((em = exclRx.exec(text)) !== null) {
     const area = em[1].trim();
-    const skip = ['villas','apartments','apartments','the','a','an','more','less','view','pool'];
+    const skip = ['villas','apartments','the','a','an','more','less','view','pool'];
     if (area && !skip.includes(area.toLowerCase())) s.excluded.push(area);
   }
 
   return s;
 }
 
+// ── Build interpretation panel ─────────────────────────────────
+function buildInterpretPanel(parsed, text) {
+  const criteriaEl    = document.getElementById('aiCriteriaList');
+  const strategyEl    = document.getElementById('aiStrategyList');
+  const confidenceEl  = document.getElementById('aiConfidenceBar');
+  const missingEl     = document.getElementById('aiMissingList');
+  const assumptionsEl = document.getElementById('aiAssumptionsList');
+  const assumptionsBox= document.getElementById('aiAssumptionsBox');
+  const refinementsEl = document.getElementById('aiRefinementsList');
+  if (!criteriaEl) return;
+
+  const row = (label, value, color) => `<div style="display:flex;align-items:baseline;gap:8px;font-size:12px">
+    <span style="color:var(--mu);min-width:100px;flex-shrink:0">${label}</span>
+    <span style="font-weight:500;color:${color||'var(--tx)'}">  ${value}</span>
+  </div>`;
+
+  // Criteria
+  const criteria = [];
+  if (parsed.cities.length) criteria.push(row('Location', parsed.cities.join(', ')));
+  if (parsed.types.length)  criteria.push(row('Property type', parsed.types.join(', ')));
+  if (parsed.beds.length)   criteria.push(row('Bedrooms', parsed.beds.join(', ')));
+  if (parsed.maxPrice)      criteria.push(row('Budget', '≤ €'+parsed.maxPrice.toLocaleString(), '#15803d'));
+  if (parsed.maxSea != null) criteria.push(row('Distance to sea', parsed.maxSea <= 0.3 ? 'Beachfront' : '≤ '+parsed.maxSea+'km', '#1d4ed8'));
+  if (parsed.features.length) criteria.push(row('Features', parsed.features.join(', ')));
+  criteriaEl.innerHTML = criteria.length ? criteria.join('') : '<div style="font-size:12px;color:var(--mu)">No specific criteria detected</div>';
+
+  // Strategy
+  const stratLabels = { short_term:'Short-term rental (STR)', long_term:'Long-term rental (LTR)', mixed:'Mixed investment', own_use:'Own use', null:'Not specified' };
+  const objLabels   = { yield:'Income / Yield', growth:'Capital Growth', balanced:'Balanced', lifestyle:'Own use / lifestyle' };
+  const riskLabels  = { conservative:'Conservative', moderate:'Moderate', aggressive:'Aggressive' };
+  const strat = [];
+  strat.push(row('Investor type', stratLabels[parsed.strategy] || 'Not specified', parsed.strategy ? 'var(--tx)' : 'var(--mu)'));
+  strat.push(row('Objective', objLabels[parsed.objective] || 'Balanced (assumed)', parsed.objective ? 'var(--tx)' : 'var(--mu)'));
+  strat.push(row('Risk profile', riskLabels[parsed.risk] || 'Moderate (assumed)', parsed.risk ? 'var(--tx)' : 'var(--mu)'));
+  strategyEl.innerHTML = strat.join('');
+
+  // Confidence
+  const hasCity = parsed.cities.length > 0;
+  const hasBudget = parsed.maxPrice != null;
+  const hasType = parsed.types.length > 0;
+  const hasStrat = parsed.strategy != null;
+  const score = [hasCity, hasBudget, hasType, hasStrat].filter(Boolean).length;
+  const confLabel = score >= 3 ? 'High' : score >= 2 ? 'Medium' : 'Low';
+  const confColor = score >= 3 ? '#15803d' : score >= 2 ? '#92400e' : '#991b1b';
+  const confBg    = score >= 3 ? '#dcfce7' : score >= 2 ? '#fef3c7' : '#fee2e2';
+  confidenceEl.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Confidence</span>
+    <span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:${confBg};color:${confColor}">${confLabel}</span>
+  </div>`;
+
+  // Missing data
+  const missing = [];
+  if (!parsed.cities.length)   missing.push('Location not specified');
+  if (!parsed.maxPrice)        missing.push('Budget not specified');
+  if (!parsed.strategy)        missing.push('STR / LTR not specified');
+  if (!parsed.beds.length)     missing.push('Bedrooms not specified');
+  if (!parsed.features.includes('furnished')) missing.push('Furnishing not specified');
+  missingEl.innerHTML = missing.length ? `<div style="font-size:10px;color:var(--mu);margin-top:4px">${missing.slice(0,3).map(m=>`<span style="display:inline-block;background:var(--bg2);padding:1px 7px;border-radius:4px;margin:2px 3px 2px 0">⚠ ${m}</span>`).join('')}</div>` : '';
+
+  // Assumptions
+  const assumptions = [];
+  if (!parsed.strategy)  assumptions.push('Long-term rental viability assumed');
+  if (!parsed.risk)      assumptions.push('Moderate risk tolerance assumed');
+  if (!parsed.objective) assumptions.push('Balanced yield + growth objective');
+  if (assumptions.length) {
+    assumptionsEl.innerHTML = assumptions.map(a => `· ${a}`).join('<br>');
+    assumptionsBox.style.display = '';
+  } else {
+    assumptionsBox.style.display = 'none';
+  }
+
+  // Refinements
+  const refs = [];
+  if (!parsed.strategy)           refs.push({ txt:'Specify STR or LTR',          q: text + ' STR' });
+  if (!parsed.maxPrice)           refs.push({ txt:'Add a budget limit',           q: text + ' max €500k' });
+  if (!parsed.maxSea)             refs.push({ txt:'Filter by sea distance',       q: text + ' under 1km from sea' });
+  if (!parsed.beds.length)        refs.push({ txt:'Specify number of bedrooms',   q: text + ' 2 bedrooms' });
+  if (!parsed.risk)               refs.push({ txt:'Set risk preference',          q: text + ' low risk' });
+  refs.push({ txt:'Focus on highest yield only', q: text + ' highest yield' });
+  refinementsEl.innerHTML = refs.slice(0,5).map(r =>
+    `<button onclick="document.getElementById('aiQuery').value=${JSON.stringify(r.q)};runAISearch()" style="font-size:11px;padding:4px 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--tx);cursor:pointer;text-align:left;transition:border-color .12s" onmouseenter="this.style.borderColor='var(--tx)'" onmouseleave="this.style.borderColor='var(--bd)'">→ ${r.txt}</button>`
+  ).join('');
+}
+
+// ── runAISearch ────────────────────────────────────────────────
 function runAISearch() {
   const text = document.getElementById('aiQuery').value.trim();
   if (!text) return;
-  const parsed = parseAIQuery(text);
 
-  const hasOtherPositive = parsed.cities.length || parsed.beds.length ||
-                           parsed.maxPrice != null || parsed.maxSea != null;
-  const hasPositive = parsed.types.length || hasOtherPositive;
-  const prevHasState = aiState.types.length || aiState.cities.length || aiState.beds.length;
+  // Show loading
+  document.getElementById('aiLoadingWrap').style.display = '';
+  document.getElementById('aiResultsWrap').style.display = 'none';
+  document.getElementById('aiInterpretPanel').style.display = 'none';
+  document.getElementById('aiErrorWrap').style.display = 'none';
 
-  if (!hasPositive && prevHasState) {
-    // Pure refinement (only exclusions / sort) — keep everything, layer on top
-    if (parsed.excluded.length) {
-      aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
+  const steps = ['Analysing your request…', 'Applying investment scoring…', 'Ranking best opportunities…'];
+  let si = 0;
+  const stepEl = document.getElementById('aiLoadingStep');
+  const stepTimer = setInterval(() => { si = (si+1) % steps.length; if(stepEl) stepEl.textContent = steps[si]; }, 700);
+
+  // Small delay for UX feel, then process
+  setTimeout(() => {
+    clearInterval(stepTimer);
+    document.getElementById('aiLoadingWrap').style.display = 'none';
+
+    const parsed = parseAIQuery(text);
+    const hasPositive = parsed.types.length || parsed.cities.length || parsed.beds.length ||
+                        parsed.maxPrice != null || parsed.maxSea != null || parsed.strategy;
+
+    if (!hasPositive) {
+      document.getElementById('aiErrorWrap').style.display = '';
+      return;
     }
-    if (parsed.sort) aiState.sort = parsed.sort;
-  } else if (parsed.types.length && !hasOtherPositive && prevHasState) {
-    // Type-only refinement: "only villas", "just apartments" — update type, keep rest
-    aiState.types = parsed.types;
-    if (parsed.excluded.length) aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
-    if (parsed.sort) aiState.sort = parsed.sort;
-  } else {
-    // Full fresh search
-    aiState = {
-      ...parsed,
-      districtFilter: [],
-      sort: parsed.sort || aiState.sort || 'seaDist_asc',
-      excluded: parsed.excluded,
-    };
-  }
-  aiPage = 1;
 
-  // Build crumb labels
-  const labels = [
-    ...aiState.types,
-    ...aiState.cities,
-    aiState.beds.length ? (aiState.beds.join('/') + (aiState.beds.some(b=>b==='Studio')?'':' bed')) : null,
-    aiState.maxPrice ? 'max €' + (aiState.maxPrice >= 1e6 ? (aiState.maxPrice/1e6).toFixed(1)+'M' : Math.round(aiState.maxPrice/1000)+'k') : null,
-    aiState.maxSea != null ? (aiState.maxSea <= 0.3 ? 'Beachfront' : aiState.maxSea <= 0.5 ? 'Walking to sea' : aiState.maxSea <= 1 ? 'Close to sea' : '<'+aiState.maxSea+'km from sea') : null,
-  ].filter(Boolean);
+    const prevHasState = aiState.types.length || aiState.cities.length || aiState.beds.length;
+    if (!parsed.types.length && !parsed.cities.length && !parsed.beds.length && !parsed.maxPrice && !parsed.maxSea && prevHasState) {
+      if (parsed.excluded.length) aiState.excluded = [...new Set([...aiState.excluded, ...parsed.excluded])];
+    } else {
+      aiState = {
+        ...parsed,
+        districtFilter: [],
+        sort: parsed.sort || (aiInvestmentMode ? 'score_desc' : 'seaDist_asc'),
+        excluded: parsed.excluded,
+        strategy: parsed.strategy,
+        goal: aiGoal
+      };
+    }
 
-  const crumbsEl = document.getElementById('aiCrumbs');
-  const exclHtml = (aiState.excluded||[]).map(e => `<span class="ai-crumb" style="background:#fee2e2;color:#991b1b">✕ ${e}</span>`).join('');
-  if (labels.length || exclHtml) {
-    crumbsEl.innerHTML = labels.map(c => `<span class="ai-crumb">${c}</span>`).join('') + exclHtml;
-    crumbsEl.style.display = 'flex';
-  } else {
-    crumbsEl.style.display = 'none';
-  }
+    // Apply goal-based sort override
+    const goalSort = { best:'score_desc', yield:'yield_desc', risk:'risk_asc', str:'score_desc', ltr:'score_desc' };
+    if (!parsed.sort) aiState.sort = goalSort[aiGoal] || 'score_desc';
 
-  renderAIResults();
+    aiPage = 1;
+
+    // Build crumbs
+    const labels = [
+      ...aiState.types, ...aiState.cities,
+      aiState.beds.length ? aiState.beds.join('/') + (aiState.beds.some(b=>b==='Studio')?'':' bed') : null,
+      aiState.maxPrice ? 'max €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k') : null,
+      aiState.maxSea != null ? (aiState.maxSea<=0.3?'Beachfront':aiState.maxSea<=0.5?'Near sea':'<'+aiState.maxSea+'km sea') : null,
+      aiState.strategy ? { short_term:'STR', long_term:'LTR', mixed:'Investment', own_use:'Own use' }[aiState.strategy] : null,
+    ].filter(Boolean);
+    const crumbsEl = document.getElementById('aiCrumbs');
+    const exclHtml = (aiState.excluded||[]).map(e => `<span class="ai-crumb" style="background:#fee2e2;color:#991b1b">✕ ${e}</span>`).join('');
+    if (labels.length || exclHtml) {
+      crumbsEl.innerHTML = labels.map(c => `<span class="ai-crumb">${c}</span>`).join('') + exclHtml;
+      crumbsEl.style.display = 'flex';
+    } else { crumbsEl.style.display = 'none'; }
+
+    // Show interpretation panel
+    if (aiInvestmentMode) {
+      buildInterpretPanel(parsed, text);
+      document.getElementById('aiInterpretPanel').style.display = '';
+    }
+
+    const sortEl = document.getElementById('aiSortSel');
+    if (sortEl) sortEl.value = aiState.sort;
+
+    renderAIResults();
+  }, 900);
 }
 
 function getAIMatches() {
@@ -6945,57 +7193,67 @@ function getAIMatches() {
     if (aiState.types.length && !aiState.types.some(t => (d.type||'').toLowerCase().includes(t.toLowerCase()))) return false;
     if (aiState.cities.length && !aiState.cities.some(c => (d.city||'').toLowerCase() === c.toLowerCase())) return false;
     if (aiState.districtFilter.length && !aiState.districtFilter.some(x => (d.district||'').toLowerCase() === x.toLowerCase())) return false;
-    // Exclusions: match against district, city, developer, complex, title
     if (aiState.excluded && aiState.excluded.length) {
       for (const ex of aiState.excluded) {
         const exl = ex.toLowerCase();
-        if ((d.district||'').toLowerCase().includes(exl) ||
-            (d.city||'').toLowerCase().includes(exl) ||
-            (d.title||'').toLowerCase().includes(exl) ||
-            (d.complex||'').toLowerCase().includes(exl)) return false;
+        if ((d.district||'').toLowerCase().includes(exl)||(d.city||'').toLowerCase().includes(exl)||(d.title||'').toLowerCase().includes(exl)||(d.complex||'').toLowerCase().includes(exl)) return false;
       }
     }
     if (aiState.beds.length) {
       const has5p = aiState.beds.includes('5+');
-      const nums = aiState.beds.filter(b => b !== 'Studio' && b !== '5+').map(Number);
+      const nums = aiState.beds.filter(b=>b!=='Studio'&&b!=='5+').map(Number);
       const hasS = aiState.beds.includes('Studio');
-      if (hasS && d.bedrooms === 0) return true;
-      if (has5p && d.bedrooms >= 5) return true;
+      if (hasS && d.bedrooms===0) return true;
+      if (has5p && d.bedrooms>=5) return true;
       if (!hasS && !has5p && nums.length && !nums.includes(d.bedrooms)) return false;
-      if ((hasS || has5p) && !nums.includes(d.bedrooms) && !(hasS && d.bedrooms===0) && !(has5p && d.bedrooms>=5)) return false;
+      if ((hasS||has5p) && !nums.includes(d.bedrooms) && !(hasS&&d.bedrooms===0) && !(has5p&&d.bedrooms>=5)) return false;
     }
-    if (aiState.maxPrice != null && d.price != null && d.price > aiState.maxPrice * 1.1) return false;
-    if (aiState.maxSea != null && aiState.maxSea < 999) {
-      // Flexible: expand threshold 3× and always include listings with unknown distance
-      const flex = aiState.maxSea <= 0.3 ? 1.5 : aiState.maxSea * 3;
-      if (d.seaDist != null && d.seaDist > flex) return false;
+    if (aiState.maxPrice!=null && d.price!=null && d.price>aiState.maxPrice*1.1) return false;
+    if (aiState.maxSea!=null && aiState.maxSea<999) {
+      const flex = aiState.maxSea<=0.3?1.5:aiState.maxSea*3;
+      if (d.seaDist!=null && d.seaDist>flex) return false;
+    }
+    // Goal-based filters
+    if (aiGoal === 'risk') {
+      const r = getListingRisk(d);
+      if (r.label === 'High') return false;
     }
     return true;
   });
 }
 
+function getAIProfile() {
+  const purposeMap = { short_term:'short_term', long_term:'long_term', mixed:'mixed', own_use:'own_use' };
+  const objectiveMap = { yield:'max_yield', growth:'appreciation', balanced:'balanced', lifestyle:'balanced' };
+  const riskMap = { conservative:'conservative', moderate:'moderate', aggressive:'aggressive' };
+  const goalPurpose = { str:'short_term', ltr:'long_term', best:'mixed', yield:'mixed', risk:'long_term' };
+  const purpose = purposeMap[aiState.strategy] || goalPurpose[aiGoal] || 'mixed';
+  const objective = objectiveMap[aiState.objective] || 'balanced';
+  const risk = riskMap[aiState.risk] || 'moderate';
+  const seaW = aiState.maxSea != null && aiState.maxSea <= 1 ? 9 : 5;
+  return { purpose, objective, risk, budgetMin:null, budgetMax:aiState.maxPrice, cities:aiState.cities, types:aiState.types, seaMaxKm:aiState.maxSea, weights:{sea:seaW,space:5,value:5,yield:purpose==='short_term'||purpose==='long_term'?8:5,growth:5,lifestyle:5} };
+}
+
 function sortAIResults(arr) {
   const s = aiState.sort;
-  const cmp = (av, bv, asc) => {
-    if (av == null && bv == null) return 0;
-    if (av == null) return 1;
-    if (bv == null) return -1;
-    return asc ? av - bv : bv - av;
-  };
-  return [...arr].sort((a, b) => {
-    if (s === 'seaDist_asc')  return cmp(a.seaDist, b.seaDist, true);
-    if (s === 'price_asc')    return cmp(a.price,   b.price,   true);
-    if (s === 'price_desc')   return cmp(a.price,   b.price,   false);
-    if (s === 'area_desc')    return cmp(a.area,    b.area,    false);
+  const profile = getAIProfile();
+  const cmp = (av, bv, asc) => { if(av==null&&bv==null)return 0; if(av==null)return 1; if(bv==null)return -1; return asc?av-bv:bv-av; };
+  return [...arr].sort((a,b) => {
+    if (s==='score_desc') return scoreProperty(b,profile).total - scoreProperty(a,profile).total;
+    if (s==='seaDist_asc') return cmp(a.seaDist,b.seaDist,true);
+    if (s==='price_asc')   return cmp(a.price,b.price,true);
+    if (s==='price_desc')  return cmp(a.price,b.price,false);
+    if (s==='area_desc')   return cmp(a.area,b.area,false);
+    if (s==='yield_desc')  return scoreProperty(b,{...profile,purpose:'long_term'}).yieldData.grossYieldPct - scoreProperty(a,{...profile,purpose:'long_term'}).yieldData.grossYieldPct;
+    if (s==='risk_asc') {
+      const rv = d => { const r=getListingRisk(d); return r.label==='Low'?0:r.label==='Med'?1:2; };
+      return rv(a)-rv(b);
+    }
     return 0;
   });
 }
 
-function aiSetSort(val) {
-  aiState.sort = val;
-  aiPage = 1;
-  renderAIResults();
-}
+function aiSetSort(val) { aiState.sort = val; aiPage = 1; renderAIResults(); }
 
 function seaDistText(dist) {
   if (dist == null) return '<span style="color:var(--mu)">—</span>';
@@ -7009,17 +7267,18 @@ function renderAIResults() {
   const raw = getAIMatches();
   const results = sortAIResults(raw);
   document.getElementById('aiResultsWrap').style.display = 'block';
-
   const sortEl = document.getElementById('aiSortSel');
   if (sortEl) sortEl.value = aiState.sort;
 
-  // Area pills — click to EXCLUDE that area (red ✕), click again to re-include
-  const districts = [...new Set(raw.map(d => d.district).filter(Boolean))].sort();
-  const hasExcl = aiState.excluded.some(e => districts.some(dist => dist.toLowerCase().includes(e.toLowerCase())));
+  const profile = getAIProfile();
+
+  // Area pills
+  const districts = [...new Set(raw.map(d=>d.district).filter(Boolean))].sort();
+  const hasExcl = aiState.excluded.some(e=>districts.some(dist=>dist.toLowerCase().includes(e.toLowerCase())));
   document.getElementById('aiAreaPills').innerHTML =
-    (hasExcl ? `<button class="ai-area-btn" onclick="aiState.excluded=aiState.excluded.filter(e=>!${JSON.stringify(districts)}.some(d=>d.toLowerCase().includes(e.toLowerCase())));aiPage=1;renderAIResults()" style="color:#3b82f6;border-color:#93c5fd">↺ Reset areas</button>` : '') +
+    (hasExcl?`<button class="ai-area-btn" onclick="aiState.excluded=aiState.excluded.filter(e=>!${JSON.stringify(districts)}.some(d=>d.toLowerCase().includes(e.toLowerCase())));aiPage=1;renderAIResults()" style="color:#3b82f6;border-color:#93c5fd">↺ Reset areas</button>`:'') +
     districts.map(dist => {
-      const isExcl = aiState.excluded.some(e => dist.toLowerCase().includes(e.toLowerCase()) || e.toLowerCase() === dist.toLowerCase());
+      const isExcl = aiState.excluded.some(e=>dist.toLowerCase().includes(e.toLowerCase())||e.toLowerCase()===dist.toLowerCase());
       return isExcl
         ? `<button class="ai-area-btn" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')">✕ ${dist}</button>`
         : `<button class="ai-area-btn" onclick="toggleAIDistrict('${dist.replace(/'/g,"\\'")}')"> ${dist}</button>`;
@@ -7027,55 +7286,68 @@ function renderAIResults() {
 
   const parts = [
     `<b>${results.length.toLocaleString()}</b> listing${results.length===1?'':'s'}`,
-    aiState.types.length===1 ? aiState.types[0].toLowerCase()+'s' : null,
-    aiState.beds.length===1 && aiState.beds[0]!=='Studio' ? aiState.beds[0]+' bedrooms' : null,
-    aiState.cities.length ? aiState.cities.join(' / ') : null,
-    aiState.maxPrice ? 'up to €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k') : null,
+    aiState.types.length===1?aiState.types[0].toLowerCase()+'s':null,
+    aiState.cities.length?aiState.cities.join(' / '):null,
+    aiState.maxPrice?'up to €'+(aiState.maxPrice>=1e6?(aiState.maxPrice/1e6).toFixed(1)+'M':Math.round(aiState.maxPrice/1000)+'k'):null,
+    aiInvestmentMode?'ranked by investment score':null,
   ].filter(Boolean);
   document.getElementById('aiSummaryLine').innerHTML = parts.join(' · ');
 
   if (!results.length) {
-    document.getElementById('aiDevCards').innerHTML = '<div class="empty">No listings match — try relaxing the criteria.</div>';
+    document.getElementById('aiDevCards').innerHTML = '<div class="empty">No listings match — try relaxing the criteria or removing exclusions.</div>';
     document.getElementById('aiPagination').innerHTML = '';
     return;
   }
 
-  const tot = Math.ceil(results.length / aiPS) || 1;
+  const tot = Math.ceil(results.length/aiPS)||1;
   const pg = results.slice((aiPage-1)*aiPS, aiPage*aiPS);
 
   document.getElementById('aiDevCards').innerHTML = pg.map(d => {
-    // Nearest beach name
-    let nearestName = d.district || d.city || '';
-    if (d.lat && d.lng) {
-      const ns = nearestSea(d.lat, d.lng);
-      if (ns && ns.beach) nearestName = ns.beach.name;
-    }
+    const score = aiInvestmentMode ? scoreProperty(d, profile) : null;
+    const v = score ? getVerdict(score.total) : null;
+    const risk = aiInvestmentMode ? getListingRisk(d) : null;
+    const vl = aiInvestmentMode ? getValueLabel(d) : null;
+    const narrative = score ? getListingNarrative(d, score.total) : null;
+    const verdictColors = {'verdict-priority':'#15803d','verdict-strong':'#1e40af','verdict-selective':'#854d0e','verdict-strategy':'#9a3412','verdict-pass':'#991b1b'};
+    const bc = v ? (verdictColors[v.cls]||'#6b7280') : null;
+
+    let nearestName = d.district||d.city||'';
+    if (d.lat && d.lng) { const ns = nearestSea(d.lat, d.lng); if (ns && ns.beach) nearestName = ns.beach.name; }
 
     const priceHtml = d.price ? `<span class="ai-price-pill">€${d.price.toLocaleString()}</span>` : '';
     const devSub = [d.developer, d.district].filter(Boolean).join(' · ');
-    const areaVal = d.area ? d.area.toLocaleString()+' sqm' : '—';
-    const plotVal = d.plot ? d.plot.toLocaleString()+' sqm' : '—';
-    const seaUnknown = d.seaDist == null ? '<span style="font-size:10px;color:var(--mu)">calculating…</span>' : '';
+    const areaVal = d.area ? d.area.toLocaleString()+' m²' : '—';
+    const ppmHtml = d.ppm ? `€${d.ppm.toLocaleString()}/m²${vl?` <span style="font-size:10px;color:${vl.color}">(${vl.label})</span>`:''}` : '—';
+
+    const scoreHtml = score ? `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:22px;font-weight:700;color:var(--tx)">${score.total}</div>
+        <div>
+          <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:${bc+'22'};color:${bc}">${v.label}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${risk.bg};color:${risk.color};margin-left:4px">${risk.label} risk</span>
+        </div>
+      </div>` : '';
+
+    const narrativeHtml = narrative ? `<div style="font-size:11px;color:var(--mu);line-height:1.55;border-top:1px solid var(--bd);padding-top:8px;margin-top:6px">${narrative}</div>` : '';
 
     return `<div class="ai-card" onclick="openModal(${d.id})">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">
         <div class="ai-card-title">${d.title||d.developer||'—'}</div>
-        <div style="text-align:right;flex-shrink:0;margin-left:14px">
-          ${priceHtml}
-        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:14px">${priceHtml}</div>
       </div>
       <div class="ai-card-sub">${devSub}</div>
+      ${scoreHtml}
       <div class="ai-stat-grid">
-        <div class="ai-stat"><div class="ai-stat-lbl">From sea</div><div class="ai-stat-val">${seaUnknown||seaDistText(d.seaDist)}</div></div>
-        <div class="ai-stat"><div class="ai-stat-lbl">Avg size</div><div class="ai-stat-val">${areaVal}</div></div>
+        <div class="ai-stat"><div class="ai-stat-lbl">From sea</div><div class="ai-stat-val">${seaDistText(d.seaDist)}</div></div>
+        <div class="ai-stat"><div class="ai-stat-lbl">Area</div><div class="ai-stat-val">${areaVal}</div></div>
         <button class="ai-dl-btn" onclick="event.stopPropagation();exportPropertyPDF(${d.id})">↓</button>
-        <div class="ai-stat"><div class="ai-stat-lbl">Avg plot</div><div class="ai-stat-val">${plotVal}</div></div>
+        <div class="ai-stat"><div class="ai-stat-lbl">€/m²</div><div class="ai-stat-val" style="font-size:11px">${ppmHtml}</div></div>
       </div>
-      <div class="ai-nearest">Nearest: ${nearestName}</div>
+      ${narrativeHtml}
     </div>`;
   }).join('');
 
-  document.getElementById('aiPagination').innerHTML = tot <= 1 ? '' : `
+  document.getElementById('aiPagination').innerHTML = tot<=1?'':`
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
       <button onclick="aiPg(-1)" ${aiPage<=1?'disabled':''} style="font-size:11px;padding:4px 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">← Prev</button>
       <span style="font-size:11px;color:var(--mu)">Page ${aiPage} of ${tot} · ${results.length.toLocaleString()} listings</span>
@@ -7084,14 +7356,12 @@ function renderAIResults() {
 }
 
 function toggleAIDistrict(dist) {
-  const idx = aiState.excluded.findIndex(e => e.toLowerCase() === dist.toLowerCase());
-  if (idx === -1) aiState.excluded.push(dist);
-  else aiState.excluded.splice(idx, 1);
-  aiPage = 1;
-  renderAIResults();
+  const idx = aiState.excluded.findIndex(e=>e.toLowerCase()===dist.toLowerCase());
+  if (idx===-1) aiState.excluded.push(dist); else aiState.excluded.splice(idx,1);
+  aiPage=1; renderAIResults();
 }
 
-function aiPg(d) { aiPage += d; renderAIResults(); }
+function aiPg(d) { aiPage+=d; renderAIResults(); }
 
 // ── Activity Log (Client Communications sheet) ────────────────
 const COMMS_WEBHOOK = ''; // n8n append webhook URL
