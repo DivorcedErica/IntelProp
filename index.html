@@ -1111,7 +1111,7 @@ const SID = '1A4e51pB7O6BxYrXDAaWH2ZvjxLIQjiq-a2WpuhSs9dc';
 const GMAPS_KEY = 'AIzaSyAPuqKKYAXJF8-ePpBUfyf_iwT1rikEedI';
 const GID = '248082817';
 const AGENTS_GID = '';
-const CLIENTS_GID = '';
+const CLIENTS_GID = '1084166034';
 const COMMS_GID = '614194656';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
 let PS = 25;
@@ -2716,8 +2716,9 @@ function syncPropertyToSheets(prop) {
 }
 
 async function readInvestorsFromSheets() {
+  const clientsParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients';
   try {
-    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Clients`);
+    const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&${clientsParam}`);
     const t = await r.text();
     console.log('[investors] raw response length:', t.length, 'ok:', r.ok, 'status:', r.status);
     const m = t.match(/setResponse\(([\s\S]*)\)/);
@@ -2848,7 +2849,7 @@ function parseGvizDate(val) {
 }
 
 async function readCommsFromSheets() {
-  // Column order: CommID | InvestorID | Date | Investor Name | Type | Action | Property ID | Property Title | Note
+  // Sheet headers: CommID(0) ClientID(1) Date(2) Investor Name(3) Type(4) Action(5) Property ID(6) Property Title(7) Notes(8)
   const sheetParam = COMMS_GID ? `gid=${COMMS_GID}` : 'sheet=Client+Communications';
   try {
     const r = await fetch(`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&${sheetParam}`);
@@ -2857,13 +2858,12 @@ async function readCommsFromSheets() {
     const existingIds = new Set(communicationLog.map(c => c.commId));
     json.table.rows.forEach(row => {
       const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
-      const commId = +g(0); const investorId = +g(1);
+      const commId = +g(0); const clientId = +g(1);
       const date = parseGvizDate(g(2));
-      if (!commId || !date || !investorId) return;
+      if (!commId || !date || !clientId) return;
       if (existingIds.has(commId)) return;
-      communicationLog.push({ commId, investorId, date, investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
+      communicationLog.push({ commId, investorId:clientId, date, investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
     });
-    saveCommLog();
   } catch(e) { console.error('[comms] readCommsFromSheets error:', e); }
 }
 
@@ -4827,23 +4827,10 @@ function renderAgentDetail(ag) {
     + '</div>';
 }
 
-// ── Investor Profiles ─────────────────────────────────────────
+// ── Investor Profiles — Google Sheets is the only source of truth ──
 var investorProfiles = [];
-try{
-  var _raw=JSON.parse(localStorage.getItem('ip_investors')||'[]');
-  // Strip entries that look like property listings (long names or property-title patterns)
-  investorProfiles=_raw.filter(function(i){
-    if(!i||typeof i.name!=='string')return false;
-    if(i.name.length>80)return false;
-    if(i.name.includes(' / ') && (i.name.toLowerCase().startsWith('new ') || i.name.toLowerCase().startsWith('luxury ')))return false;
-    return true;
-  });
-  if(investorProfiles.length!==_raw.length){localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}
-}catch(e){}
 var communicationLog = [];
-try{communicationLog=JSON.parse(localStorage.getItem('ip_comms')||'[]');}catch(e){}
 var clientProperties = [];
-try{clientProperties=JSON.parse(localStorage.getItem('ip_properties')||'[]');}catch(e){}
 var currentInvestorCard = null;
 var currentClientCallId = null;
 
@@ -4857,18 +4844,16 @@ function nextCommId(){
   return max+1;
 }
 
-function saveInvestorProfiles(){try{localStorage.setItem('ip_investors',JSON.stringify(investorProfiles));}catch(e){}}
-function saveCommLog(){try{localStorage.setItem('ip_comms',JSON.stringify(communicationLog));}catch(e){}}
-function saveClientProperties(){try{localStorage.setItem('ip_properties',JSON.stringify(clientProperties));}catch(e){}}
+function saveInvestorProfiles(){}
+function saveCommLog(){}
+function saveClientProperties(){}
 function nextPropertyId(){var max=clientProperties.reduce(function(m,p){return Math.max(m,p.propertyId||0);},0);return max+1;}
 
 // ── Agents & Clients ──────────────────────────────────────────
 var agents = [];
-try{agents=JSON.parse(localStorage.getItem('ip_agents')||'[]');}catch(e){}
 var clients = [];
-try{clients=JSON.parse(localStorage.getItem('ip_clients')||'[]');}catch(e){}
-function saveAgents(){try{localStorage.setItem('ip_agents',JSON.stringify(agents));}catch(e){}}
-function saveClients(){try{localStorage.setItem('ip_clients',JSON.stringify(clients));}catch(e){}}
+function saveAgents(){}
+function saveClients(){}
 var cSelectedAgentId = null;
 
 var agentName='';
@@ -5706,16 +5691,17 @@ async function loadActivityLog(clientID) {
   var text = await r.text();
   var rows = parseCommsCSV(text);
   if (!rows.length) return [];
+  // Sheet headers: CommID(0) ClientID(1) Date(2) Investor Name(3) Type(4) Action(5) Property ID(6) Property Title(7) Notes(8)
   var hdr = rows[0].map(function(h){ return h.toLowerCase().replace(/[\s_]/g,''); });
-  function col(a,b){ var i=hdr.indexOf(a); return i>=0?i:(b!=null?hdr.indexOf(b):-1); }
-  var iClientID  = col('investorid','clientid');   if(iClientID<0)iClientID=1;
+  function col(){ for(var a=0;a<arguments.length;a++){var i=hdr.indexOf(arguments[a]);if(i>=0)return i;} return -1; }
+  var iClientID  = col('clientid','investorid');   if(iClientID<0)iClientID=1;
   var iDate      = col('date');                    if(iDate<0)iDate=2;
   var iInvName   = col('investorname');            if(iInvName<0)iInvName=3;
   var iType      = col('type');                    if(iType<0)iType=4;
   var iAction    = col('action');                  if(iAction<0)iAction=5;
   var iPropID    = col('propertyid');              if(iPropID<0)iPropID=6;
   var iPropTitle = col('propertytitle');           if(iPropTitle<0)iPropTitle=7;
-  var iNotes     = col('note','notes');            if(iNotes<0)iNotes=8;
+  var iNotes     = col('notes','note');            if(iNotes<0)iNotes=8;
   var cid = String(clientID);
   return rows.slice(1).filter(function(row){ return row.length>1 && String(row[iClientID]||'').trim()===cid; })
     .map(function(row){
