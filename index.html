@@ -5626,6 +5626,8 @@ function clearClientSelection(){
   var cl=document.getElementById('cCommLog');if(cl)cl.style.display='none';
   var slw=document.getElementById('sessionLogWrap');if(slw)slw.style.display='none';
 }
+
+function selectClientForPortfolio(id){
   if(!id){clearPortfolioClient();return;}
   var invId=+id;
   var inv=investorProfiles.find(function(i){return(i.investorId||i.id)===invId;});
