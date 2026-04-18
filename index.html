@@ -1835,6 +1835,7 @@ async function getRentalData(id) {
 Respond ONLY with valid JSON, no markdown:
 {"short_term_low":int|null,"short_term_high":int|null,"short_term_occupancy_low":int|null,"short_term_occupancy_high":int|null,"long_term_low":int|null,"long_term_high":int|null,"long_term_occupancy":int|null,"sources_found":["bazaraki"|"spitogatos"|"rightmove"],"comparables_count":int,"note":"string max 140 chars"}`;
   const res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+  if(res.status===401||res.status===403){throw new Error('Rental data service not available in this environment');}
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||'API '+res.status);}
   const data=await res.json();
   const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -3224,7 +3225,16 @@ function syncPropertyToSheets(prop) {
   syncViaJsonp({ type:'property', sheet:'Properties', propertyId: prop.propertyId, investorId: prop.investorId, row });
 }
 
-// ── JSONP helper for gviz (bypasses CORS on deployed domains) ──
+// ── Proxy availability flag ───────────────────────────────────
+let _proxyAvailable = null; // null=unchecked, true=ok, false=unavailable
+async function proxyAvailable() {
+  if (_proxyAvailable !== null) return _proxyAvailable;
+  try {
+    const r = await fetch('/api/proxy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({_ping:true})});
+    _proxyAvailable = r.status !== 401 && r.status !== 403 && r.status !== 404;
+  } catch(e) { _proxyAvailable = false; }
+  return _proxyAvailable;
+}
 function gvizJsonp(sid, sheetParam) {
   return new Promise(function(resolve, reject) {
     var cbName = 'gvizCb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
@@ -3266,35 +3276,131 @@ async function gvizFetch(sid, sheetParam) {
   return JSON.parse(m[1]);
 }
 
-// Try JSONP first, fall back to fetch
-async function gvizLoad(sid, sheetParam) {
+// ── Sheet reader via Apps Script (primary) + gviz fallback ────
+// Apps Script must have doGet() that handles ?action=read&sheet=NAME
+async function readSheetViaAppsScript(sheetName) {
+  if (!APPS_SCRIPT_URL) throw new Error('No Apps Script URL');
+  const url = APPS_SCRIPT_URL + '?action=read&sheet=' + encodeURIComponent(sheetName);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Apps Script read failed: ' + r.status);
+  const json = await r.json();
+  if (!json || !json.rows) throw new Error('Apps Script returned no rows');
+  return json; // expects { rows: [[col0,col1,...], ...] }
+}
+
+// ── Sheet reader via Apps Script doGet ──────────────────────────
+const SHEET_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function sheetCacheGet(sheetName) {
   try {
-    return await gvizJsonp(sid, sheetParam);
-  } catch(e1) {
-    try {
-      return await gvizFetch(sid, sheetParam);
-    } catch(e2) {
-      throw new Error('gviz failed: ' + e1.message + ' / ' + e2.message);
+    const raw = localStorage.getItem('ip_sc_' + sheetName);
+    if (!raw) return null;
+    const {rows, ts} = JSON.parse(raw);
+    if (Date.now() - ts > SHEET_CACHE_TTL) return null;
+    return rows;
+  } catch(e) { return null; }
+}
+
+function sheetCacheSet(sheetName, rows) {
+  try { localStorage.setItem('ip_sc_' + sheetName, JSON.stringify({rows, ts: Date.now()})); } catch(e) {}
+}
+
+async function loadSheetViaAppsScript(sheetName) {
+  if (!APPS_SCRIPT_URL) throw new Error('No Apps Script URL configured');
+  const url = APPS_SCRIPT_URL + '?action=read&sheet=' + encodeURIComponent(sheetName);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Apps Script HTTP ' + r.status);
+  const json = await r.json();
+  if (json.error) throw new Error('Apps Script: ' + json.error);
+  if (!json.rows) throw new Error('No rows in Apps Script response');
+  sheetCacheSet(sheetName, json.rows);
+  return json.rows;
+}
+
+// CSV parser kept as fallback for non-restricted sheets
+function parseCSVRows(text) {
+  const rows = []; let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+      else if (c === '\r') {}
+      else cell += c;
     }
   }
+  if (row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+async function loadSheetCSV(gid, {background} = {}) {
+  const GID_TO_SHEET = {
+    [CLIENTS_GID]: 'Clients',
+    [COMMS_GID]: 'Client Communications',
+    [AGENTS_GID]: 'Agents'
+  };
+  const sheetName = GID_TO_SHEET[gid];
+
+  // Serve from cache instantly if available
+  const cached = sheetName ? sheetCacheGet(sheetName) : null;
+  if (cached) {
+    if (!background) {
+      // Refresh in background without blocking
+      setTimeout(() => loadSheetCSV(gid, {background: true}).catch(()=>{}), 100);
+    }
+    return cached;
+  }
+
+  // No cache — must fetch (this is the slow path, only on first load)
+  if (sheetName && APPS_SCRIPT_URL) {
+    try { return await loadSheetViaAppsScript(sheetName); } catch(e) {
+      console.warn('[sheet] Apps Script read failed for', sheetName, ':', e.message);
+    }
+  }
+  // Fallback: CSV export
+  const url = 'https://docs.google.com/spreadsheets/d/' + SID + '/export?format=csv&gid=' + gid;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('CSV export HTTP ' + r.status);
+  const text = await r.text();
+  if (text.includes('Host not in allowlist') || text.includes('Sign in')) throw new Error('Sheet access restricted');
+  const rows = parseCSVRows(text);
+  return rows.slice(1);
+}
+
+async function gvizLoad(sid, sheetParam) {
+  // Method 1: JSONP
+  try { return await gvizJsonp(sid, sheetParam); } catch(e1) {}
+  // Method 2: fetch gviz JSON
+  try { return await gvizFetch(sid, sheetParam); } catch(e2) {}
+  // All failed
+  throw new Error('Sheet not accessible via gviz');
+}
+
+async function loadSheet(sheetName, gidParam) {
+  // Try gviz methods first
+  try { return await gvizLoad(SID, gidParam || ('sheet=' + encodeURIComponent(sheetName))); } catch(e) {}
+  // Fall back to CSV export (works on all public sheets, no CORS issues)
+  throw new Error('gviz unavailable — use loadSheetCSV with GID directly');
 }
 
 async function readInvestorsFromSheets() {
-  const clientsParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients';
   try {
-    const json = await gvizLoad(SID, clientsParam);
-    if (!json.table || !json.table.rows) { console.warn('[investors] no table/rows', json); return; }
-    console.log('[investors] rows from sheet:', json.table.rows.length);
-    json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+    const rows = await loadSheetCSV(CLIENTS_GID);
+    console.log('[investors] rows from sheet:', rows.length);
+    rows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
       const invId = +g(0); const name = g(1);
       if (!name || isNaN(invId) || invId <= 0) return;
       let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
       if (!inv) {
-        const newId = invId || nextInvestorId();
         const locs = g(9) ? g(9).split(',').map(s=>s.trim()).filter(Boolean) : [];
         const types = g(10) ? g(10).split(',').map(s=>s.trim()).filter(Boolean) : [];
-        inv = { investorId:newId, id:newId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
+        inv = { investorId:invId, id:invId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
         investorProfiles.push(inv);
       } else {
         if(invId && !inv.investorId){inv.investorId=invId;inv.id=invId;}
@@ -3312,77 +3418,63 @@ async function readInvestorsFromSheets() {
     if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
     await readPropertiesFromSheets();
-  } catch(e) { console.warn('[investors] sheet load failed:', e.message); }
+  } catch(e) {
+    console.warn('[investors] sheet load failed:', e.message);
+  }
 }
 
 async function readPropertiesFromSheets() {
+  const PROPERTIES_GID = ''; // set if you have a Properties sheet GID
   try {
-    const json = await gvizLoad(SID, 'sheet=Properties');
-    if (!json.table || !json.table.rows) return;
+    if (!PROPERTIES_GID) return;
+    const rows = await loadSheetCSV(PROPERTIES_GID);
     let added = 0;
-    json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+    rows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
       const propId = +g(0); const invId = +g(1);
-      if (!propId || isNaN(propId) || propId <= 0 || !invId || isNaN(invId) || invId <= 0) return;
-      const exists = clientProperties.find(p => p.propertyId === propId);
-      if (!exists) {
-        clientProperties.push({
-          propertyId: propId, investorId: invId,
-          developer: g(2), title: g(3), type: g(4),
-          city: g(5), district: g(6), bedrooms: g(7),
-          totalArea: g(8), plotSize: g(9),
-          price: g(10), pricePerM2: g(11), complex: g(12),
-          addedAt: g(13) || new Date().toISOString()
-        });
+      if (!propId || isNaN(propId) || !invId || isNaN(invId)) return;
+      if (!clientProperties.find(p => p.propertyId === propId)) {
+        clientProperties.push({ propertyId:propId, investorId:invId, developer:g(2), title:g(3), type:g(4), city:g(5), district:g(6), bedrooms:g(7), totalArea:g(8), plotSize:g(9), price:g(10), pricePerM2:g(11), complex:g(12), addedAt:g(13)||new Date().toISOString() });
         added++;
       }
     });
     if (added > 0) {
       saveClientProperties();
-      if (currentInvestorCard) {
-        const inv = investorProfiles.find(i => (i.investorId||i.id) === currentInvestorCard);
-        if (inv) renderInvestorCard(inv);
-      }
+      if (currentInvestorCard) { const inv = investorProfiles.find(i=>(i.investorId||i.id)===currentInvestorCard); if(inv)renderInvestorCard(inv); }
     }
-  } catch(e) { /* properties sheet unavailable — continue */ }
+  } catch(e) { /* properties sheet unavailable */ }
 }
 
 async function readAgentsFromSheets() {
-  const sheetParam = AGENTS_GID ? `gid=${AGENTS_GID}` : 'sheet=Agents';
+  if (!AGENTS_GID) return;
   try {
-    const json = await gvizLoad(SID, sheetParam);
-    if (!json.table || !json.table.rows) return;
-    json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+    const rows = await loadSheetCSV(AGENTS_GID);
+    rows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
       const agentId = g(0); const name = g(1);
-      if (!agentId || !name || name.toLowerCase() === 'full name') return;
-      const exists = agents.find(a => a.agentId === agentId || a.name.toLowerCase() === name.toLowerCase());
-      if (!exists) {
+      if (!agentId || !name) return;
+      if (!agents.find(a => a.agentId === agentId)) {
         agents.push({ agentId, name, firm:g(2), phone:g(3), email:g(4), commissionPct:g(5), active:g(6)!=='FALSE', notes:g(7), addedOn:g(8) });
       }
     });
-    saveAgents();
-    populateAgentSelector();
+    saveAgents(); populateAgentSelector();
     if (document.getElementById('agentTableWrap')) renderAgentsTab();
-  } catch(e) { /* agents sheet unavailable — continue */ }
+  } catch(e) { /* agents sheet unavailable */ }
 }
 
 async function readClientsFromSheets() {
-  const sheetParam = CLIENTS_GID ? `gid=${CLIENTS_GID}` : 'sheet=Clients_CRM';
   try {
-    const json = await gvizLoad(SID, sheetParam);
-    if (!json.table || !json.table.rows) return;
-    json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+    const rows = await loadSheetCSV(CLIENTS_GID);
+    rows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
       const clientId = g(0); const fullName = g(1);
-      if (!clientId || !fullName || fullName.toLowerCase() === 'full name') return;
-      const exists = clients.find(c => c.clientId === clientId);
-      if (!exists) {
+      if (!clientId || !fullName) return;
+      if (!clients.find(c => c.clientId === clientId)) {
         clients.push({ clientId, fullName, phone:g(2), email:g(3), source:g(4), referringAgentId:g(5), referringAgentName:g(6), purpose:g(7), typePreference:g(8), budgetMin:g(9), budgetMax:g(10), bedsMin:g(11), bedsMax:g(12), cities:g(13), seaMaxKm:g(14), status:g(15)||'Active', assignedTo:g(16), notes:g(17), addedOn:g(18), lastContact:g(19) });
       }
     });
     saveClients();
-  } catch(e) { /* clients sheet unavailable — continue */ }
+  } catch(e) { /* clients sheet unavailable */ }
 }
 
 function parseGvizDate(val) {
@@ -3394,20 +3486,17 @@ function parseGvizDate(val) {
 }
 
 async function readCommsFromSheets() {
-  const sheetParam = COMMS_GID ? `gid=${COMMS_GID}` : 'sheet=Client+Communications';
   try {
-    const json = await gvizLoad(SID, sheetParam);
-    if (!json.table || !json.table.rows) return;
+    const rows = await loadSheetCSV(COMMS_GID);
     const existingIds = new Set(communicationLog.map(c => c.commId));
-    json.table.rows.forEach(row => {
-      const g = i => (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : '';
+    rows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
       const commId = +g(0); const clientId = +g(1);
-      const date = parseGvizDate(g(2));
-      if (!commId || !date || !clientId) return;
+      if (!commId || !clientId) return;
       if (existingIds.has(commId)) return;
-      communicationLog.push({ commId, investorId:clientId, date, investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
+      communicationLog.push({ commId, investorId:clientId, date:g(2), investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
     });
-  } catch(e) { /* comms sheet unavailable — continue */ }
+  } catch(e) { /* comms sheet unavailable */ }
 }
 
 function resetClient() {
@@ -3465,7 +3554,7 @@ You MUST respond with ONLY a valid JSON object. No text before or after. No mark
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
     });
-    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error?.message||'API '+res.status); }
+    if (res.status === 401 || res.status === 403) throw new Error('Intelligence service not configured for this deployment');
     const data = await res.json();
     const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     const jsonMatch = txt.match(/\{[\s\S]*\}/);
@@ -4764,10 +4853,11 @@ async function getWaybackUrl(url) {
 async function getMementoUrl(url) {
   try {
     const r = await fetch(`https://timetravel.mementoweb.org/api/json/${encodeURIComponent(url)}`);
+    if (!r.ok) return null;
     const j = await r.json();
     const uri = j.mementos?.closest?.uri;
     return uri ? (Array.isArray(uri) ? uri[0] : uri) : null;
-  } catch(e) { return null; }
+  } catch(e) { return null; } // DNS failure or network error — skip silently
 }
 
 async function getArchivedUrl(url) {
@@ -4796,6 +4886,7 @@ async function fetchAndExtract(url, hint) {
       }]
     })
   });
+  if (res.status === 401 || res.status === 403) return null; // proxy not configured — skip silently
   if (!res.ok) throw new Error('proxy ' + res.status);
   const data = await res.json();
   const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
@@ -4809,6 +4900,8 @@ async function enrichListing(d) {
 
   const cached = await enrichGetCache(d.id);
   if (cached) { applyEnrichment(d, cached); return; }
+
+  if (!await proxyAvailable()) return; // proxy not configured — skip silently
 
   const hint = [d.title, d.city, d.type, d.bedrooms ? d.bedrooms+' bed' : ''].filter(Boolean).join(' ');
   let enriched = null;
@@ -4994,7 +5087,7 @@ async function loadModalImage(d) {
         }]
       })
     });
-    if (!res.ok) throw new Error('API error');
+    if (!res.ok) { if (res.status===401||res.status===403) { renderModalImgEmpty(area); return; } throw new Error('API error'); }
     const data = await res.json();
     const txt = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
     const urlMatch = txt.match(/https?:\/\/\S+\.(?:jpg|jpeg|png|webp)(?:\?[^\s]*)?/i);
@@ -6212,18 +6305,16 @@ async function loadActivityLog(clientID) {
       };
     });
   }
-  // Fallback: try sheet directly via JSONP
+  // Fallback: try sheet directly via CSV
   try {
-    var sheetParam = COMMS_GID ? 'gid='+COMMS_GID : 'sheet=Client+Communications';
-    var json = await gvizLoad(SID, sheetParam);
-    if (!json.table || !json.table.rows) return [];
+    var rows = await loadSheetCSV(COMMS_GID);
     var entries = [];
-    json.table.rows.forEach(function(row){
-      var g = function(i){ return (row.c[i] && row.c[i].v != null) ? String(row.c[i].v).trim() : ''; };
+    rows.forEach(function(row){
+      var g = function(i){ return row[i] != null ? String(row[i]).trim() : ''; };
       if (+g(1) !== cidNum) return;
       entries.push({
-        clientID: g(1), date: parseGvizDate(g(2)),
-        dateFormatted: fmtActivityDate(parseGvizDate(g(2))),
+        clientID: g(1), date: g(2),
+        dateFormatted: fmtActivityDate(g(2)),
         investorName: g(3), type: g(4)||'general', action: g(5)||'Activity',
         propertyID: g(6), propertyTitle: g(7), notes: g(8)
       });
@@ -6341,9 +6432,55 @@ async function logActivity(opts) {
 })();
 
 init();
-readInvestorsFromSheets();
-readAgentsFromSheets();
-readCommsFromSheets();
+
+// Load from cache instantly (sync-like feel), then refresh from sheet in background
+(function() {
+  // Immediately populate from localStorage cache
+  ['Clients','Client Communications','Agents'].forEach(function(sheetName) {
+    const cached = sheetCacheGet(sheetName);
+    if (!cached) return;
+    if (sheetName === 'Clients') {
+      cached.forEach(function(row) {
+        const g = function(i){ return row[i] != null ? String(row[i]).trim() : ''; };
+        const invId = +g(0); const name = g(1);
+        if (!name || isNaN(invId) || invId <= 0) return;
+        if (!investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; })) {
+          const locs = g(9) ? g(9).split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+          const types = g(10) ? g(10).split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+          investorProfiles.push({ investorId:invId, id:invId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} });
+        }
+      });
+      populateClientSelectors();
+    }
+    if (sheetName === 'Agents') {
+      cached.forEach(function(row) {
+        const g = function(i){ return row[i] != null ? String(row[i]).trim() : ''; };
+        const agentId = g(0); const name = g(1);
+        if (!agentId || !name) return;
+        if (!agents.find(function(a){ return a.agentId === agentId; })) {
+          agents.push({ agentId, name, firm:g(2), phone:g(3), email:g(4), commissionPct:g(5), active:g(6)!=='FALSE', notes:g(7), addedOn:g(8) });
+        }
+      });
+      populateAgentSelector();
+    }
+    if (sheetName === 'Client Communications') {
+      const existingIds = new Set(communicationLog.map(function(c){ return c.commId; }));
+      cached.forEach(function(row) {
+        const g = function(i){ return row[i] != null ? String(row[i]).trim() : ''; };
+        const commId = +g(0); const clientId = +g(1);
+        if (!commId || !clientId || existingIds.has(commId)) return;
+        communicationLog.push({ commId, investorId:clientId, date:g(2), investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
+      });
+    }
+  });
+
+  // Then refresh from sheet in background (won't cause any visible delay)
+  setTimeout(function() {
+    readInvestorsFromSheets();
+    readAgentsFromSheets();
+    readCommsFromSheets();
+  }, 200);
+})();
 </script>
 </body>
 </html>
