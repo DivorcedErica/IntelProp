@@ -3,10 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com; font-src 'self' data:; frame-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com https://cdnjs.cloudflare.com; font-src 'self' data:; frame-src 'none';">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// Configure pdf.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+</script>
 <script>
 // Must be defined before Google Maps loads
 window.initGoogleMaps = function() {
@@ -7957,7 +7964,8 @@ function apHandleFile(input, mode) {
   input.value = ''; // allow re-select same file
 }
 
-// Max PDF size to send directly to Claude via proxy (4 MB base64 ≈ 3 MB raw)
+// PDF size threshold — above this we extract text client-side instead of sending base64
+// Below this we still send base64 (more accurate for tables/layouts)
 const AP_PDF_MAX_BYTES = 3 * 1024 * 1024;
 
 function apRemovePropFile(e) {
@@ -7969,33 +7977,58 @@ function apRemovePropFile(e) {
   document.getElementById('apPropFile').value = '';
 }
 
+// Extract all text from a PDF file using pdf.js
+// Returns a promise resolving to a plain text string
+async function apExtractPdfText(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(i => i.str).join(' ');
+    fullText += `\n--- Page ${p} ---\n${pageText}`;
+  }
+  return fullText.trim();
+}
+
 function apProcessFile(file, mode) {
-  const isMode = s => mode === s;
-  const nameEl   = document.getElementById(isMode('property') ? 'apPropFileName' : 'apResFileName');
+  const isMode    = s => mode === s;
+  const nameEl    = document.getElementById(isMode('property') ? 'apPropFileName' : 'apResFileName');
   const removeBtn = isMode('property') ? document.getElementById('apPropFileRemove') : null;
-  const ext      = file.name.split('.').pop().toLowerCase();
-  const sizeKB   = (file.size / 1024).toFixed(1);
-  const sizeMB   = (file.size / (1024*1024)).toFixed(1);
+  const ext       = file.name.split('.').pop().toLowerCase();
+  const sizeKB    = (file.size / 1024).toFixed(1);
+  const sizeMB    = (file.size / (1024*1024)).toFixed(1);
   const sizeLabel = file.size > 1024*1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
 
+  nameEl.style.color = '';
   nameEl.textContent = `📎 ${file.name} (${sizeLabel})`;
   if (removeBtn) removeBtn.style.display = '';
 
   if (ext === 'pdf') {
-    // Warn if PDF exceeds proxy limit
     if (file.size > AP_PDF_MAX_BYTES) {
-      nameEl.textContent = `⚠ ${file.name} (${sizeMB} MB — too large, text/URL preferred)`;
-      nameEl.style.color = '#e74c3c';
-      // Still read it but flag as oversized — apExtractProperties will handle gracefully
-      const reader = new FileReader();
-      reader.onload = e => {
-        const b64 = e.target.result.split(',')[1];
-        if (isMode('property')) { _ap.propFileData = b64; _ap.propFileType = 'pdf'; _ap.propFileName = file.name; _ap.propFileOversized = true; }
-        else                    { _ap.resFileData  = b64; _ap.resFileType  = 'pdf'; _ap.resFileName  = file.name; _ap.resFileOversized  = true; }
-      };
-      reader.readAsDataURL(file);
+      // Large PDF — extract text client-side using pdf.js, send as text
+      nameEl.textContent = `⟳ ${file.name} (${sizeMB} MB — extracting text…)`;
+      nameEl.style.color = 'var(--mu)';
+
+      apExtractPdfText(file).then(text => {
+        if (!text || text.length < 50) {
+          nameEl.textContent = `⚠ ${file.name} — could not extract text (scanned PDF?)`;
+          nameEl.style.color = '#e74c3c';
+          return;
+        }
+        nameEl.textContent = `📄 ${file.name} (${sizeMB} MB → ${(text.length/1000).toFixed(0)}k chars extracted)`;
+        nameEl.style.color = '#15803d';
+        if (isMode('property')) { _ap.propFileData = text; _ap.propFileType = 'pdf-text'; _ap.propFileName = file.name; _ap.propFileOversized = false; }
+        else                    { _ap.resFileData  = text; _ap.resFileType  = 'pdf-text'; _ap.resFileName  = file.name; _ap.resFileOversized  = false; }
+      }).catch(err => {
+        nameEl.textContent = `⚠ ${file.name} — text extraction failed: ${err.message}`;
+        nameEl.style.color = '#e74c3c';
+        console.error('[AP] pdf.js extraction error:', err);
+      });
+
     } else {
-      nameEl.style.color = '';
+      // Small PDF — send as base64 for best accuracy
       const reader = new FileReader();
       reader.onload = e => {
         const b64 = e.target.result.split(',')[1];
@@ -8004,8 +8037,8 @@ function apProcessFile(file, mode) {
       };
       reader.readAsDataURL(file);
     }
+
   } else {
-    nameEl.style.color = '';
     // CSV / TXT / XLSX — read as text
     const reader = new FileReader();
     reader.onload = e => {
@@ -8252,14 +8285,18 @@ async function apExtractProperties() {
     // ── STEP 2: Build content for Claude ─────────────────────────────
     let userContent;
     if (_ap.propFileType === 'pdf' && _ap.propFileData && !_ap.propFileOversized) {
-      // PDF within size limit — send directly as base64 document
+      // Small PDF — send as base64 document (most accurate)
       userContent = [
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ap.propFileData } },
         { type: 'text', text: apBuildPropPrompt(extractionText, url, devHint, cityHint, typeHint) }
       ];
+    } else if (_ap.propFileType === 'pdf-text' && _ap.propFileData) {
+      // Large PDF — text extracted client-side via pdf.js, send as text
+      const fileText = '\n\nPDF CONTENT (extracted from ' + _ap.propFileName + '):\n' + _ap.propFileData.slice(0, 40000);
+      userContent = apBuildPropPrompt(extractionText, url, devHint, cityHint, typeHint) + fileText;
     } else if (_ap.propFileType === 'pdf' && _ap.propFileOversized) {
-      // PDF too large — fall back to text/hints only
-      status.textContent = '⚠ PDF exceeds size limit. Extracting from pasted text and hints. For best results paste the brochure text into the text area.';
+      // Fallback: PDF flagged oversized but pdf.js unavailable
+      status.textContent = '⚠ PDF too large and text extraction unavailable. Please paste brochure text into the text area.';
       const hintText = [
         devHint  ? `Developer: ${devHint}`      : '',
         cityHint ? `City: ${cityHint}`           : '',
