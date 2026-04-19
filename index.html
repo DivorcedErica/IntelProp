@@ -484,7 +484,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
-      <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
+      <button class="tab" onclick="gotoTab('investors',this)">Clients</button>
       <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
       <button class="tab" onclick="gotoTab('agentportal',this)">⬆ Agent Portal</button>
 
@@ -1311,7 +1311,10 @@ tr:hover td{background:var(--bg2)}
           <button onclick="document.getElementById('newInvForm').style.display=document.getElementById('newInvForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New</button>
         </div>
       </div>
-      <input id="invSearch" type="text" placeholder="Search by name, phone or email…" oninput="refreshInvestorList()" style="width:100%;height:34px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:12px;box-sizing:border-box">
+      <input id="invSearch" type="text" placeholder="Search by name, phone or email…" oninput="refreshInvestorList()" style="width:100%;height:34px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:8px;box-sizing:border-box">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mu);cursor:pointer;margin-bottom:12px">
+        <input type="checkbox" id="invShowArchived" onchange="refreshInvestorList()"> Show archived clients
+      </label>
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
         <!-- Row 1: contact fields -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
@@ -4340,9 +4343,6 @@ function render() {
           <div style="color:var(--tx)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</div>
           ${vl?`<div class="ip-value" style="${vlStyle};margin-top:2px">${vl}</div>`:''}
         </td>
-        <td style="padding:8px 8px;text-align:center" onclick="event.stopPropagation()">
-          <button class="hb ${sl.has(d.id)?'on':''}" onclick="heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button>
-        </td>
       </tr>`;
     }).join('');
 
@@ -4361,7 +4361,6 @@ function render() {
             <th style="${thS};text-align:center" onclick="sortBy('bedrooms')">Beds</th>
             <th style="${thS};text-align:right" onclick="sortBy('price')">Price ${sc==='price'?(sa?'↑':'↓'):''}</th>
             <th style="${thS};text-align:right" onclick="sortBy('ppm')">€/m² ${sc==='ppm'?(sa?'↑':'↓'):''}</th>
-            <th style="${thSF}"></th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -4647,7 +4646,7 @@ function openModal(id, e) {
         </div>
       </div>
       <div class="modal-actions">
-        <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
+        
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
@@ -4807,7 +4806,7 @@ function renderCard(d) {
   const vlStyle = vl ? (vlColors[vl]||'background:var(--bg2);color:var(--mu)') : null;
 
   return `<div class="prop-card" onclick="openModal(${d.id})">
-    <button class="card-heart ${on?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${on?'♥':'♡'}</button>
+    
     <div class="card-img-wrap">${img
       ? `<img src="${img}" alt="${d.title}" loading="lazy">`
       : `<div class="card-img-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>`
@@ -5807,7 +5806,7 @@ function renderInvestorCard(inv) {
         ${p.clientNote?`<div style="font-size:11px;color:var(--gold);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${safeHTML(p.clientNote.slice(0,100))}${p.clientNote.length>100?'…':''}"</div>`:''}
       </div>
       ${p.seaDist!=null?`<div style="flex-shrink:0">${seaBadge(p.seaDist)}</div>`:''}
-    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties noted yet — open a listing modal and save a note to track it here.</div>';
+    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties shortlisted yet — use Client Call to browse and shortlist properties for this client.</div>';
 
 
   // Build criteria section
@@ -5932,7 +5931,7 @@ function renderInvestorCard(inv) {
     </div>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">🗑 Delete</button>
+      <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">Hide Client</button>
     </div>
 
     <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -5945,7 +5944,7 @@ function renderInvestorCard(inv) {
     ${assignedPropsHtml}
     ${renderSessionShortlistsForCard(invId)}
 
-    <div class="inv-section-title">Listings noted (${noteProps.length})</div>
+    <div class="inv-section-title">Shortlisted Properties (${noteProps.length})</div>
     ${propsHtml}
 
     <div class="inv-section-title" id="invActTitle">Activity log</div>
@@ -10878,7 +10877,10 @@ function getInvestorNote(investorName,propertyId){
 function renderInvestorProfilesPanel(){
   if(!investorProfiles.length)return'<div class="empty" style="padding:1rem">No profiles yet. Use Client Call to create one.</div>';
   var q=(document.getElementById('invSearch')||{}).value||'';
-  var filtered=q?investorProfiles.filter(function(i){var s=q.toLowerCase();return(i.name||'').toLowerCase().includes(s)||(i.phone||'').includes(s)||(i.email||'').toLowerCase().includes(s);}):investorProfiles;
+  var showArchived = (document.getElementById('invShowArchived')||{}).checked;
+  // Filter out archived unless checkbox is on
+  var active = investorProfiles.filter(function(i){ return showArchived || i.status !== 'Archived'; });
+  var filtered=q?active.filter(function(i){var s=q.toLowerCase();return(i.name||'').toLowerCase().includes(s)||(i.phone||'').includes(s)||(i.email||'').toLowerCase().includes(s);}):active;
   if(!filtered.length)return'<div class="empty" style="padding:1rem">No profiles match "'+safeHTML(q)+'".</div>';
   var invTot=Math.ceil(filtered.length/invPS)||1;
   invPage=Math.max(1,Math.min(invPage,invTot));
@@ -10886,7 +10888,7 @@ function renderInvestorProfilesPanel(){
   var rows=pageItems.map(function(inv){
     var nc=Object.keys(inv.notes||{}).length;
     var myCommsCount=(communicationLog||[]).filter(function(c){return c.investorId===inv.id;}).length;
-    var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b'};
+    var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b','Archived':'#f3f4f6;color:#9ca3af'};
     var st=inv.status||'Active';
     var stStyle=statusColors[st]||'#f3f4f6;color:#374151';
     var ctStyle=inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':inv.clientType==='One-off Buyer'?'#f3e8ff;color:#7c3aed':inv.clientType==='Agent'?'#dcfce7;color:#15803d':'';
@@ -10919,7 +10921,7 @@ function renderInvestorProfilesPanel(){
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
-      +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
+      +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">Hide</button>'
       +'</div></div></div>';
   }).join('');
   var pager='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">'
@@ -11047,12 +11049,69 @@ function renderClientCommLog(investorId){
     + '</div>';
 }
 
-function deleteInvestorProfile(id){
-  if(!confirm('Delete this investor profile?'))return;
-  investorProfiles=investorProfiles.filter(function(i){return i.id!==id;});
+function deleteInvestorProfile(id) {
+  // Show reason modal instead of hard deleting
+  var existing = document.getElementById('archiveClientModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'archiveClientModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-size:15px;font-weight:600;color:var(--tx);margin-bottom:4px">Hide Client Record</div>
+      <div style="font-size:12px;color:var(--mu);margin-bottom:16px">This client will be hidden from the system. All details remain in the database and can be restored at any time. Please select a reason.</div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Reason</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+        ${[
+          ['duplicate', 'Duplicate entry', 'This client was entered more than once'],
+          ['accidental', 'Accidental entry', 'This client was added by mistake'],
+          ['other', 'Other', 'Another reason — please specify below'],
+        ].map(([val, label, desc]) => `
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)">
+            <input type="radio" name="archiveReason" value="${val}" style="margin-top:2px" onchange="
+              document.getElementById('archiveReasonText').style.display=this.value==='other'?'block':'none';
+            ">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--tx)">${label}</div>
+              <div style="font-size:11px;color:var(--mu)">${desc}</div>
+            </div>
+          </label>`).join('')}
+      </div>
+      <textarea id="archiveReasonText" placeholder="Please specify…" style="display:none;width:100%;height:60px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical;box-sizing:border-box;margin-bottom:14px"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('archiveClientModal').remove()" style="font-size:12px;height:34px;padding:0 16px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Cancel</button>
+        <button onclick="confirmArchiveClient(${id})" style="font-size:12px;height:34px;padding:0 16px;border:none;border-radius:var(--r);background:var(--red);color:#fff;cursor:pointer">Hide Client</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function confirmArchiveClient(id) {
+  var selected = document.querySelector('input[name="archiveReason"]:checked');
+  if (!selected) { alert('Please select a reason before hiding this client.'); return; }
+  var reason = selected.value;
+  if (reason === 'other') {
+    var detail = (document.getElementById('archiveReasonText').value || '').trim();
+    if (!detail) { alert('Please specify the reason in the text field.'); return; }
+    reason = detail;
+  }
+
+  var inv = investorProfiles.find(function(i){ return i.id === id || i.investorId === id; });
+  if (!inv) return;
+
+  inv.status = 'Archived';
+  inv.archiveReason = reason;
+  inv.archivedAt = new Date().toISOString().slice(0,10);
+
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  logActivity({ clientID: id, investorName: inv.name, type:'general', action:'Client hidden — ' + reason });
+
   saveInvestorProfiles();
+  document.getElementById('archiveClientModal').remove();
   closeInvestorCard();
-  document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  showToast('Client hidden from system');
 }
 
 var _addPropInvestorId = null;
@@ -12112,20 +12171,52 @@ async function renderActivityLog(clientID) {
     var count = entries.length;
     if (title) title.textContent = 'Activity Log (' + count + ')';
 
-    // Build the full entry list HTML
-    list.innerHTML = entries.map(function(e) {
-      var icon = e.type === 'session'   ? '<span style="color:var(--blue)">●</span>'
-               : e.type === 'shortlist' ? '<span style="color:#ef4444">♥</span>'
-               : '<span style="color:var(--gold)">📝</span>';
-      var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
-      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
-        + '<div style="flex-shrink:0;margin-top:1px">' + icon + '</div>'
-        + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:12px;color:var(--tx)">' + e.action + '</div>'
-          + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+    // Group entries by date for accordion display
+    var groups = {};
+    var groupOrder = [];
+    entries.forEach(function(e) {
+      var rawDate = e.date ? new Date(e.date) : null;
+      var dayKey = rawDate && !isNaN(rawDate)
+        ? rawDate.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        : (e.dateFormatted || 'Unknown date').split(' ')[0];
+      if (!groups[dayKey]) { groups[dayKey] = []; groupOrder.push(dayKey); }
+      groups[dayKey].push(e);
+    });
+
+    // Build accordion HTML — most recent date open by default
+    list.innerHTML = groupOrder.map(function(dayKey, gi) {
+      var dayEntries = groups[dayKey];
+      var isOpen = gi === 0;
+      var dayId = 'actDay_' + gi + '_' + Date.now();
+      var rows = dayEntries.map(function(e) {
+        var icon = e.type === 'session'   ? '<span style="color:var(--blue)">&#9679;</span>'
+                 : e.type === 'shortlist' ? '<span style="color:#ef4444">&#9829;</span>'
+                 : '<span style="color:var(--gold)">&#128221;</span>';
+        var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
+        var time = e.date ? new Date(e.date).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : '';
+        return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
+          + '<div style="flex-shrink:0;margin-top:1px">' + icon + '</div>'
+          + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:12px;color:var(--tx)">' + safeHTML(e.action||'') + '</div>'
+            + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+          + '</div>'
+          + (time ? '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + time + '</div>' : '')
+          + '</div>';
+      }).join('');
+
+      return '<div style="border-bottom:1px solid var(--bd)">'
+        + '<div onclick="(function(){var b=document.getElementById('' + dayId + '');var a=document.getElementById('' + dayId + '_arr');var open=b.style.display!=='none';b.style.display=open?'none':'';a.textContent=open?'\u25b8':'\u25be';})()" '
+          + 'style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none">'
+          + '<span style="font-size:11px;font-weight:600;color:var(--tx)">' + dayKey + '</span>'
+          + '<span style="display:flex;align-items:center;gap:6px">'
+            + '<span style="font-size:10px;color:var(--mu)">' + dayEntries.length + ' event' + (dayEntries.length !== 1 ? 's' : '') + '</span>'
+            + '<span id="' + dayId + '_arr" style="font-size:10px;color:var(--mu)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span>'
+          + '</span>'
         + '</div>'
-        + '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + e.dateFormatted + '</div>'
-        + '</div>';
+        + '<div id="' + dayId + '" style="display:' + (isOpen ? '' : 'none') + ';padding-bottom:4px">'
+          + rows
+        + '</div>'
+      + '</div>';
     }).join('');
 
     // Apply current open/closed state
