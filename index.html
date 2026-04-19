@@ -6404,26 +6404,42 @@ async function readInvestorsFromSheets() {
   let loadMethod = '';
   let loadError  = null;
 
-  // ── PATH 1: Apps Script JSONP (primary — no CORS, no host restrictions) ──
+  // ── PATH 1: gviz JSONP by GID — fastest, works for any public sheet ────
+  // Uses the tab's numeric GID — doesn't depend on tab name spelling.
+  // Browser JSONP bypasses the "Host not in allowlist" server-side block.
   try {
-    rows = await readSheetViaAppsScriptJSONP('Clients', 18000);
-    loadMethod = 'Apps Script';
-    console.log('[investors] loaded via Apps Script —', rows.length, 'rows');
-  } catch(e1) {
-    console.warn('[investors] Apps Script path failed:', e1.message);
-    loadError = e1;
+    console.log('[investors] trying gviz by GID…');
+    const json = await gvizJsonp(SID, 'gid=' + CLIENTS_GID);
+    rows = gvizToRows(json);
+    loadMethod = 'gviz-gid';
+    loadError  = null;
+    console.log('[investors] loaded via gviz (GID) —', rows.length, 'rows');
+  } catch(e0) {
+    console.warn('[investors] gviz GID failed:', e0.message);
+    loadError = e0;
 
-    // ── PATH 2: gviz JSONP (browser-side, works if sheet is public) ────────
+    // ── PATH 2: gviz JSONP by sheet name (fallback if tab was renamed) ───
     try {
-      console.log('[investors] trying gviz JSONP fallback…');
-      const json = await gvizJsonp(SID, 'sheet=' + encodeURIComponent('Clients'));
-      rows = gvizToRows(json); // gviz rows are data-only, no header to skip
-      loadMethod = 'gviz';
+      console.log('[investors] trying gviz by sheet name…');
+      const json2 = await gvizJsonp(SID, 'sheet=' + encodeURIComponent('Clients'));
+      rows = gvizToRows(json2);
+      loadMethod = 'gviz-name';
       loadError  = null;
-      console.log('[investors] loaded via gviz —', rows.length, 'rows');
-    } catch(e2) {
-      console.warn('[investors] gviz path failed:', e2.message);
-      // loadError stays as e1 (Apps Script error, more actionable)
+      console.log('[investors] loaded via gviz (name) —', rows.length, 'rows');
+    } catch(e1) {
+      console.warn('[investors] gviz name failed:', e1.message);
+
+      // ── PATH 3: Apps Script JSONP (requires doGet read handler + "Anyone" access) ──
+      try {
+        console.log('[investors] trying Apps Script JSONP…');
+        rows = await readSheetViaAppsScriptJSONP('Clients', 10000);
+        loadMethod = 'Apps Script';
+        loadError  = null;
+        console.log('[investors] loaded via Apps Script —', rows.length, 'rows');
+      } catch(e2) {
+        console.warn('[investors] Apps Script failed:', e2.message);
+        loadError = e2; // Apps Script error is most actionable for the user
+      }
     }
   }
 
@@ -6499,7 +6515,7 @@ async function readInvestorsFromSheets() {
     if (listEl) {
       listEl.innerHTML = renderInvestorProfilesPanel();
       // Soft method badge (only in dev — remove in prod if desired)
-      if (loadMethod === 'gviz') {
+      if (loadMethod === 'gviz-name' || loadMethod === 'gviz-gid') {
         const badge = document.createElement('div');
         badge.style.cssText = 'margin-bottom:8px;padding:5px 10px;background:#dbeafe;border-radius:6px;font-size:10px;color:#1e40af';
         badge.textContent = 'ℹ Loaded via gviz (sheet is public). For more reliable reads, add the Apps Script doGet() read handler.';
@@ -6526,40 +6542,42 @@ async function readInvestorsFromSheets() {
   }
 
   // No data at all — show diagnostic error
-  const errMsg = loadError?.message || 'Unknown error';
-  const isTimeout = errMsg.includes('timed out');
+  const errMsg  = loadError?.message || 'Unknown error';
+  const isGviz  = errMsg.includes('gviz') || errMsg.includes('script load failed') || errMsg.includes('gviz timeout');
+  const isTimeout   = errMsg.includes('timed out');
   const isNoHandler = errMsg.includes('no "rows" key') || errMsg.includes('not yet deployed') || errMsg.includes('null');
-  const isURLFail  = errMsg.includes('failed to load') || errMsg.includes('URL');
-  const sheetUrl   = 'https://docs.google.com/spreadsheets/d/' + SID;
+  const isURLFail   = errMsg.includes('failed to load') || errMsg.includes('URL');
+  const sheetUrl    = 'https://docs.google.com/spreadsheets/d/' + SID;
 
   let heading, detail, steps;
 
-  if (isNoHandler) {
+  if (isGviz || isURLFail) {
+    heading = 'Could not read the Clients sheet';
+    detail  = 'IntelProp tried to read your Google Sheet directly in the browser but was blocked. This happens when the sheet is not shared publicly.';
+    steps   = `<ol style="margin:6px 0 6px 18px;font-size:11px;color:#78350f;line-height:2">
+      <li>Open your sheet: <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open Google Sheet ↗</a></li>
+      <li>Click <b>Share</b> (top-right corner)</li>
+      <li>Under <b>"General access"</b> → change to <b>"Anyone with the link"</b> → <b>Viewer</b></li>
+      <li>Click <b>Done</b>, then click <b>↺ Retry</b> below</li>
+    </ol>
+    <div style="font-size:11px;color:#92400e;margin-top:4px">ℹ This makes the sheet <b>readable</b> by anyone with the link. Your Apps Script still controls all <b>writes</b>.</div>`;
+  } else if (isNoHandler) {
     heading = 'Apps Script read handler not configured';
-    detail  = 'The Apps Script responded but does not return investor data. The doGet() function needs to handle ?action=read&sheet=Clients and return { rows: [[...]] }.';
+    detail  = 'The Apps Script responded but does not return investor data. The doGet() function needs to handle ?action=read&sheet=Clients.';
     steps   = `<div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.8">
       <b>Add this to your Apps Script doGet():</b><br>
-      <code style="background:#fff8e1;padding:2px 6px;border-radius:4px;font-size:10px;display:block;margin:4px 0">
-        if (e.parameter.action === 'read') {<br>
-        &nbsp;&nbsp;var sheet = SpreadsheetApp.openById('${SID}').getSheetByName(e.parameter.sheet);<br>
-        &nbsp;&nbsp;var rows = sheet.getDataRange().getValues().slice(1);<br>
-        &nbsp;&nbsp;var cb = e.parameter.callback;<br>
-        &nbsp;&nbsp;return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:rows})+')')<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;.setMimeType(ContentService.MimeType.JAVASCRIPT);<br>
-        }
-      </code>
-      After adding this, <b>deploy a new version</b> of the Web App and retry.
-    </div>`;
-  } else if (isURLFail) {
-    heading = 'Apps Script URL not reachable';
-    detail  = 'The request to the Apps Script failed before a response was received. The Web App may not be deployed, or the URL may have changed.';
-    steps   = `<div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.8">
-      Verify: <code style="background:#fff8e1;padding:2px 5px;border-radius:4px;font-size:10px">${APPS_SCRIPT_URL ? APPS_SCRIPT_URL.slice(0,80)+'…' : 'Not set'}</code><br>
-      In Apps Script: <b>Deploy → Manage deployments</b> → confirm Web App is active and "Who has access" is <b>Anyone</b>.
+      <code style="background:#fff8e1;padding:2px 6px;border-radius:4px;font-size:10px;display:block;margin:4px 0;white-space:pre">if (e.parameter.action === 'read') {
+  var s = SpreadsheetApp.openById('${SID}').getSheetByName(e.parameter.sheet);
+  var rows = s.getDataRange().getValues().slice(1);
+  var cb = e.parameter.callback;
+  return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:rows})+')')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}</code>
+      Then <b>Deploy → New version</b> and retry.
     </div>`;
   } else if (isTimeout) {
-    heading = 'Google Sheets request timed out';
-    detail  = 'The Apps Script did not respond within 18 seconds. This usually means the script is not deployed as a Web App, or your internet connection is slow.';
+    heading = 'Request timed out';
+    detail  = 'Google Sheets did not respond in time. Check your connection and retry.';
     steps   = '';
   } else {
     heading = 'Could not load investors from Google Sheets';
