@@ -1442,7 +1442,10 @@ tr:hover td{background:var(--bg2)}
                 <div style="font-size:20px;margin-bottom:6px">📄</div>
                 <div style="font-size:12px;font-weight:500;color:var(--tx)">Drop PDF or CSV here</div>
                 <div style="font-size:10px;color:var(--mu);margin-top:3px">or click to browse</div>
-                <div id="apPropFileName" style="font-size:10px;color:var(--gold);margin-top:5px;font-weight:500"></div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:5px">
+                  <div id="apPropFileName" style="font-size:10px;color:var(--gold);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+                  <button id="apPropFileRemove" onclick="apRemovePropFile(event)" style="display:none;background:none;border:none;cursor:pointer;font-size:11px;color:var(--mu);padding:0 2px;line-height:1;flex-shrink:0" title="Remove file">✕</button>
+                </div>
               </div>
               <input type="file" id="apPropFile" accept=".pdf,.csv,.txt,.xls,.xlsx" style="display:none" onchange="apHandleFile(this,'property')">
             </div>
@@ -7954,27 +7957,61 @@ function apHandleFile(input, mode) {
   input.value = ''; // allow re-select same file
 }
 
+// Max PDF size to send directly to Claude via proxy (4 MB base64 ≈ 3 MB raw)
+const AP_PDF_MAX_BYTES = 3 * 1024 * 1024;
+
+function apRemovePropFile(e) {
+  e && e.stopPropagation();
+  _ap.propFileData = null; _ap.propFileType = null; _ap.propFileName = '';
+  document.getElementById('apPropFileName').textContent = '';
+  const rb = document.getElementById('apPropFileRemove');
+  if (rb) rb.style.display = 'none';
+  document.getElementById('apPropFile').value = '';
+}
+
 function apProcessFile(file, mode) {
   const isMode = s => mode === s;
-  const nameEl = document.getElementById(isMode('property') ? 'apPropFileName' : 'apResFileName');
-  const ext    = file.name.split('.').pop().toLowerCase();
-  nameEl.textContent = `📎 ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  const nameEl   = document.getElementById(isMode('property') ? 'apPropFileName' : 'apResFileName');
+  const removeBtn = isMode('property') ? document.getElementById('apPropFileRemove') : null;
+  const ext      = file.name.split('.').pop().toLowerCase();
+  const sizeKB   = (file.size / 1024).toFixed(1);
+  const sizeMB   = (file.size / (1024*1024)).toFixed(1);
+  const sizeLabel = file.size > 1024*1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+
+  nameEl.textContent = `📎 ${file.name} (${sizeLabel})`;
+  if (removeBtn) removeBtn.style.display = '';
 
   if (ext === 'pdf') {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const b64 = e.target.result.split(',')[1];
-      if (isMode('property')) { _ap.propFileData = b64; _ap.propFileType = 'pdf'; _ap.propFileName = file.name; }
-      else                    { _ap.resFileData  = b64; _ap.resFileType  = 'pdf'; _ap.resFileName  = file.name; }
-    };
-    reader.readAsDataURL(file);
+    // Warn if PDF exceeds proxy limit
+    if (file.size > AP_PDF_MAX_BYTES) {
+      nameEl.textContent = `⚠ ${file.name} (${sizeMB} MB — too large, text/URL preferred)`;
+      nameEl.style.color = '#e74c3c';
+      // Still read it but flag as oversized — apExtractProperties will handle gracefully
+      const reader = new FileReader();
+      reader.onload = e => {
+        const b64 = e.target.result.split(',')[1];
+        if (isMode('property')) { _ap.propFileData = b64; _ap.propFileType = 'pdf'; _ap.propFileName = file.name; _ap.propFileOversized = true; }
+        else                    { _ap.resFileData  = b64; _ap.resFileType  = 'pdf'; _ap.resFileName  = file.name; _ap.resFileOversized  = true; }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      nameEl.style.color = '';
+      const reader = new FileReader();
+      reader.onload = e => {
+        const b64 = e.target.result.split(',')[1];
+        if (isMode('property')) { _ap.propFileData = b64; _ap.propFileType = 'pdf'; _ap.propFileName = file.name; _ap.propFileOversized = false; }
+        else                    { _ap.resFileData  = b64; _ap.resFileType  = 'pdf'; _ap.resFileName  = file.name; _ap.resFileOversized  = false; }
+      };
+      reader.readAsDataURL(file);
+    }
   } else {
+    nameEl.style.color = '';
     // CSV / TXT / XLSX — read as text
     const reader = new FileReader();
     reader.onload = e => {
       const text = e.target.result;
-      if (isMode('property')) { _ap.propFileData = text; _ap.propFileType = ext === 'csv' ? 'csv' : 'text'; _ap.propFileName = file.name; }
-      else                    { _ap.resFileData  = text; _ap.resFileType  = ext === 'csv' ? 'csv' : 'text'; _ap.resFileName  = file.name; }
+      if (isMode('property')) { _ap.propFileData = text; _ap.propFileType = ext === 'csv' ? 'csv' : 'text'; _ap.propFileName = file.name; _ap.propFileOversized = false; }
+      else                    { _ap.resFileData  = text; _ap.resFileType  = ext === 'csv' ? 'csv' : 'text'; _ap.resFileName  = file.name; _ap.resFileOversized  = false; }
     };
     reader.readAsText(file);
   }
@@ -8214,11 +8251,22 @@ async function apExtractProperties() {
 
     // ── STEP 2: Build content for Claude ─────────────────────────────
     let userContent;
-    if (_ap.propFileType === 'pdf' && _ap.propFileData) {
+    if (_ap.propFileType === 'pdf' && _ap.propFileData && !_ap.propFileOversized) {
+      // PDF within size limit — send directly as base64 document
       userContent = [
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ap.propFileData } },
         { type: 'text', text: apBuildPropPrompt(extractionText, url, devHint, cityHint, typeHint) }
       ];
+    } else if (_ap.propFileType === 'pdf' && _ap.propFileOversized) {
+      // PDF too large — fall back to text/hints only
+      status.textContent = '⚠ PDF exceeds size limit. Extracting from pasted text and hints. For best results paste the brochure text into the text area.';
+      const hintText = [
+        devHint  ? `Developer: ${devHint}`      : '',
+        cityHint ? `City: ${cityHint}`           : '',
+        typeHint ? `Property type: ${typeHint}`  : '',
+        extractionText ? `\n\nContent:\n${extractionText}` : ''
+      ].filter(Boolean).join('\n');
+      userContent = hintText || 'Please paste the brochure text into the text area for extraction.';
     } else {
       const fileText = (_ap.propFileType && _ap.propFileType !== 'pdf' && _ap.propFileData)
         ? '\n\nFILE CONTENT:\n' + _ap.propFileData.slice(0, 12000) : '';
@@ -8501,10 +8549,13 @@ function apRejectAllProperties() {
 }
 
 function apClearProperty() {
-  _ap.propFileData = null; _ap.propFileType = null; _ap.propFileName = '';
+  _ap.propFileData = null; _ap.propFileType = null; _ap.propFileName = ''; _ap.propFileOversized = false;
   document.getElementById('apPropText').value = '';
   document.getElementById('apPropUrl').value = '';
-  document.getElementById('apPropFileName').textContent = '';
+  const fn = document.getElementById('apPropFileName');
+  if (fn) { fn.textContent = ''; fn.style.color = ''; }
+  const rb = document.getElementById('apPropFileRemove');
+  if (rb) rb.style.display = 'none';
   document.getElementById('apPropDeveloperHint').value = '';
   document.getElementById('apPropCityHint').value = '';
   document.getElementById('apPropTypeHint').value = '';
