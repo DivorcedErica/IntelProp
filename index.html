@@ -12200,7 +12200,7 @@ async function renderActivityLog(clientID) {
     list.innerHTML = groupOrder.map(function(dayKey, gi) {
       var dayEntries = groups[dayKey];
       var isOpen = gi === 0;
-      var dayId = 'actDay_' + gi + '_' + Date.now();
+      var dayId = 'actDay_' + gi;
       var rows = dayEntries.map(function(e) {
         var icon = e.type === 'session'   ? '<span style="color:var(--blue)">&#9679;</span>'
                  : e.type === 'shortlist' ? '<span style="color:#ef4444">&#9829;</span>'
@@ -12218,12 +12218,11 @@ async function renderActivityLog(clientID) {
       }).join('');
 
       return '<div style="border-bottom:1px solid var(--bd)">'
-        + '<div onclick="(function(){var b=document.getElementById('' + dayId + '');var a=document.getElementById('' + dayId + '_arr');var open=b.style.display!=='none';b.style.display=open?'none':'';a.textContent=open?'\u25b8':'\u25be';})()" '
-          + 'style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none">'
+        + '<div class="act-acc-hdr" data-target="' + dayId + '" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none">'
           + '<span style="font-size:11px;font-weight:600;color:var(--tx)">' + dayKey + '</span>'
           + '<span style="display:flex;align-items:center;gap:6px">'
             + '<span style="font-size:10px;color:var(--mu)">' + dayEntries.length + ' event' + (dayEntries.length !== 1 ? 's' : '') + '</span>'
-            + '<span id="' + dayId + '_arr" style="font-size:10px;color:var(--mu)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span>'
+            + '<span class="act-acc-arr" style="font-size:10px;color:var(--mu)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span>'
           + '</span>'
         + '</div>'
         + '<div id="' + dayId + '" style="display:' + (isOpen ? '' : 'none') + ';padding-bottom:4px">'
@@ -12231,6 +12230,18 @@ async function renderActivityLog(clientID) {
         + '</div>'
       + '</div>';
     }).join('');
+
+    // Wire up accordion toggles via event delegation (avoids inline JS quote issues)
+    list.querySelectorAll('.act-acc-hdr').forEach(function(hdr) {
+      hdr.addEventListener('click', function() {
+        var body = document.getElementById(hdr.dataset.target);
+        var arr  = hdr.querySelector('.act-acc-arr');
+        if (!body) return;
+        var open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        if (arr) arr.innerHTML = open ? '&#9656;' : '&#9662;';
+      });
+    });
 
     // Apply current open/closed state
     _applyActivityLogState();
