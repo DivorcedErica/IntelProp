@@ -918,13 +918,17 @@ tr:hover td{background:var(--bg2)}
       <!-- Comm log -->
       <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
 
-      <!-- Activity Log -->
-      <div id="activityLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Activity Log</div>
-          <button onclick="refreshActivityLog()" class="btn" style="font-size:11px;padding:3px 10px">↻ Refresh</button>
-        </div>
-        <div id="activityLogList"></div>
+      <!-- Activity Log — collapsible accordion -->
+      <div id="activityLogWrap" style="display:none;margin-top:20px;border-top:1px solid var(--bd);padding-top:0">
+        <button id="activityLogToggle" onclick="toggleActivityLog()"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 0 8px;background:none;border:none;cursor:pointer;text-align:left;color:var(--tx)">
+          <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)" id="activityLogTitle">Activity Log</span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <button onclick="event.stopPropagation();refreshActivityLog()" class="btn" style="font-size:10px;padding:2px 8px;height:24px">↻</button>
+            <span id="activityLogChevron" style="font-size:11px;color:var(--mu);transition:transform .2s">▼</span>
+          </span>
+        </button>
+        <div id="activityLogList" style="display:none;overflow-y:auto;max-height:360px;padding-bottom:4px"></div>
       </div>
     </div>
 
@@ -6341,109 +6345,240 @@ async function loadSheet(sheetName, gidParam) {
   throw new Error('gviz unavailable — use loadSheetCSV with GID directly');
 }
 
+// ── Direct Apps Script JSONP reader for a sheet ─────────────────
+// Primary read path — no CSV, no gviz, no CORS issues.
+// Apps Script doGet must handle: ?action=read&sheet=NAME&callback=CB
+// Returns: plain row array [[col0,col1,...], ...] (no header row)
+function readSheetViaAppsScriptJSONP(sheetName, timeoutMs) {
+  return new Promise(function(resolve, reject) {
+    if (!APPS_SCRIPT_URL) { reject(new Error('APPS_SCRIPT_URL not set')); return; }
+    var cbName = 'ipRead_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+    var script  = document.createElement('script');
+    var done    = false;
+    var timer   = setTimeout(function() {
+      if (done) return; done = true;
+      delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      reject(new Error('Apps Script read timed out after ' + (timeoutMs/1000) + 's — check the script is deployed as a Web App'));
+    }, timeoutMs || 18000);
+
+    window[cbName] = function(data) {
+      if (done) return; done = true;
+      clearTimeout(timer); delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      console.log('[sheet:AS] callback fired for', sheetName, '— data keys:', data ? Object.keys(data) : 'null');
+      if (!data)              { reject(new Error('Apps Script returned null — check doGet() handler'));  return; }
+      if (data.error)         { reject(new Error('Apps Script error: ' + data.error));                   return; }
+      if (!data.rows)         { reject(new Error('Apps Script returned no "rows" key — update doGet() to return { rows:[...] }'));  return; }
+      console.log('[sheet:AS]', sheetName, '— rows received:', data.rows.length, '— sample:', JSON.stringify(data.rows[0])?.slice(0,100));
+      resolve(data.rows);
+    };
+
+    script.onerror = function() {
+      if (done) return; done = true;
+      clearTimeout(timer); delete window[cbName];
+      try { document.head.removeChild(script); } catch(e) {}
+      reject(new Error('Apps Script URL failed to load — verify the deployment URL and Web App access is set to "Anyone"'));
+    };
+
+    var src = APPS_SCRIPT_URL
+      + '?action=read'
+      + '&sheet=' + encodeURIComponent(sheetName)
+      + '&callback=' + cbName;
+    console.log('[sheet:AS] requesting', sheetName, '— url:', src.slice(0, 120));
+    script.src = src;
+    document.head.appendChild(script);
+  });
+}
+
 async function readInvestorsFromSheets() {
   const listEl = document.getElementById('investorProfilesList');
-  // Show loading state
+  console.log('[investors] read started — APPS_SCRIPT_URL:', APPS_SCRIPT_URL ? APPS_SCRIPT_URL.slice(0,60)+'…' : 'NOT SET');
+
+  // Show loading state only if panel is currently empty
   if (listEl && !investorProfiles.length) {
-    listEl.innerHTML = '<div style="padding:1rem;color:var(--mu);font-size:12px">⟳ Loading investors from Google Sheets…</div>';
+    listEl.innerHTML = '<div style="padding:1rem;color:var(--mu);font-size:12px;display:flex;align-items:center;gap:8px"><span style="animation:spin 1s linear infinite;display:inline-block">⟳</span> Loading investors from Google Sheets…</div>';
   }
+
+  let rows = null;
+  let loadMethod = '';
+  let loadError  = null;
+
+  // ── PATH 1: Apps Script JSONP (primary — no CORS, no host restrictions) ──
   try {
-    const rows = await loadSheetCSV(CLIENTS_GID);
-    console.log('[investors] rows from sheet:', rows.length, '— first row sample:', JSON.stringify(rows[0])?.slice(0,120));
-    if (!rows.length) {
-      console.warn('[investors] Sheet returned 0 rows — check Apps Script read action and sheet permissions');
+    rows = await readSheetViaAppsScriptJSONP('Clients', 18000);
+    loadMethod = 'Apps Script';
+    console.log('[investors] loaded via Apps Script —', rows.length, 'rows');
+  } catch(e1) {
+    console.warn('[investors] Apps Script path failed:', e1.message);
+    loadError = e1;
+
+    // ── PATH 2: gviz JSONP (browser-side, works if sheet is public) ────────
+    try {
+      console.log('[investors] trying gviz JSONP fallback…');
+      const json = await gvizJsonp(SID, 'sheet=' + encodeURIComponent('Clients'));
+      rows = gvizToRows(json); // gviz rows are data-only, no header to skip
+      loadMethod = 'gviz';
+      loadError  = null;
+      console.log('[investors] loaded via gviz —', rows.length, 'rows');
+    } catch(e2) {
+      console.warn('[investors] gviz path failed:', e2.message);
+      // loadError stays as e1 (Apps Script error, more actionable)
     }
-    rows.forEach(row => {
-      const g = i => row[i] != null ? String(row[i]).trim() : '';
-      const invId = +g(0); const name = g(1);
-      if (!name || isNaN(invId) || invId <= 0) return;
-      let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
+  }
+
+  // ── PARSE & MERGE ────────────────────────────────────────────────────────
+  if (rows !== null) {
+    let parsed = 0, skipped = 0;
+    rows.forEach(function(row, rowIdx) {
+      const g = function(i) { return row[i] != null ? String(row[i]).trim() : ''; };
+      const col0 = g(0);
+      const col1 = g(1);
+
+      // Skip header row (col0 would be "InvestorID" or similar text)
+      if (!col0 || !col1) { skipped++; return; }
+      const looksLikeHeader = isNaN(+col0) && col0.toLowerCase().includes('id');
+      if (looksLikeHeader) { console.log('[investors] skipping header row at index', rowIdx); return; }
+
+      // Accept row if it has a name — ID is preferred but not mandatory
+      const invId = +col0 || 0;
+      const name  = col1;
+      if (!name) { skipped++; return; }
+
+      // Tolerant ID: use numeric ID if valid, otherwise generate a stable one from name
+      const stableId = invId > 0 ? invId : Math.abs(name.split('').reduce(function(h,c){return Math.imul(31,h)+c.charCodeAt(0)|0;}, 0)) % 900000 + 100000;
+
+      let inv = investorProfiles.find(function(i) { return (i.investorId||i.id) === stableId; })
+             || investorProfiles.find(function(i) { return i.name && i.name.toLowerCase() === name.toLowerCase(); });
+
       if (!inv) {
-        const locs  = g(9)  ? g(9).split(',').map(s=>s.trim()).filter(Boolean)  : [];
-        const types = g(10) ? g(10).split(',').map(s=>s.trim()).filter(Boolean) : [];
-        inv = { investorId:invId, id:invId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', nationality:g(12)||'', source:g(13)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
+        const locs  = g(9)  ? g(9).split(',').map(function(s){return s.trim();}).filter(Boolean)  : [];
+        const types = g(10) ? g(10).split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+        inv = {
+          investorId:   stableId, id: stableId,
+          name:         name,
+          phone:        g(2),
+          email:        g(3),
+          status:       g(4) || 'Active',
+          createdAt:    g(5) || new Date().toISOString(),
+          lastContact:  g(6) || null,
+          clientType:   g(7) || '',
+          budget:       g(8) || null,
+          locations:    locs,
+          nationality:  g(12) || '',
+          source:       g(13) || '',
+          notes:        {},
+          generalNotes: g(11) || '',
+          criteria:     { types: types, cities: locs, budget: g(8) || '', notes: g(11) || '' },
+        };
         investorProfiles.push(inv);
+        parsed++;
       } else {
-        if(invId && !inv.investorId){inv.investorId=invId;inv.id=invId;}
-        if(g(2)&&!inv.phone)inv.phone=g(2);
-        if(g(3)&&!inv.email)inv.email=g(3);
-        if(g(4))inv.status=g(4);
-        if(g(7))inv.clientType=g(7);
-        if(g(8))inv.budget=g(8);
-        if(g(9))inv.locations=g(9).split(',').map(s=>s.trim()).filter(Boolean);
-        if(g(10)){if(!inv.criteria)inv.criteria={};inv.criteria.types=g(10).split(',').map(s=>s.trim()).filter(Boolean);}
-        if(g(11)){inv.generalNotes=g(11);if(!inv.criteria)inv.criteria={};inv.criteria.notes=g(11);}
-        if(g(12)&&!inv.nationality)inv.nationality=g(12);
-        if(g(13)&&!inv.source)inv.source=g(13);
+        // Update existing entry with any new data from sheet
+        if (invId > 0 && !inv.investorId) { inv.investorId = stableId; inv.id = stableId; }
+        if (g(2)  && !inv.phone)        inv.phone       = g(2);
+        if (g(3)  && !inv.email)        inv.email       = g(3);
+        if (g(4))                        inv.status      = g(4);
+        if (g(5)  && !inv.createdAt)    inv.createdAt   = g(5);
+        if (g(6))                        inv.lastContact = g(6);
+        if (g(7))                        inv.clientType  = g(7);
+        if (g(8))                        inv.budget      = g(8);
+        if (g(9))                        inv.locations   = g(9).split(',').map(function(s){return s.trim();}).filter(Boolean);
+        if (g(10)) { if(!inv.criteria)inv.criteria={}; inv.criteria.types = g(10).split(',').map(function(s){return s.trim();}).filter(Boolean); }
+        if (g(11)) { inv.generalNotes = g(11); if(!inv.criteria)inv.criteria={}; inv.criteria.notes = g(11); }
+        if (g(12) && !inv.nationality)  inv.nationality = g(12);
+        if (g(13) && !inv.source)       inv.source      = g(13);
+        parsed++;
       }
     });
-    console.log('[investors] loaded', investorProfiles.length, 'profiles');
+
+    console.log('[investors] parsed', parsed, 'profiles, skipped', skipped, 'rows — total in memory:', investorProfiles.length);
     saveInvestorProfiles();
-    if (listEl) listEl.innerHTML = renderInvestorProfilesPanel();
-    populateClientSelectors();
-    await readPropertiesFromSheets();
-  } catch(e) {
-    console.warn('[investors] sheet load failed:', e.message);
-    // Show error state with retry — do not leave a blank panel
+    sheetCacheSet('Clients', rows); // cache the raw rows for next load
+
     if (listEl) {
-      if (investorProfiles.length) {
-        // We have cached data — render it and show a soft warning
-        listEl.innerHTML = renderInvestorProfilesPanel();
-        const warn = document.createElement('div');
-        warn.style.cssText = 'margin:8px 0;padding:8px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:11px;color:#92400e';
-        warn.textContent = '⚠ Could not refresh from Google Sheets (' + e.message + '). Showing cached data.';
-        listEl.insertAdjacentElement('afterbegin', warn);
-      } else {
-        // Diagnose cause from error message
-        const isNetErr  = e.message.includes('Failed to fetch') || e.message.includes('NetworkError') || e.message.includes('unreachable');
-        const isTimeout = e.message.includes('timeout');
-        const isScript  = e.message.includes('Apps Script') || e.message.includes('not yet deployed');
-        const isAccess  = e.message.includes('restricted') || e.message.includes('Sign in') || e.message.includes('HTTP 403');
-
-        let heading  = 'Could not read the Clients sheet from Google Sheets';
-        let detail   = '';
-        let steps    = '';
-        const sheetUrl = `https://docs.google.com/spreadsheets/d/${SID}`;
-
-        if (isNetErr || isAccess) {
-          heading = 'Share the Google Sheet so IntelProp can read it';
-          detail  = 'IntelProp reads the Clients sheet directly in your browser. The sheet must be shared as "Anyone with the link → Viewer". No data becomes publicly editable — writing still requires your Apps Script URL.';
-          steps   = `<ol style="margin:6px 0 6px 18px;font-size:11px;color:#78350f;line-height:1.9">
-            <li>Open the sheet: <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open Google Sheet ↗</a></li>
-            <li>Click <b>Share</b> (top-right)</li>
-            <li>Under "General access" → <b>Anyone with the link → Viewer</b></li>
-            <li>Click <b>Save</b>, then click <b>↺ Retry</b> below</li>
-          </ol>`;
-        } else if (isScript) {
-          heading = 'Apps Script read handler not responding';
-          detail  = 'Your Apps Script URL exists but does not return investor data. Either the doGet() function does not handle ?action=read, or the script is not deployed as a Web App.';
-          steps   = `<div style="font-size:11px;color:#78350f;margin-top:4px;line-height:1.7">
-            Quickest fix: share the Google Sheet as <b>"Anyone with the link → Viewer"</b>. This bypasses Apps Script for reading and lets IntelProp fetch directly.<br>
-            Full fix: add a <code>doGet()</code> handler in your Apps Script that returns <code>{ rows: [[...]] }</code> for <code>?action=read&sheet=Clients</code>.
-          </div>`;
-        } else if (isTimeout) {
-          heading = 'Request timed out';
-          detail  = 'The connection to Google Sheets timed out. Check your internet connection and retry.';
-        } else {
-          heading = 'Could not load investors';
-          detail  = e.message;
-        }
-
-        listEl.innerHTML = `<div style="padding:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
-          <div style="font-weight:700;color:#92400e;margin-bottom:5px;font-size:13px">⚠ ${safeHTML(heading)}</div>
-          <div style="color:#78350f;line-height:1.6;margin-bottom:8px">${safeHTML(detail)}</div>
-          ${steps}
-          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
-            <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:6px 18px;border:1px solid #b45309;border-radius:6px;background:#fff;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
-            <a href="${sheetUrl}" target="_blank" style="font-size:11px;color:#1d4ed8">Open Google Sheet ↗</a>
-          </div>
-          <div style="margin-top:10px;padding-top:6px;border-top:1px solid #fde68a;font-size:10px;color:#a16207;opacity:.8">
-            Error: ${safeHTML(e.message)} · GID: ${CLIENTS_GID}
-          </div>
-        </div>`;
+      listEl.innerHTML = renderInvestorProfilesPanel();
+      // Soft method badge (only in dev — remove in prod if desired)
+      if (loadMethod === 'gviz') {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'margin-bottom:8px;padding:5px 10px;background:#dbeafe;border-radius:6px;font-size:10px;color:#1e40af';
+        badge.textContent = 'ℹ Loaded via gviz (sheet is public). For more reliable reads, add the Apps Script doGet() read handler.';
+        listEl.insertAdjacentElement('afterbegin', badge);
       }
     }
+    populateClientSelectors();
+    await readPropertiesFromSheets();
+    return; // success — done
   }
+
+  // ── ALL PATHS FAILED ─────────────────────────────────────────────────────
+  console.error('[investors] all read paths failed — error:', loadError?.message);
+  if (!listEl) return;
+
+  if (investorProfiles.length) {
+    // Cached data available — render it with a warning
+    listEl.innerHTML = renderInvestorProfilesPanel();
+    const warn = document.createElement('div');
+    warn.style.cssText = 'margin-bottom:10px;padding:8px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:11px;color:#92400e;display:flex;align-items:center;gap:8px';
+    warn.innerHTML = '<span>⚠</span><span>Showing cached data — could not refresh from Google Sheets (' + safeHTML(loadError?.message || 'unknown error') + ').</span><button onclick="readInvestorsFromSheets()" style="margin-left:auto;font-size:11px;padding:3px 12px;border:1px solid #b45309;border-radius:5px;background:#fff;color:#b45309;cursor:pointer;white-space:nowrap">↺ Retry</button>';
+    listEl.insertAdjacentElement('afterbegin', warn);
+    return;
+  }
+
+  // No data at all — show diagnostic error
+  const errMsg = loadError?.message || 'Unknown error';
+  const isTimeout = errMsg.includes('timed out');
+  const isNoHandler = errMsg.includes('no "rows" key') || errMsg.includes('not yet deployed') || errMsg.includes('null');
+  const isURLFail  = errMsg.includes('failed to load') || errMsg.includes('URL');
+  const sheetUrl   = 'https://docs.google.com/spreadsheets/d/' + SID;
+
+  let heading, detail, steps;
+
+  if (isNoHandler) {
+    heading = 'Apps Script read handler not configured';
+    detail  = 'The Apps Script responded but does not return investor data. The doGet() function needs to handle ?action=read&sheet=Clients and return { rows: [[...]] }.';
+    steps   = `<div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.8">
+      <b>Add this to your Apps Script doGet():</b><br>
+      <code style="background:#fff8e1;padding:2px 6px;border-radius:4px;font-size:10px;display:block;margin:4px 0">
+        if (e.parameter.action === 'read') {<br>
+        &nbsp;&nbsp;var sheet = SpreadsheetApp.openById('${SID}').getSheetByName(e.parameter.sheet);<br>
+        &nbsp;&nbsp;var rows = sheet.getDataRange().getValues().slice(1);<br>
+        &nbsp;&nbsp;var cb = e.parameter.callback;<br>
+        &nbsp;&nbsp;return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:rows})+')')<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;.setMimeType(ContentService.MimeType.JAVASCRIPT);<br>
+        }
+      </code>
+      After adding this, <b>deploy a new version</b> of the Web App and retry.
+    </div>`;
+  } else if (isURLFail) {
+    heading = 'Apps Script URL not reachable';
+    detail  = 'The request to the Apps Script failed before a response was received. The Web App may not be deployed, or the URL may have changed.';
+    steps   = `<div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.8">
+      Verify: <code style="background:#fff8e1;padding:2px 5px;border-radius:4px;font-size:10px">${APPS_SCRIPT_URL ? APPS_SCRIPT_URL.slice(0,80)+'…' : 'Not set'}</code><br>
+      In Apps Script: <b>Deploy → Manage deployments</b> → confirm Web App is active and "Who has access" is <b>Anyone</b>.
+    </div>`;
+  } else if (isTimeout) {
+    heading = 'Google Sheets request timed out';
+    detail  = 'The Apps Script did not respond within 18 seconds. This usually means the script is not deployed as a Web App, or your internet connection is slow.';
+    steps   = '';
+  } else {
+    heading = 'Could not load investors from Google Sheets';
+    detail  = errMsg;
+    steps   = '';
+  }
+
+  listEl.innerHTML = `<div style="padding:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
+    <div style="font-weight:700;color:#92400e;margin-bottom:5px;font-size:13px">⚠ ${safeHTML(heading)}</div>
+    <div style="color:#78350f;line-height:1.6;margin-bottom:4px">${safeHTML(detail)}</div>
+    ${steps}
+    <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:6px 18px;border:1px solid #b45309;border-radius:6px;background:#fff7ed;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
+      <a href="${sheetUrl}" target="_blank" style="font-size:11px;color:#1d4ed8">Open Google Sheet ↗</a>
+    </div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #fde68a;font-size:10px;color:#a16207;font-family:monospace">
+      Error: ${safeHTML(errMsg)} · Clients GID: ${CLIENTS_GID}
+    </div>
+  </div>`;
 }
 
 async function readPropertiesFromSheets() {
@@ -10690,22 +10825,49 @@ function loadInvestorToClientCall(name){
 }
 
 function renderClientCommLog(investorId){
-  var wrap=document.getElementById('cCommLog');
-  if(!wrap)return;
-  var entries=(communicationLog||[]).filter(function(c){return +c.investorId===+investorId;}).slice().reverse().slice(0,20);
-  if(!entries.length){wrap.style.display='none';return;}
-  wrap.style.display='block';
-  wrap.innerHTML='<div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Activity Log</div>'
-    +entries.map(function(c){
-      var d=new Date(c.date);
-      var ds=d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
-        +'<span style="color:var(--mu);white-space:nowrap;flex-shrink:0">'+ds+'</span>'
-        +'<span style="font-weight:500">'+c.action+'</span>'
-        +(c.propertyTitle?'<span style="color:var(--mu)"> · '+c.propertyTitle+'</span>':'')
-        +(c.note?'<span style="color:var(--mu)"> · '+c.note+'</span>':'')
-        +'</div>';
-    }).join('');
+  var wrap = document.getElementById('cCommLog');
+  if (!wrap) return;
+  var all_entries = (communicationLog||[]).filter(function(c){ return +c.investorId === +investorId; }).slice().reverse();
+  if (!all_entries.length) { wrap.style.display = 'none'; return; }
+
+  var count     = all_entries.length;
+  var entries   = all_entries.slice(0, 50); // cap at 50 in expanded view
+  var collapsed = count > 3;
+  var stateKey  = 'cCommLogOpen_' + investorId;
+
+  // Build entry rows HTML
+  var rowsHtml = entries.map(function(c) {
+    var d  = new Date(c.date);
+    var ds = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
+      + '<span style="color:var(--mu);white-space:nowrap;flex-shrink:0">' + ds + '</span>'
+      + '<span style="font-weight:500">' + c.action + '</span>'
+      + (c.propertyTitle ? '<span style="color:var(--mu)"> · ' + c.propertyTitle + '</span>' : '')
+      + (c.note ? '<span style="color:var(--mu)"> · ' + c.note + '</span>' : '')
+      + '</div>';
+  }).join('');
+
+  // Initial open state: open if ≤3, closed if more
+  var isOpen = collapsed ? false : true;
+
+  wrap.style.display = 'block';
+  wrap.innerHTML = '<div style="padding-top:16px">'
+    + '<button onclick="(function(btn){'
+    +   'var body=document.getElementById(\'cCommLogBody\');'
+    +   'var chev=document.getElementById(\'cCommLogChev\');'
+    +   'var open=body.style.display===\'none\';'
+    +   'body.style.display=open?\'\':\'none\';'
+    +   'chev.style.transform=open?\'rotate(180deg)\':\'rotate(0deg)\';'
+    +   'btn.setAttribute(\'aria-expanded\',open);'
+    + '})(this)" aria-expanded="' + (isOpen ? 'true' : 'false') + '" '
+    + 'style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 0 8px;background:none;border:none;cursor:pointer;text-align:left">'
+    +   '<span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)">Activity Log (' + count + ')</span>'
+    +   '<span id="cCommLogChev" style="font-size:11px;color:var(--mu);transition:transform .2s;transform:' + (isOpen ? 'rotate(180deg)' : 'rotate(0deg)') + '">▼</span>'
+    + '</button>'
+    + '<div id="cCommLogBody" style="display:' + (isOpen ? '' : 'none') + ';overflow-y:auto;max-height:320px">'
+    +   rowsHtml
+    + '</div>'
+    + '</div>';
 }
 
 function deleteInvestorProfile(id){
@@ -11710,33 +11872,91 @@ async function loadActivityLog(clientID) {
   } catch(e) { return []; }
 }
 
+// ── Activity Log state ───────────────────────────────────────────
+var _actLogOpen = false;       // persists across rerenders within a session
+var _actLogEntries = [];       // cached for toggle without re-fetch
+var _actLogClientID = null;
+
+function toggleActivityLog() {
+  _actLogOpen = !_actLogOpen;
+  _applyActivityLogState();
+}
+
+function _applyActivityLogState() {
+  var list     = document.getElementById('activityLogList');
+  var chevron  = document.getElementById('activityLogChevron');
+  var toggle   = document.getElementById('activityLogToggle');
+  if (!list) return;
+  if (_actLogOpen) {
+    list.style.display = '';
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+    if (toggle)  toggle.setAttribute('aria-expanded', 'true');
+  } else {
+    list.style.display = 'none';
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+    if (toggle)  toggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
 async function renderActivityLog(clientID) {
-  var wrap = document.getElementById('activityLogWrap');
-  var list = document.getElementById('activityLogList');
+  var wrap    = document.getElementById('activityLogWrap');
+  var list    = document.getElementById('activityLogList');
+  var title   = document.getElementById('activityLogTitle');
+  var toggle  = document.getElementById('activityLogToggle');
   if (!wrap || !list) return;
   if (!clientID) { wrap.style.display = 'none'; return; }
+
+  // If switching to a different investor, reset open state
+  if (_actLogClientID !== clientID) {
+    _actLogOpen = false;
+    _actLogClientID = clientID;
+  }
+
   wrap.style.display = '';
-  list.innerHTML = '<div style="font-size:11px;color:var(--mu)">Loading…</div>';
+  list.innerHTML = '<div style="font-size:11px;color:var(--mu);padding:4px 0">Loading…</div>';
+
   try {
     var entries = await loadActivityLog(clientID);
-    if (!entries.length) { list.innerHTML = '<div style="font-size:12px;color:var(--mu);padding:4px 0">No activity yet.</div>'; return; }
-    entries.reverse();
-    list.innerHTML = entries.map(function(e){
-      var icon = e.type === 'session'    ? '<span style="color:var(--blue)">●</span>'
-               : e.type === 'shortlist'  ? '<span style="color:#ef4444">♥</span>'
+    _actLogEntries = entries;
+
+    if (!entries.length) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    // Auto-expand if ≤3 entries; collapse if more
+    if (_actLogClientID === clientID && entries.length <= 3) {
+      _actLogOpen = true;
+    }
+
+    entries = entries.slice().reverse(); // newest first
+
+    // Update header label with count
+    var count = entries.length;
+    if (title) title.textContent = 'Activity Log (' + count + ')';
+
+    // Build the full entry list HTML
+    list.innerHTML = entries.map(function(e) {
+      var icon = e.type === 'session'   ? '<span style="color:var(--blue)">●</span>'
+               : e.type === 'shortlist' ? '<span style="color:#ef4444">♥</span>'
                : '<span style="color:var(--gold)">📝</span>';
       var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
       return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
-        +'<div style="flex-shrink:0;margin-top:1px">'+icon+'</div>'
-        +'<div style="flex:1;min-width:0">'
-          +'<div style="font-size:12px;color:var(--tx)">'+e.action+'</div>'
-          +(sub?'<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sub+'</div>':'')
-        +'</div>'
-        +'<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">'+e.dateFormatted+'</div>'
-        +'</div>';
+        + '<div style="flex-shrink:0;margin-top:1px">' + icon + '</div>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:12px;color:var(--tx)">' + e.action + '</div>'
+          + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+        + '</div>'
+        + '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + e.dateFormatted + '</div>'
+        + '</div>';
     }).join('');
+
+    // Apply current open/closed state
+    _applyActivityLogState();
+
   } catch(ex) {
     list.innerHTML = '<div style="font-size:11px;color:var(--mu)">Could not load activity log.</div>';
+    list.style.display = '';
     console.error('[activityLog]', ex);
   }
 }
