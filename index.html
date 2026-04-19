@@ -12275,13 +12275,8 @@ function pipelineStepClick(invId, stageIdx) {
   }
 
   // Confirm and move
-  const direction = stageIdx > current ? 'advance' : 'revert';
-  const note = prompt(
-    (direction === 'advance' ? 'Moving to ' : 'Reverting to ') + targetStage.label + '\nAdd a note (optional):'
-  );
-  if (note === null) return; // cancelled
-
-  setPipelineStage(invId, PIPELINE_STAGE_KEYS[stageIdx], note || '');
+  const direction = stageIdx > current ? '→ Move to ' : '← Revert to ';
+  showPipelineNoteBar(invId, PIPELINE_STAGE_KEYS[stageIdx], direction + targetStage.label);
 }
 
 function pipelineAdvance(invId) {
@@ -12290,15 +12285,11 @@ function pipelineAdvance(invId) {
   const currentIdx = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
   if (currentIdx >= PIPELINE_STAGES.length - 1) return;
   const nextStage = PIPELINE_STAGES[currentIdx + 1];
-
   if (nextStage.key === 'closed') {
     pipelineClosedModal(invId);
     return;
   }
-
-  const note = prompt('Moving to ' + nextStage.label + '\nAdd a note (optional):');
-  if (note === null) return;
-  setPipelineStage(invId, nextStage.key, note || '');
+  showPipelineNoteBar(invId, nextStage.key, '→ Advance to ' + nextStage.label);
 }
 
 function pipelineGoBack(invId) {
@@ -12307,9 +12298,44 @@ function pipelineGoBack(invId) {
   const currentIdx = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
   if (currentIdx <= 0) return;
   const prevStage = PIPELINE_STAGES[currentIdx - 1];
-  const note = prompt('Reverting to ' + prevStage.label + '\nAdd a note (optional):');
-  if (note === null) return; // cancelled
-  setPipelineStage(invId, prevStage.key, note || '');
+  showPipelineNoteBar(invId, prevStage.key, '← Back to ' + prevStage.label);
+}
+
+function showPipelineNoteBar(invId, targetStageKey, actionLabel) {
+  // Remove any existing note bar
+  const existing = document.getElementById('pipelineNoteBar');
+  if (existing) existing.remove();
+
+  // If clicking same target that's already pending, just cancel
+  if (existing && existing.dataset.target === targetStageKey) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'pipelineNoteBar';
+  bar.dataset.target = targetStageKey;
+  bar.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;display:flex;gap:8px;align-items:center;animation:fadeIn .15s ease';
+  bar.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap;flex-shrink:0">' + actionLabel + '</span>'
+    + '<input id="pipelineNoteInput" type="text" placeholder="Add a note (optional)…" style="flex:1;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;min-width:0">'
+    + '<button onclick="confirmPipelineNoteBar(' + invId + ','' + targetStageKey + '')" style="height:30px;padding:0 14px;border:none;border-radius:6px;background:#111;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Confirm</button>'
+    + '<button onclick="document.getElementById('pipelineNoteBar').remove()" style="height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--mu);font-size:12px;cursor:pointer;flex-shrink:0">✕</button>';
+
+  // Append to pipeline-wrap inside invCardView
+  const wrap = document.querySelector('.pipeline-wrap');
+  if (wrap) {
+    wrap.appendChild(bar);
+    document.getElementById('pipelineNoteInput').focus();
+    // Allow Enter key to confirm
+    document.getElementById('pipelineNoteInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') confirmPipelineNoteBar(invId, targetStageKey);
+      if (e.key === 'Escape') bar.remove();
+    });
+  }
+}
+
+function confirmPipelineNoteBar(invId, targetStageKey) {
+  const note = (document.getElementById('pipelineNoteInput') || {value:''}).value.trim();
+  const bar = document.getElementById('pipelineNoteBar');
+  if (bar) bar.remove();
+  setPipelineStage(invId, targetStageKey, note);
 }
 
 function setPipelineStage(invId, stageKey, note) {
