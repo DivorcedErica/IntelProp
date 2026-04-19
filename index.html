@@ -5970,7 +5970,7 @@ function renderInvestorCard(inv) {
         + '</div>'
         + '<div style="display:flex;gap:6px">'
           + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
-          + '<button onclick="document.getElementById('invContactEdit').style.display='none'" class="btn" style="font-size:11px">Cancel</button>'
+          + '<button onclick="var e=document.getElementById(\'invContactEdit\');if(e)e.style.display=\'none\'" class="btn" style="font-size:11px">Cancel</button>'
         + '</div>'
       + '</div>'
     + '</div>'
@@ -12997,4 +12997,3 @@ init();
 </script>
 </body>
 </html>
-  
