@@ -4885,7 +4885,15 @@ function gotoTab(t,el){
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
-  if(t==='investors'){document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();readInvestorsFromSheets();readCommsFromSheets();initAgentField();}
+  if(t==='investors'){
+    // Render cached/in-memory profiles immediately (no blank flash)
+    const listEl = document.getElementById('investorProfilesList');
+    if (listEl) listEl.innerHTML = investorProfiles.length ? renderInvestorProfilesPanel() : '<div style="padding:1rem;color:var(--mu);font-size:12px">⟳ Loading…</div>';
+    // Then refresh from sheet (async — updates panel when done)
+    readInvestorsFromSheets();
+    readCommsFromSheets();
+    initAgentField();
+  }
   if(t==='agents'){renderAgentsTab();readAgentsFromSheets().then(()=>renderAgentsTab());}
   if(t==='clients'||t==='portfolio'){populateClientSelectors();populateAgentSelector();}
   if(t==='agentportal'){apInitPortal();}
@@ -6145,7 +6153,7 @@ const SHEET_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function sheetCacheGet(sheetName) {
   try {
-    const raw = localStorage.getItem('ip_sc_' + sheetName);
+    const raw = localStorage.getItem('ip_sc2_' + sheetName); // v2: no slice(1) bug
     if (!raw) return null;
     const {rows, ts} = JSON.parse(raw);
     if (Date.now() - ts > SHEET_CACHE_TTL) return null;
@@ -6154,7 +6162,7 @@ function sheetCacheGet(sheetName) {
 }
 
 function sheetCacheSet(sheetName, rows) {
-  try { localStorage.setItem('ip_sc_' + sheetName, JSON.stringify({rows, ts: Date.now()})); } catch(e) {}
+  try { localStorage.setItem('ip_sc2_' + sheetName, JSON.stringify({rows, ts: Date.now()})); } catch(e) {}
 }
 
 async function loadSheetViaAppsScript(sheetName) {
@@ -6175,8 +6183,15 @@ async function loadSheetViaAppsScript(sheetName) {
       if (done) return; done = true;
       clearTimeout(timer); delete window[cbName];
       try { document.head.removeChild(script); } catch(e) {}
-      if (data && data.error) { reject(new Error('Apps Script: ' + data.error)); return; }
-      if (!data || !data.rows) { reject(new Error('Apps Script read not yet deployed')); return; }
+      if (data && data.error) {
+        console.warn('[sheet:appsScript] error for', sheetName, ':', data.error);
+        reject(new Error('Apps Script: ' + data.error)); return;
+      }
+      if (!data || !data.rows) {
+        console.warn('[sheet:appsScript] no rows returned for', sheetName, '— Apps Script doGet may not handle ?action=read');
+        reject(new Error('Apps Script read not yet deployed')); return;
+      }
+      console.log('[sheet:appsScript] loaded', data.rows.length, 'rows for', sheetName);
       sheetCacheSet(sheetName, data.rows);
       resolve(data.rows);
     };
@@ -6184,7 +6199,9 @@ async function loadSheetViaAppsScript(sheetName) {
       if (done) return; done = true;
       clearTimeout(timer); delete window[cbName];
       try { document.head.removeChild(script); } catch(e) {}
-      reject(new Error('Failed to fetch'));
+      // script.onerror fires when the Apps Script URL itself fails to load
+      // (wrong URL, not deployed, or network error)
+      reject(new Error('Apps Script URL unreachable — check the script is deployed as a Web App'));
     };
     script.src = APPS_SCRIPT_URL
       + '?action=read'
@@ -6215,37 +6232,96 @@ function parseCSVRows(text) {
   return rows;
 }
 
+// ── Parse gviz table JSON into plain row arrays ──────────────────
+// Converts Google Visualization API response to [[col0,col1,...],...]
+// Same format expected by readInvestorsFromSheets / readCommsFromSheets
+function gvizToRows(json) {
+  if (!json || !json.table) return [];
+  const cols = json.table.cols || [];
+  const rows = json.table.rows || [];
+  return rows.map(function(r) {
+    return (r.c || []).map(function(cell, ci) {
+      if (!cell || cell.v == null) return '';
+      const type = (cols[ci] || {}).type;
+      if (type === 'date' || type === 'datetime') {
+        // gviz dates: Date(yyyy,mm,dd,...) — convert to readable string
+        return parseGvizDate(String(cell.v));
+      }
+      // Prefer formatted value for numbers/dates, raw value otherwise
+      return cell.f != null ? String(cell.f) : String(cell.v);
+    });
+  });
+}
+
 async function loadSheetCSV(gid, {background} = {}) {
   const GID_TO_SHEET = {
     [CLIENTS_GID]: 'Clients',
-    [COMMS_GID]: 'Client Communications',
-    [AGENTS_GID]: 'Agents'
+    [COMMS_GID]:   'Client Communications',
+    [AGENTS_GID]:  'Agents'
   };
   const sheetName = GID_TO_SHEET[gid];
 
-  // Serve from cache instantly if available
+  // ── 1. Serve from cache instantly if fresh ────────────────────
   const cached = sheetName ? sheetCacheGet(sheetName) : null;
   if (cached) {
     if (!background) {
-      // Refresh in background without blocking
-      setTimeout(() => loadSheetCSV(gid, {background: true}).catch(()=>{}), 100);
+      // Kick off a background refresh so next open is fresh
+      setTimeout(() => loadSheetCSV(gid, {background: true}).catch(() => {}), 100);
     }
     return cached;
   }
 
-  // No cache — must fetch (this is the slow path, only on first load)
+  // ── 2. Try Google Visualization API (gviz) — no Apps Script needed
+  // Works as long as the sheet is shared with "Anyone with the link can view"
+  const sheetParam = sheetName
+    ? 'sheet=' + encodeURIComponent(sheetName)
+    : 'gid=' + gid;
+
+  try {
+    console.log('[sheet] trying gviz for', sheetName || gid);
+    const json = await gvizLoad(SID, sheetParam);
+    const rows = gvizToRows(json);
+    // gviz table.rows contains DATA rows only — headers are in table.cols[].label
+    // Do NOT slice(1): that would drop the first real investor/client row
+    const dataRows = rows;
+    console.log('[sheet] gviz loaded', dataRows.length, 'rows for', sheetName || gid);
+    if (sheetName) sheetCacheSet(sheetName, dataRows);
+    return dataRows;
+  } catch(e) {
+    console.warn('[sheet] gviz failed for', sheetName || gid, ':', e.message);
+  }
+
+  // ── 3. Try Apps Script JSONP read (only if gviz fails) ────────
   if (sheetName && APPS_SCRIPT_URL) {
-    try { return await loadSheetViaAppsScript(sheetName); } catch(e) {
-      if (!e.message.includes('not yet deployed')) console.warn('[sheet] Apps Script read failed for', sheetName, ':', e.message);
+    try {
+      console.log('[sheet] trying Apps Script JSONP read for', sheetName);
+      return await loadSheetViaAppsScript(sheetName);
+    } catch(e) {
+      console.warn('[sheet] Apps Script read failed for', sheetName, ':', e.message);
     }
   }
-  // Fallback: CSV export
+
+  // ── 4. CSV export (last resort — requires public sheet) ────────
+  console.log('[sheet] falling back to CSV export for GID', gid);
   const url = 'https://docs.google.com/spreadsheets/d/' + SID + '/export?format=csv&gid=' + gid;
   const r = await fetch(url);
-  if (!r.ok) throw new Error('CSV export HTTP ' + r.status);
+  if (!r.ok) {
+    console.warn('[sheet] CSV export returned HTTP', r.status, 'for GID', gid);
+    throw new Error(
+      'CSV export HTTP ' + r.status +
+      ' — share the sheet with "Anyone with the link can view" to enable reading'
+    );
+  }
   const text = await r.text();
-  if (text.includes('Host not in allowlist') || text.includes('Sign in')) throw new Error('Sheet access restricted');
+  if (text.includes('Host not in allowlist') || text.includes('Sign in') || text.includes('<html')) {
+    console.warn('[sheet] CSV export returned login page for GID', gid);
+    throw new Error(
+      'Sheet access restricted — share the sheet with "Anyone with the link can view" in Google Sheets → Share'
+    );
+  }
   const rows = parseCSVRows(text);
+  console.log('[sheet] CSV parsed', rows.length - 1, 'data rows for GID', gid);
+  if (sheetName) sheetCacheSet(sheetName, rows.slice(1));
   return rows.slice(1);
 }
 
@@ -6266,18 +6342,26 @@ async function loadSheet(sheetName, gidParam) {
 }
 
 async function readInvestorsFromSheets() {
+  const listEl = document.getElementById('investorProfilesList');
+  // Show loading state
+  if (listEl && !investorProfiles.length) {
+    listEl.innerHTML = '<div style="padding:1rem;color:var(--mu);font-size:12px">⟳ Loading investors from Google Sheets…</div>';
+  }
   try {
     const rows = await loadSheetCSV(CLIENTS_GID);
-    console.log('[investors] rows from sheet:', rows.length);
+    console.log('[investors] rows from sheet:', rows.length, '— first row sample:', JSON.stringify(rows[0])?.slice(0,120));
+    if (!rows.length) {
+      console.warn('[investors] Sheet returned 0 rows — check Apps Script read action and sheet permissions');
+    }
     rows.forEach(row => {
       const g = i => row[i] != null ? String(row[i]).trim() : '';
       const invId = +g(0); const name = g(1);
       if (!name || isNaN(invId) || invId <= 0) return;
       let inv = investorProfiles.find(i => (i.investorId||i.id) === invId) || investorProfiles.find(i => i.name.toLowerCase() === name.toLowerCase());
       if (!inv) {
-        const locs = g(9) ? g(9).split(',').map(s=>s.trim()).filter(Boolean) : [];
+        const locs  = g(9)  ? g(9).split(',').map(s=>s.trim()).filter(Boolean)  : [];
         const types = g(10) ? g(10).split(',').map(s=>s.trim()).filter(Boolean) : [];
-        inv = { investorId:invId, id:invId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
+        inv = { investorId:invId, id:invId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:new Date().toISOString(), lastContact:null, notes:{}, generalNotes:g(11)||'', clientType:g(7)||'', nationality:g(12)||'', source:g(13)||'', budget:g(8)||null, locations:locs, criteria:{types, cities:locs, budget:g(8)||'', notes:g(11)||''} };
         investorProfiles.push(inv);
       } else {
         if(invId && !inv.investorId){inv.investorId=invId;inv.id=invId;}
@@ -6289,14 +6373,76 @@ async function readInvestorsFromSheets() {
         if(g(9))inv.locations=g(9).split(',').map(s=>s.trim()).filter(Boolean);
         if(g(10)){if(!inv.criteria)inv.criteria={};inv.criteria.types=g(10).split(',').map(s=>s.trim()).filter(Boolean);}
         if(g(11)){inv.generalNotes=g(11);if(!inv.criteria)inv.criteria={};inv.criteria.notes=g(11);}
+        if(g(12)&&!inv.nationality)inv.nationality=g(12);
+        if(g(13)&&!inv.source)inv.source=g(13);
       }
     });
+    console.log('[investors] loaded', investorProfiles.length, 'profiles');
     saveInvestorProfiles();
-    if (document.getElementById('investorProfilesList')) document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+    if (listEl) listEl.innerHTML = renderInvestorProfilesPanel();
     populateClientSelectors();
     await readPropertiesFromSheets();
   } catch(e) {
     console.warn('[investors] sheet load failed:', e.message);
+    // Show error state with retry — do not leave a blank panel
+    if (listEl) {
+      if (investorProfiles.length) {
+        // We have cached data — render it and show a soft warning
+        listEl.innerHTML = renderInvestorProfilesPanel();
+        const warn = document.createElement('div');
+        warn.style.cssText = 'margin:8px 0;padding:8px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;font-size:11px;color:#92400e';
+        warn.textContent = '⚠ Could not refresh from Google Sheets (' + e.message + '). Showing cached data.';
+        listEl.insertAdjacentElement('afterbegin', warn);
+      } else {
+        // Diagnose cause from error message
+        const isNetErr  = e.message.includes('Failed to fetch') || e.message.includes('NetworkError') || e.message.includes('unreachable');
+        const isTimeout = e.message.includes('timeout');
+        const isScript  = e.message.includes('Apps Script') || e.message.includes('not yet deployed');
+        const isAccess  = e.message.includes('restricted') || e.message.includes('Sign in') || e.message.includes('HTTP 403');
+
+        let heading  = 'Could not read the Clients sheet from Google Sheets';
+        let detail   = '';
+        let steps    = '';
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${SID}`;
+
+        if (isNetErr || isAccess) {
+          heading = 'Share the Google Sheet so IntelProp can read it';
+          detail  = 'IntelProp reads the Clients sheet directly in your browser. The sheet must be shared as "Anyone with the link → Viewer". No data becomes publicly editable — writing still requires your Apps Script URL.';
+          steps   = `<ol style="margin:6px 0 6px 18px;font-size:11px;color:#78350f;line-height:1.9">
+            <li>Open the sheet: <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open Google Sheet ↗</a></li>
+            <li>Click <b>Share</b> (top-right)</li>
+            <li>Under "General access" → <b>Anyone with the link → Viewer</b></li>
+            <li>Click <b>Save</b>, then click <b>↺ Retry</b> below</li>
+          </ol>`;
+        } else if (isScript) {
+          heading = 'Apps Script read handler not responding';
+          detail  = 'Your Apps Script URL exists but does not return investor data. Either the doGet() function does not handle ?action=read, or the script is not deployed as a Web App.';
+          steps   = `<div style="font-size:11px;color:#78350f;margin-top:4px;line-height:1.7">
+            Quickest fix: share the Google Sheet as <b>"Anyone with the link → Viewer"</b>. This bypasses Apps Script for reading and lets IntelProp fetch directly.<br>
+            Full fix: add a <code>doGet()</code> handler in your Apps Script that returns <code>{ rows: [[...]] }</code> for <code>?action=read&sheet=Clients</code>.
+          </div>`;
+        } else if (isTimeout) {
+          heading = 'Request timed out';
+          detail  = 'The connection to Google Sheets timed out. Check your internet connection and retry.';
+        } else {
+          heading = 'Could not load investors';
+          detail  = e.message;
+        }
+
+        listEl.innerHTML = `<div style="padding:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
+          <div style="font-weight:700;color:#92400e;margin-bottom:5px;font-size:13px">⚠ ${safeHTML(heading)}</div>
+          <div style="color:#78350f;line-height:1.6;margin-bottom:8px">${safeHTML(detail)}</div>
+          ${steps}
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+            <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:6px 18px;border:1px solid #b45309;border-radius:6px;background:#fff;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
+            <a href="${sheetUrl}" target="_blank" style="font-size:11px;color:#1d4ed8">Open Google Sheet ↗</a>
+          </div>
+          <div style="margin-top:10px;padding-top:6px;border-top:1px solid #fde68a;font-size:10px;color:#a16207;opacity:.8">
+            Error: ${safeHTML(e.message)} · GID: ${CLIENTS_GID}
+          </div>
+        </div>`;
+      }
+    }
   }
 }
 
@@ -6366,14 +6512,20 @@ async function readCommsFromSheets() {
   try {
     const rows = await loadSheetCSV(COMMS_GID);
     const existingIds = new Set(communicationLog.map(c => c.commId));
+    let added = 0;
     rows.forEach(row => {
       const g = i => row[i] != null ? String(row[i]).trim() : '';
       const commId = +g(0); const clientId = +g(1);
       if (!commId || !clientId) return;
       if (existingIds.has(commId)) return;
       communicationLog.push({ commId, investorId:clientId, date:g(2), investorName:g(3), type:g(4)||'general', action:g(5)||'Activity', propertyId:g(6)?+g(6):null, propertyTitle:g(7)||null, note:g(8)||'' });
+      added++;
     });
-  } catch(e) { /* comms sheet unavailable */ }
+    if (added > 0) { saveCommLog(); console.log('[comms] loaded', added, 'new entries'); }
+  } catch(e) {
+    console.warn('[comms] sheet load failed:', e.message);
+    // Non-critical — comms load failure should not break the investors panel
+  }
 }
 
 function resetClient() {
