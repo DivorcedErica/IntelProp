@@ -8656,7 +8656,7 @@ function analyticsNav() {}
 //  - Liquidity penalises thin markets meaningfully
 //  - Estimated/proxy data is discounted before scoring
 //  - "adj" = final score after all multiplier corrections
-//  - Score colours: green ≥70, amber 55–69, orange 40–54, red <40
+//  - Score colours: green ≥65, amber 50–64, orange 38–49, red <38
 //  - Never crashes if a metric is missing — degrades gracefully
 // ══════════════════════════════════════════════════════════════════
 
@@ -8680,17 +8680,17 @@ function anNormaliseCity(city) {
 }
 
 // ── Score colour bands ───────────────────────────────────────────
-// green ≥70 | amber 55–69 | orange 40–54 | red <40
+// green ≥65 | amber 50–64 | orange 38–49 | red <38
 function anScoreColor(v) {
-  if (v >= 70) return '#15803d';  // green
-  if (v >= 55) return '#b45309';  // amber
-  if (v >= 40) return '#c2410c';  // orange
-  return '#991b1b';               // red
+  if (v >= 65) return '#15803d';  // green  — strong / attractive
+  if (v >= 50) return '#b45309';  // amber  — selective / moderate
+  if (v >= 38) return '#c2410c';  // orange — weak / caution
+  return '#991b1b';               // red    — high risk / avoid
 }
 function anScoreBg(v) {
-  if (v >= 70) return '#dcfce7';
-  if (v >= 55) return '#fef3c7';
-  if (v >= 40) return '#ffedd5';
+  if (v >= 65) return '#dcfce7';
+  if (v >= 50) return '#fef3c7';
+  if (v >= 38) return '#ffedd5';
   return '#fee2e2';
 }
 
@@ -8851,19 +8851,32 @@ function _an_scoreCity(city, listings) {
   const confTier   = confData?.tier  ?? 'proxy';
   const contracts  = liqData?.contracts2024 ?? 0;
 
-  // Avg price & beds from real listings for yield calculation
-  const priced    = listings.filter(d => d.price > 0);
-  const avgPrice  = priced.length
-    ? priced.reduce((s,d)=>s+d.price,0) / priced.length : 300000;
-  const beddedL   = listings.filter(d => d.bedrooms != null);
-  const avgBeds   = beddedL.length
-    ? Math.round(beddedL.reduce((s,d)=>s+d.bedrooms,0)/beddedL.length) : 2;
+  // ── Representative price: apartment MEDIAN, not mean of all types
+  // Mean across all listings skews high due to villas/commercial/luxury,
+  // producing artificially low yields that misrepresent the rental investment case.
+  const isApt = d => /apartment|flat|studio/i.test(d.type||'');
+  const aptPriced  = listings.filter(d => d.price > 0 && isApt(d));
+  const allPriced  = listings.filter(d => d.price > 0);
+  const pricePool  = aptPriced.length >= 3 ? aptPriced : allPriced;
+  const priceSorted = pricePool.map(d => d.price).sort((a,b) => a-b);
+  const medianPrice = priceSorted.length
+    ? priceSorted[Math.floor(priceSorted.length / 2)] : 300000;
+  // Cap at 800k so luxury outliers don't suppress the representative yield
+  const repPrice   = Math.min(medianPrice, 800000);
+
+  // Representative beds: mode of 1–4 beds, default 2
+  const bedPool    = (aptPriced.length >= 3 ? aptPriced : listings)
+    .filter(d => d.bedrooms >= 1 && d.bedrooms <= 4).map(d => d.bedrooms);
+  const bedMode    = bedPool.length
+    ? +Object.entries(bedPool.reduce((m,b)=>{m[b]=(m[b]||0)+1;return m;},{}))
+        .sort((a,b)=>b[1]-a[1])[0][0]
+    : 2;
 
   // Growth — prefer apartment type, fallback to overall
   const growthPct  = growthData?.apartments ?? growthData?.overall ?? null;
 
   // Component scores
-  const yld  = _an_yieldScore(city, avgBeds, avgPrice, 'mixed', rentBench);
+  const yld  = _an_yieldScore(city, bedMode, repPrice, 'mixed', rentBench);
   const grw  = _an_growthScore(growthPct);
   const liq  = _an_liquidityScore(contracts);
   const dem  = _an_demandScore(demandData?.score);
@@ -8892,7 +8905,7 @@ function _an_scoreCity(city, listings) {
   return {
     city,
     count:       listings.length,
-    avgPrice,
+    repPrice, repBeds: bedMode,
     // Component scores
     yieldScore:  yld.score,
     yieldPct:    yld.pct,
@@ -9057,10 +9070,10 @@ function renderAnalyticsOverview(pool) {
 
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
       <span style="font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Score bands:</span>
-      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">70+ Strong</span>
-      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">55–69 Attractive</span>
-      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">40–54 Selective</span>
-      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;40 Caution</span>
+      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">65+ Strong</span>
+      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">50–64 Attractive</span>
+      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">38–49 Selective</span>
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;38 Caution</span>
     </div>
 
     <div class="analytics-charts">
@@ -9221,10 +9234,10 @@ function renderAnalyticsComparison() {
       Sources: CBC RPPI Q4 2025 · RICS · DLS 2024. Directional guidance — not a forecast.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">70+ Strong</span>
-      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">55–69 Attractive</span>
-      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">40–54 Selective</span>
-      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;40 Caution</span>
+      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">65+ Strong</span>
+      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">50–64 Attractive</span>
+      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">38–49 Selective</span>
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;38 Caution</span>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">
