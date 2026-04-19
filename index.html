@@ -7622,27 +7622,152 @@ function apProcessFile(file, mode) {
 }
 
 // ── AI call helper ────────────────────────────────────────────────
-async function apCallClaude(systemPrompt, userContent, maxTokens) {
-  // Build messages array — include file if present
-  const messages = [{ role: 'user', content: userContent }];
+// ── AP: structured proxy diagnostics ────────────────────────────
+// Classifies proxy errors so the UI can show actionable messages
+async function apDiagnoseProxy() {
+  try {
+    const r = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ _ping: true })
+    });
+    return { ok: r.ok, status: r.status };
+  } catch(e) {
+    return { ok: false, status: 0, networkError: true };
+  }
+}
+
+// ── AP: fetch URL page content via proxy web_search tool ────────
+// Returns { html: string, success: bool, error: string|null }
+async function apFetchUrlContent(url) {
+  const diagLabel = document.getElementById('apPropStatus');
+
+  // 1. Check proxy health first
+  const diag = await apDiagnoseProxy();
+  if (!diag.ok) {
+    const reason = diag.networkError
+      ? 'Cannot reach the extraction proxy — check your internet connection.'
+      : diag.status === 401 || diag.status === 403
+        ? 'Extraction proxy authentication failed (API key missing or invalid in Vercel environment). Please check ANTHROPIC_API_KEY is set in your Vercel project settings.'
+        : `Extraction proxy returned ${diag.status}. The service may be temporarily unavailable.`;
+    return { html: null, success: false, error: reason };
+  }
+
+  // 2. Try to fetch URL content via Claude web_search tool
+  diagLabel && (diagLabel.textContent = 'Fetching URL content…');
   try {
     const res = await fetch('/api/proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens || 4000,
-        system: systemPrompt,
-        messages,
+        max_tokens: 3000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{
+          role: 'user',
+          content: `Fetch and return the full text content of this property listing page: ${url}\n\nReturn ALL visible text from the page including: property title, developer name, location, property type, number of bedrooms, bathrooms, floor area (m²), price, delivery date, and any other property details. Do not summarise — return the raw text content.`
+        }]
       })
     });
-    if (!res.ok) throw new Error('Proxy returned ' + res.status);
+
+    if (!res.ok) {
+      const status = res.status;
+      // Attempt to read error body for more detail
+      let bodySnippet = '';
+      try { bodySnippet = (await res.text()).slice(0, 200); } catch(e) {}
+      console.warn('[AP:fetchUrl] proxy status', status, 'body:', bodySnippet);
+
+      if (status === 401 || status === 403) {
+        return {
+          html: null, success: false,
+          error: 'Extraction proxy authentication failed (HTTP ' + status + '). The ANTHROPIC_API_KEY environment variable may be missing or expired in Vercel. Check Vercel → Project → Settings → Environment Variables.'
+        };
+      }
+      return {
+        html: null, success: false,
+        error: `Extraction proxy returned HTTP ${status}. ${bodySnippet ? 'Detail: ' + bodySnippet : ''}`
+      };
+    }
+
     const data = await res.json();
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-    return text;
+    // Extract all text from the response (may include tool_use and text blocks)
+    const textBlocks = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n');
+
+    if (!textBlocks.trim()) {
+      return {
+        html: null, success: false,
+        error: 'The page was fetched but no readable content was returned. The site may block automated access, or the page requires JavaScript rendering.'
+      };
+    }
+
+    console.log('[AP:fetchUrl] fetched', textBlocks.length, 'chars from', url);
+    return { html: textBlocks, success: true, error: null };
+
   } catch(e) {
-    throw new Error('AI extraction failed: ' + e.message);
+    console.error('[AP:fetchUrl] network error:', e);
+    return {
+      html: null, success: false,
+      error: 'Network error while fetching URL: ' + e.message
+    };
   }
+}
+
+// ── AP: show fetch failure with fallback options ─────────────────
+function apShowUrlFetchError(url, errorMsg, statusEl) {
+  statusEl.innerHTML = '';
+  const errDiv = document.createElement('div');
+  errDiv.style.cssText = 'margin-top:10px;padding:12px 16px;background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;font-size:12px;line-height:1.6';
+  errDiv.innerHTML = `
+    <div style="font-weight:600;color:#991b1b;margin-bottom:4px">⚠ Could not fetch this URL</div>
+    <div style="color:#7f1d1d;margin-bottom:8px">${safeHTML(errorMsg)}</div>
+    <div style="font-size:11px;color:#991b1b;font-weight:500">What to do instead:</div>
+    <ul style="margin:4px 0 0 16px;color:#7f1d1d;font-size:11px">
+      <li>Open the listing in your browser, select all text (Ctrl+A), copy and paste into the text area above</li>
+      <li>Upload the developer's PDF brochure or unit schedule using the file drop zone</li>
+      <li>If you have access to the page source, paste that into the text area</li>
+    </ul>
+    <div style="margin-top:8px;font-size:10px;color:#9b1c1c;opacity:.8">URL preserved: ${safeHTML(url)}</div>`;
+  const container = document.getElementById('apPropStatus').parentNode || document.getElementById('apPropStatus');
+  container.appendChild ? container.appendChild(errDiv) : (container.innerHTML += errDiv.outerHTML);
+  // Keep URL field populated so agent doesn't lose it
+  const urlField = document.getElementById('apPropUrl');
+  if (urlField && !urlField.value) urlField.value = url;
+}
+
+async function apCallClaude(systemPrompt, userContent, maxTokens) {
+  const messages = [{ role: 'user', content: userContent }];
+  const res = await fetch('/api/proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens || 4000,
+      system: systemPrompt,
+      messages,
+    })
+  });
+
+  if (!res.ok) {
+    const status = res.status;
+    let body = '';
+    try { body = (await res.text()).slice(0, 300); } catch(e) {}
+    console.error('[AP:claude] proxy error', status, body);
+
+    if (status === 401 || status === 403) {
+      throw new Error(
+        `Extraction service authentication failed (HTTP ${status}). ` +
+        `Please check that ANTHROPIC_API_KEY is set correctly in Vercel → Project → Settings → Environment Variables.`
+      );
+    }
+    throw new Error(`Extraction service returned HTTP ${status}. ${body ? 'Detail: ' + body.slice(0,100) : 'Please try again shortly.'}`);
+  }
+
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  return text;
 }
 
 // ── Duplicate detection against existing listings ─────────────────
@@ -7692,26 +7817,53 @@ async function apExtractProperties() {
 
   btn.disabled = true;
   btn.textContent = '⟳ Extracting…';
-  status.textContent = 'Sending to AI…';
+  status.textContent = '';
+  // Clear any previous error divs
+  const prevErr = document.querySelector('#apPropStatus ~ div[style*="fee2e2"]');
+  if (prevErr) prevErr.remove();
+
   document.getElementById('apPropReviewArea').style.display = 'none';
   document.getElementById('apPropResult').style.display = 'none';
 
+  let extractionText = text;   // starts with pasted text
+  let urlFetched     = false;
+
   try {
-    // Build user content — may include PDF as document block
+    // ── STEP 1: If URL provided and no pasted text, pre-fetch the page ──
+    if (url && !text && !_ap.propFileData) {
+      status.textContent = '⟳ Fetching URL content…';
+      const fetched = await apFetchUrlContent(url);
+
+      if (!fetched.success) {
+        // URL fetch failed — show clear error with fallback options, do NOT proceed
+        btn.disabled = false;
+        btn.textContent = '✦ Extract listings';
+        status.textContent = '';
+        apShowUrlFetchError(url, fetched.error, status);
+        return;
+      }
+
+      extractionText = fetched.html;
+      urlFetched = true;
+      status.textContent = `⟳ URL content fetched (${(extractionText.length/1000).toFixed(1)}k chars) — extracting listings…`;
+    } else if (url && (text || _ap.propFileData)) {
+      // Both URL and text/file provided — use text/file, append URL as hint only
+      status.textContent = '⟳ Extracting from provided content…';
+    } else {
+      status.textContent = '⟳ Sending to AI…';
+    }
+
+    // ── STEP 2: Build content for Claude ─────────────────────────────
     let userContent;
     if (_ap.propFileType === 'pdf' && _ap.propFileData) {
       userContent = [
-        {
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: _ap.propFileData }
-        },
-        { type: 'text', text: apBuildPropPrompt(text, url, devHint, cityHint, typeHint) }
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ap.propFileData } },
+        { type: 'text', text: apBuildPropPrompt(extractionText, url, devHint, cityHint, typeHint) }
       ];
     } else {
       const fileText = (_ap.propFileType && _ap.propFileType !== 'pdf' && _ap.propFileData)
-        ? '\n\nFILE CONTENT:\n' + _ap.propFileData.slice(0, 12000)
-        : '';
-      userContent = apBuildPropPrompt(text, url, devHint, cityHint, typeHint) + fileText;
+        ? '\n\nFILE CONTENT:\n' + _ap.propFileData.slice(0, 12000) : '';
+      userContent = apBuildPropPrompt(extractionText, url, devHint, cityHint, typeHint) + fileText;
     }
 
     const system = `You are a Cyprus real estate data extraction specialist for a professional advisory firm.
@@ -7761,49 +7913,59 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "source_quality": "high"|"medium"|"low"
 }`;
 
+    // ── STEP 3: Call Claude for extraction ───────────────────────────
     const rawJson = await apCallClaude(system, userContent, 4000);
     const parsed  = apParseJSON(rawJson);
-    if (!parsed || !parsed.units) throw new Error('AI returned no unit data');
+    if (!parsed || !parsed.units) throw new Error('AI returned no unit data. The content may not contain recognisable property listings.');
 
-    // Merge project data into each unit, check duplicates
+    // ── STEP 4: Merge, deduplicate, render ───────────────────────────
     const proj = parsed.project || {};
     _ap.extractedProps = (parsed.units || []).map((u, i) => {
       const row = {
-        developer:       u.developer || proj.developer || devHint || null,
-        title:           u.title || (proj.project_name ? `${proj.project_name} Unit ${i+1}` : `Unit ${i+1}`),
-        complex:         proj.project_name || null,
-        type:            u.type || typeHint || null,
-        city:            u.city || proj.city || cityHint || null,
-        district:        u.district || proj.district || null,
-        bedrooms:        u.bedrooms,
-        bathrooms:       u.bathrooms,
-        area:            u.covered_area_m2,
-        plot:            u.plot_size_m2,
-        price:           u.price_eur,
-        ppm:             u.covered_area_m2 && u.price_eur ? Math.round(u.price_eur / u.covered_area_m2) : null,
-        delivery:        u.delivery || proj.delivery || null,
-        seaDist:         u.sea_distance_km ?? null,
-        parking:         u.parking,
-        pool:            u.pool,
-        furnished:       u.furnished,
-        notes:           [u.notes, proj.notes].filter(Boolean).join(' | ') || null,
-        _confidence:     u.confidence || 'medium',
-        _uncertain:      u.uncertain_fields || [],
-        _notes:          parsed.extraction_notes || '',
-        _sourceQuality:  parsed.source_quality || 'medium',
-        _selected:       true,
+        developer:   u.developer || proj.developer || devHint || null,
+        title:       u.title || (proj.project_name ? `${proj.project_name} Unit ${i+1}` : `Unit ${i+1}`),
+        complex:     proj.project_name || null,
+        type:        u.type || typeHint || null,
+        city:        u.city || proj.city || cityHint || null,
+        district:    u.district || proj.district || null,
+        bedrooms:    u.bedrooms,
+        bathrooms:   u.bathrooms,
+        area:        u.covered_area_m2,
+        plot:        u.plot_size_m2,
+        price:       u.price_eur,
+        ppm:         u.covered_area_m2 && u.price_eur ? Math.round(u.price_eur / u.covered_area_m2) : null,
+        delivery:    u.delivery || proj.delivery || null,
+        seaDist:     u.sea_distance_km ?? null,
+        parking:     u.parking,
+        pool:        u.pool,
+        furnished:   u.furnished,
+        notes:       [u.notes, proj.notes].filter(Boolean).join(' | ') || null,
+        _confidence:    u.confidence || 'medium',
+        _uncertain:     u.uncertain_fields || [],
+        _notes:         parsed.extraction_notes || '',
+        _sourceQuality: parsed.source_quality || 'medium',
+        _selected:      true,
       };
       const dup = apCheckDuplicate(row);
-      row._duplicate   = dup;
-      row._status      = dup ? (dup.type === 'exact' ? 'duplicate' : 'possible_dup') : 'new';
+      row._duplicate = dup;
+      row._status    = dup ? (dup.type === 'exact' ? 'duplicate' : 'possible_dup') : 'new';
       return row;
     });
 
     apRenderPropertyTable(_ap.extractedProps, parsed.extraction_notes);
 
   } catch(e) {
-    status.textContent = '⚠ ' + e.message;
+    // Structured error message — no raw "Proxy returned 401" shown to user
+    const msg = e.message || 'Unknown error';
     console.error('[AgentPortal] Property extraction error:', e);
+
+    // Check if it's a known proxy auth issue and show enhanced help
+    if (msg.includes('401') || msg.includes('403') || msg.includes('authentication failed')) {
+      status.innerHTML = '';
+      apShowUrlFetchError(url, msg, status);
+    } else {
+      status.textContent = '⚠ ' + msg;
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = '✦ Extract listings';
@@ -7817,7 +7979,10 @@ function apBuildPropPrompt(text, url, devHint, cityHint, typeHint) {
     typeHint  ? `Property type hint: ${typeHint}` : '',
     url       ? `Source URL: ${url}` : '',
   ].filter(Boolean).join('\n');
-  return `Extract all property listings / units from the content below.\n${hints}\n\nCONTENT:\n${text || '(See attached file)'}`;
+  const contentLabel = text
+    ? (url && text.length > 200 ? 'PAGE CONTENT (fetched from URL above):' : 'CONTENT:')
+    : '(See attached file)';
+  return `Extract all property listings / units from the content below.\n${hints}\n\n${contentLabel}\n${text || ''}`;
 }
 
 function apRenderPropertyTable(rows, extractionNotes) {
