@@ -554,7 +554,7 @@ tr:hover td{background:var(--bg2)}
       <div id="topOppsWrap" style="margin-bottom:12px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">Top Opportunities</div>
-          <button onclick="document.getElementById('topOppsWrap').style.display='none'" style="font-size:10px;color:var(--mu);background:none;border:none;cursor:pointer">Hide</button>
+          <button onclick="topOppsDismissed=true;document.getElementById('topOppsWrap').style.display='none'" style="font-size:10px;color:var(--mu);background:none;border:none;cursor:pointer">Hide</button>
         </div>
         <div id="topOppsCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px"></div>
       </div>
@@ -4049,10 +4049,13 @@ function renderInsightsBar(data) {
 }
 
 // ── Top Opportunities strip ────────────────────────────────────
+let topOppsDismissed = false;
+
 function renderTopOpps(data) {
   const wrap  = document.getElementById('topOppsWrap');
   const cards = document.getElementById('topOppsCards');
   if (!wrap || !cards) return;
+  if (topOppsDismissed) return;
 
   const withPrice = data.filter(d=>d.price&&d.price>1000);
   if (!withPrice.length) { wrap.style.display='none'; return; }
@@ -4060,12 +4063,11 @@ function renderTopOpps(data) {
   const profile = { purpose:'mixed', objective:'balanced', risk:'moderate' };
   const scored  = withPrice.map(d=>({ d, score: safeScore(d, profile) }));
 
-  // Five best-of slots
+  // Four best-of slots
   const byScore   = [...scored].sort((a,b)=>b.score.total-a.score.total);
   const byValue   = [...scored].filter(s=>s.score.value_ratio!=null).sort((a,b)=>a.score.value_ratio-b.score.value_ratio);
   const byYield   = [...scored].sort((a,b)=>(b.score.yieldData?.grossYieldPct||0)-(a.score.yieldData?.grossYieldPct||0));
   const byRisk    = [...scored].sort((a,b)=>getListingRisk(a.d).level-getListingRisk(b.d).level);
-  const byGrowth  = [...scored].sort((a,b)=>(b.score.subscores?.growth?.score||0)-(a.score.subscores?.growth?.score||0));
 
   // Deduplicate: each tile prefers a different property
   const used = new Set();
@@ -4075,7 +4077,6 @@ function renderTopOpps(data) {
     { label:'Best Value',      emoji:'💰', item: pick(byValue)  },
     { label:'Highest Yield',   emoji:'📈', item: pick(byYield)  },
     { label:'Lowest Risk',     emoji:'🛡', item: pick(byRisk)   },
-    { label:'Growth Upside',   emoji:'📊', item: pick(byGrowth) },
   ].filter(t=>t.item);
 
   if (!tiles.length) { wrap.style.display='none'; return; }
