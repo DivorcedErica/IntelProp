@@ -6055,10 +6055,13 @@ async function syncInvestorToSheets(inv) {
   if (!APPS_SCRIPT_URL) return;
   // Column order: InvestorID | Name | Phone | Email | Status | Created On | Last Contact | Client Type | Budget | Locations | Type of Properties | Notes | Nationality
   const cr = inv.criteria || {};
+  // Prefix phone with apostrophe so Google Sheets treats it as plain text
+  // and the + sign is not lost or misinterpreted
+  const phone = inv.phone ? (inv.phone.startsWith('+') ? "'" + inv.phone : inv.phone) : '';
   const row = [
     inv.investorId || inv.id,
     inv.name,
-    inv.phone || '',
+    phone,
     inv.email || '',
     inv.status || 'Active',
     inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',
@@ -10552,6 +10555,7 @@ function saveClient() {
   if (!name.trim()) { alert('Please enter a client name first.'); return; }
   var clientId = 'CL' + String(Date.now()).slice(-6);
   var phone = (document.getElementById('cPhone')||{}).value||'';
+  var phoneForSheet = phone.startsWith('+') ? "'" + phone : phone;
   var email = (document.getElementById('cEmail')||{}).value||'';
   var source = '';
   var srcBtn = document.querySelector('#cSourceGroup .crit-btn.on'); if(srcBtn) source = srcBtn.dataset.val||'';
@@ -10569,7 +10573,7 @@ function saveClient() {
   var assignBtn = document.querySelector('#cAssignGroup .crit-btn.on'); var assignedTo = assignBtn ? assignBtn.dataset.val||'' : '';
   var notes = (document.getElementById('cNotes')||{}).value||'';
   var now = new Date().toISOString();
-  var row = [clientId, name, phone, email, source, agentId, agentName, purpose, types.join(', '), budgetMin, budgetMax, beds[0]||'', beds[beds.length-1]||'', cities.join(', '), seaVal, status, assignedTo, notes, now.slice(0,10), now.slice(0,10)];
+  var row = [clientId, name, phoneForSheet, email, source, agentId, agentName, purpose, types.join(', '), budgetMin, budgetMax, beds[0]||'', beds[beds.length-1]||'', cities.join(', '), seaVal, status, assignedTo, notes, now.slice(0,10), now.slice(0,10)];
   var tsv = row.join('\t');
   document.getElementById('saveClientText').value = tsv;
   var noteEl = document.getElementById('saveClientAgentNote');
