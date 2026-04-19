@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com; font-src 'self' data:; frame-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com; font-src 'self' data:; frame-src 'none';">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -6418,7 +6418,7 @@ async function readInvestorsFromSheets() {
     console.warn('[investors] gviz GID failed:', e0.message);
     loadError = e0;
 
-    // ── PATH 2: gviz JSONP by sheet name (fallback if tab was renamed) ───
+    // ── PATH 2: gviz JSONP by sheet name ─────────────────────────────────
     try {
       console.log('[investors] trying gviz by sheet name…');
       const json2 = await gvizJsonp(SID, 'sheet=' + encodeURIComponent('Clients'));
@@ -6429,7 +6429,7 @@ async function readInvestorsFromSheets() {
     } catch(e1) {
       console.warn('[investors] gviz name failed:', e1.message);
 
-      // ── PATH 3: Apps Script JSONP (requires doGet read handler + "Anyone" access) ──
+      // ── PATH 3: Apps Script JSONP (requires doGet read handler deployed) ──
       try {
         console.log('[investors] trying Apps Script JSONP…');
         rows = await readSheetViaAppsScriptJSONP('Clients', 10000);
@@ -6438,7 +6438,7 @@ async function readInvestorsFromSheets() {
         console.log('[investors] loaded via Apps Script —', rows.length, 'rows');
       } catch(e2) {
         console.warn('[investors] Apps Script failed:', e2.message);
-        loadError = e2; // Apps Script error is most actionable for the user
+        loadError = e2;
       }
     }
   }
@@ -6541,62 +6541,94 @@ async function readInvestorsFromSheets() {
     return;
   }
 
-  // No data at all — show diagnostic error
+  // No data at all — show one clear actionable error
   const errMsg  = loadError?.message || 'Unknown error';
-  const isGviz  = errMsg.includes('gviz') || errMsg.includes('script load failed') || errMsg.includes('gviz timeout');
-  const isTimeout   = errMsg.includes('timed out');
-  const isNoHandler = errMsg.includes('no "rows" key') || errMsg.includes('not yet deployed') || errMsg.includes('null');
-  const isURLFail   = errMsg.includes('failed to load') || errMsg.includes('URL');
-  const sheetUrl    = 'https://docs.google.com/spreadsheets/d/' + SID;
+  const sheetUrl = 'https://docs.google.com/spreadsheets/d/' + SID;
 
-  let heading, detail, steps;
+  // All paths failed — determine most likely cause
+  const isNotPublic = errMsg.includes('script load failed') || errMsg.includes('gviz timeout') || errMsg.includes('gviz script');
+  const isAppsScript = errMsg.includes('Apps Script') || errMsg.includes('timed out') || errMsg.includes('failed to load');
 
-  if (isGviz || isURLFail) {
-    heading = 'Could not read the Clients sheet';
-    detail  = 'IntelProp tried to read your Google Sheet directly in the browser but was blocked. This happens when the sheet is not shared publicly.';
-    steps   = `<ol style="margin:6px 0 6px 18px;font-size:11px;color:#78350f;line-height:2">
-      <li>Open your sheet: <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open Google Sheet ↗</a></li>
-      <li>Click <b>Share</b> (top-right corner)</li>
-      <li>Under <b>"General access"</b> → change to <b>"Anyone with the link"</b> → <b>Viewer</b></li>
-      <li>Click <b>Done</b>, then click <b>↺ Retry</b> below</li>
-    </ol>
-    <div style="font-size:11px;color:#92400e;margin-top:4px">ℹ This makes the sheet <b>readable</b> by anyone with the link. Your Apps Script still controls all <b>writes</b>.</div>`;
-  } else if (isNoHandler) {
-    heading = 'Apps Script read handler not configured';
-    detail  = 'The Apps Script responded but does not return investor data. The doGet() function needs to handle ?action=read&sheet=Clients.';
-    steps   = `<div style="font-size:11px;color:#78350f;margin-top:6px;line-height:1.8">
-      <b>Add this to your Apps Script doGet():</b><br>
-      <code style="background:#fff8e1;padding:2px 6px;border-radius:4px;font-size:10px;display:block;margin:4px 0;white-space:pre">if (e.parameter.action === 'read') {
-  var s = SpreadsheetApp.openById('${SID}').getSheetByName(e.parameter.sheet);
-  var rows = s.getDataRange().getValues().slice(1);
-  var cb = e.parameter.callback;
-  return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:rows})+')')
-    .setMimeType(ContentService.MimeType.JAVASCRIPT);
-}</code>
-      Then <b>Deploy → New version</b> and retry.
-    </div>`;
-  } else if (isTimeout) {
-    heading = 'Request timed out';
-    detail  = 'Google Sheets did not respond in time. Check your connection and retry.';
-    steps   = '';
-  } else {
-    heading = 'Could not load investors from Google Sheets';
-    detail  = errMsg;
-    steps   = '';
-  }
+  listEl.innerHTML = `<div style="padding:16px 18px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
+    <div style="font-weight:700;color:#92400e;margin-bottom:8px;font-size:13px">⚠ Investors could not load from Google Sheets</div>
 
-  listEl.innerHTML = `<div style="padding:16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
-    <div style="font-weight:700;color:#92400e;margin-bottom:5px;font-size:13px">⚠ ${safeHTML(heading)}</div>
-    <div style="color:#78350f;line-height:1.6;margin-bottom:4px">${safeHTML(detail)}</div>
-    ${steps}
-    <div style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap">
-      <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:6px 18px;border:1px solid #b45309;border-radius:6px;background:#fff7ed;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
-      <a href="${sheetUrl}" target="_blank" style="font-size:11px;color:#1d4ed8">Open Google Sheet ↗</a>
+    <div style="color:#78350f;margin-bottom:12px;line-height:1.7">
+      IntelProp reads investor data directly in the browser using Google's public data API.
+      This requires the sheet to be shared as <b>"Anyone with the link → Viewer"</b>.
     </div>
-    <div style="margin-top:10px;padding-top:8px;border-top:1px solid #fde68a;font-size:10px;color:#a16207;font-family:monospace">
-      Error: ${safeHTML(errMsg)} · Clients GID: ${CLIENTS_GID}
+
+    <div style="background:#fff8e1;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:600;color:#92400e;margin-bottom:8px">How to fix — takes 30 seconds:</div>
+      <ol style="margin:0 0 0 18px;color:#78350f;line-height:2.2;font-size:12px">
+        <li>Click → <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open your Google Sheet ↗</a></li>
+        <li>Click <b>Share</b> (top-right corner)</li>
+        <li>Under <b>"General access"</b> → click the dropdown → select <b>"Anyone with the link"</b></li>
+        <li>Set role to <b>Viewer</b> → click <b>Done</b></li>
+        <li>Come back and click <b>↺ Retry</b> below</li>
+      </ol>
+    </div>
+
+    <div style="margin-bottom:12px;padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;line-height:1.6">
+      🔒 <b>Your data stays private.</b> "Viewer" access means anyone with the exact link can read — but the link is not published anywhere.
+      All writes (new investors, activity logs) still go through your private Apps Script and require no sharing changes.
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:7px 20px;border:1px solid #b45309;border-radius:6px;background:#fff7ed;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
+      <button onclick="apShowManualInvestorImport()" style="font-size:11px;padding:5px 14px;border:1px solid #6b7280;border-radius:6px;background:#fff;color:#374151;cursor:pointer">📋 Import from CSV paste</button>
+    </div>
+
+    <div id="manualInvestorImport" style="display:none;padding:12px;background:#f9fafb;border:1px solid #d1d5db;border-radius:8px;margin-bottom:8px">
+      <div style="font-size:11px;color:#374151;margin-bottom:6px;line-height:1.6">
+        <b>Bypass option:</b> In Google Sheets → <b>File → Download → CSV</b>.
+        Open the file, select all text, paste below:
+      </div>
+      <textarea id="manualInvestorCSV" placeholder="Paste CSV rows here…" style="width:100%;height:90px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:11px;font-family:monospace;resize:vertical;box-sizing:border-box"></textarea>
+      <button onclick="apImportManualInvestorCSV()" style="margin-top:6px;font-size:11px;padding:5px 16px;border:1px solid #15803d;border-radius:6px;background:#f0fdf4;color:#15803d;cursor:pointer;font-weight:600">✓ Import investors</button>
+    </div>
+
+    <div style="font-size:10px;color:#a16207;font-family:monospace;opacity:.8">
+      Error: ${safeHTML(errMsg)} · GID: ${CLIENTS_GID}
     </div>
   </div>`;
+}
+
+function apShowManualInvestorImport() {
+  const el = document.getElementById('manualInvestorImport');
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+function apImportManualInvestorCSV() {
+  const textarea = document.getElementById('manualInvestorCSV');
+  const listEl   = document.getElementById('investorProfilesList');
+  if (!textarea || !textarea.value.trim()) return;
+  try {
+    const csvRows = parseCSVRows(textarea.value.trim());
+    // Detect if first row is a header
+    const firstRow = csvRows[0] || [];
+    const hasHeader = isNaN(+String(firstRow[0]).trim()) && String(firstRow[0]).toLowerCase().includes('id');
+    const dataRows  = hasHeader ? csvRows.slice(1) : csvRows;
+    let imported = 0;
+    dataRows.forEach(function(row) {
+      const g = function(i) { return row[i] != null ? String(row[i]).trim() : ''; };
+      const name  = g(1);
+      const invId = +g(0) || 0;
+      if (!name) return;
+      const stableId = invId > 0 ? invId : Math.abs(name.split('').reduce(function(h,c){return Math.imul(31,h)+c.charCodeAt(0)|0;}, 0)) % 900000 + 100000;
+      if (investorProfiles.find(function(i){return (i.investorId||i.id)===stableId;})) return;
+      const locs  = g(9)  ? g(9).split(',').map(function(s){return s.trim();}).filter(Boolean)  : [];
+      const types = g(10) ? g(10).split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+      investorProfiles.push({ investorId:stableId, id:stableId, name, phone:g(2), email:g(3), status:g(4)||'Active', createdAt:g(5)||new Date().toISOString(), lastContact:g(6)||null, clientType:g(7)||'', budget:g(8)||null, locations:locs, nationality:g(12)||'', source:g(13)||'', notes:{}, generalNotes:g(11)||'', criteria:{types,cities:locs,budget:g(8)||'',notes:g(11)||''} });
+      imported++;
+    });
+    saveInvestorProfiles();
+    sheetCacheSet('Clients', dataRows);
+    if (listEl) listEl.innerHTML = renderInvestorProfilesPanel();
+    populateClientSelectors();
+    console.log('[investors] manual CSV import:', imported, 'profiles added');
+  } catch(e) {
+    alert('CSV parse error: ' + e.message);
+  }
 }
 
 async function readPropertiesFromSheets() {
