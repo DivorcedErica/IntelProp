@@ -8607,8 +8607,8 @@ function _safetyLabel(yieldPct, liqScore, confTier, contracts, finalScore, rank)
   // Rule 2: High yield + low liquidity = Opportunistic label
   if (isHighYield && liqScore < 40) return 'Opportunistic / thin market — not recommended as primary';
 
-  // Rule 3: Proxy-heavy yield cap enforced (already via proxyMult, but label it)
-  if (isYieldProxy && finalScore > 65 && confTier === 'proxy') return 'Proxy-assisted — treat as indicative';
+  // Rule 3: Proxy-heavy city — label it
+  if (confTier === 'proxy' && finalScore > 65) return 'Proxy-assisted — treat as indicative';
 
   return null;
 }
