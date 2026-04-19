@@ -8547,7 +8547,7 @@ async function apApproveProperties() {
         now,                                        // R: Added on
         `AP:${row._confidence}`,                    // S: Source tag
       ];
-      syncViaJsonp({ type:'listing', sheet:'Listings', row: sheetRow });
+      syncViaJsonp({ type:'listing', sheet:'Final List', row: sheetRow });
       imported++;
     } catch(e) { failed++; console.error('[AgentPortal] Import row failed:', e); }
   }
