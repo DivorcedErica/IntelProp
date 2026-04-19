@@ -8527,25 +8527,24 @@ async function apApproveProperties() {
     try {
       // Write to Sheets via JSONP
       const sheetRow = [
-        '',                                         // A: ID (auto)
-        safeHTML(row.developer||''),                // B: Developer
-        safeHTML(row.title||''),                    // C: Title
-        safeHTML(row.complex||''),                  // D: Complex
-        safeHTML(row.type||''),                     // E: Type
-        safeHTML(row.city||''),                     // F: City
-        safeHTML(row.district||''),                 // G: District
-        row.bedrooms != null ? row.bedrooms : '',   // H: Bedrooms
-        row.area     != null ? row.area     : '',   // I: Area m²
-        row.plot     != null ? row.plot     : '',   // J: Plot m²
-        row.price    != null ? row.price    : '',   // K: Price
-        row.ppm      != null ? row.ppm      : '',   // L: €/m²
-        safeHTML(row.delivery||''),                 // M: Delivery
-        row.seaDist  != null ? row.seaDist  : '',   // N: Sea dist km
-        '',                                         // O: Image URL
-        '',                                         // P: URL
-        safeHTML(row.notes||''),                    // Q: Notes
-        now,                                        // R: Added on
-        `AP:${row._confidence}`,                    // S: Source tag
+        safeHTML(row.developer||''),                // A: Developer
+        safeHTML(row.title||''),                    // B: Title
+        safeHTML(row.complex||''),                  // C: Complex (New Build)
+        safeHTML(row.type||''),                     // D: Type
+        safeHTML(row.city||''),                     // E: City
+        safeHTML(row.district||''),                 // F: District
+        row.bedrooms != null ? row.bedrooms : '',   // G: Bedrooms
+        row.area     != null ? row.area     : '',   // H: Total Area m²
+        row.plot     != null ? row.plot     : '',   // I: Plot Size m²
+        row.price    != null ? row.price    : '',   // J: Price (€)
+        row.ppm      != null ? row.ppm      : '',   // K: € / m²
+        safeHTML(row.delivery||''),                 // L: Delivery
+        row.seaDist  != null ? row.seaDist  : '',   // M: Sea dist km
+        '',                                         // N: Image URL
+        '',                                         // O: URL
+        safeHTML(row.notes||''),                    // P: Notes
+        now,                                        // Q: Added on
+        `AP:${row._confidence}`,                    // R: Source tag
       ];
       syncViaJsonp({ type:'listing', sheet:'Final List', row: sheetRow });
       imported++;
