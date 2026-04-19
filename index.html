@@ -451,6 +451,31 @@ tr:hover td{background:var(--bg2)}
 .ap-bench-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd);font-size:11px}
 .ap-bench-row:last-child{border-bottom:none}
 
+/* ── Pipeline stepper ── */
+.pipeline-wrap{margin:0 0 20px;padding:16px 18px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)}
+.pipeline-stepper{display:flex;align-items:flex-start;gap:0;margin-bottom:12px;width:100%}
+.pipeline-step{display:flex;flex-direction:column;align-items:center;flex:1;cursor:pointer;min-width:0}
+.pipeline-step-dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--bd);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;position:relative;z-index:1;transition:all .2s;flex-shrink:0}
+.pipeline-step-dot.done{background:#22c55e;border-color:#22c55e;color:#fff}
+.pipeline-step-dot.current{background:#111;border-color:#111;color:#fff;box-shadow:0 0 0 4px rgba(0,0,0,.12)}
+.pipeline-step-dot.future{background:var(--bg);border-color:var(--bd);color:var(--mu)}
+.pipeline-step-dot.dropped{background:#ef4444;border-color:#ef4444;color:#fff}
+.pipeline-step-dot.paused{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.pipeline-step-label{font-size:10px;margin-top:5px;text-align:center;color:var(--mu);font-weight:500;white-space:nowrap;line-height:1.2}
+.pipeline-step-label.current{color:#111;font-weight:700}
+.pipeline-step-label.done{color:#16a34a;font-weight:600}
+.pipeline-connector{flex:1;height:2px;background:var(--bd);margin-top:14px;transition:background .3s;flex-shrink:1;min-width:8px}
+.pipeline-connector.done{background:#22c55e}
+.pipeline-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.pipeline-chip{font-size:10px;padding:3px 9px;border-radius:99px;background:var(--bg);border:1px solid var(--bd);color:var(--mu)}
+.pipeline-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.pipeline-btn-primary{font-size:12px;height:32px;padding:0 16px;border:none;border-radius:6px;background:#111;color:#fff;cursor:pointer;font-weight:600;transition:opacity .15s}
+.pipeline-btn-primary:hover{opacity:.85}
+.pipeline-btn-secondary{font-size:12px;height:32px;padding:0 14px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--tx);cursor:pointer;transition:border-color .15s}
+.pipeline-btn-secondary:hover{border-color:#999}
+.pipeline-btn-danger{font-size:12px;height:32px;padding:0 14px;border:1px solid #fca5a5;border-radius:6px;background:transparent;color:#ef4444;cursor:pointer;transition:border-color .15s}
+.pipeline-btn-danger:hover{border-color:#ef4444}
+
 </style>
 </head>
 <body>
@@ -466,7 +491,7 @@ tr:hover td{background:var(--bg2)}
 <div class="shell" id="mainShell">
   <div class="topbar">
     <div>
-      <div class="logo">Intel<span>Prop</span></div>
+      <div class="logo" onclick="gotoTab('listings',document.querySelector('.tab[onclick*=listings]'))" style="cursor:pointer" title="Go to Listings">Intel<span>Prop</span></div>
       <div class="sub" id="sub">Loading data…</div>
     </div>
     <div class="top-btns">
@@ -484,7 +509,7 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('portfolio',this)">Portfolio Builder</button>
       <button class="tab" onclick="gotoTab('developers',this)">Developers</button>
       <button class="tab" onclick="gotoTab('analytics',this)">Analytics</button>
-      <button class="tab" onclick="gotoTab('investors',this)">Investors</button>
+      <button class="tab" onclick="gotoTab('investors',this)">Clients</button>
       <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
       <button class="tab" onclick="gotoTab('agentportal',this)">⬆ Agent Portal</button>
 
@@ -554,7 +579,7 @@ tr:hover td{background:var(--bg2)}
       <div id="topOppsWrap" style="margin-bottom:12px;display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">Top Opportunities</div>
-          <button onclick="document.getElementById('topOppsWrap').style.display='none'" style="font-size:10px;color:var(--mu);background:none;border:none;cursor:pointer">Hide</button>
+          <button onclick="topOppsDismissed=true;document.getElementById('topOppsWrap').style.display='none'" style="font-size:10px;color:var(--mu);background:none;border:none;cursor:pointer">Hide</button>
         </div>
         <div id="topOppsCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px"></div>
       </div>
@@ -1311,7 +1336,10 @@ tr:hover td{background:var(--bg2)}
           <button onclick="document.getElementById('newInvForm').style.display=document.getElementById('newInvForm').style.display==='none'?'block':'none'" class="btn primary" style="font-size:11px">+ New</button>
         </div>
       </div>
-      <input id="invSearch" type="text" placeholder="Search by name, phone or email…" oninput="refreshInvestorList()" style="width:100%;height:34px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:12px;box-sizing:border-box">
+      <input id="invSearch" type="text" placeholder="Search by name, phone or email…" oninput="refreshInvestorList()" style="width:100%;height:34px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:8px;box-sizing:border-box">
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mu);cursor:pointer;margin-bottom:12px">
+        <input type="checkbox" id="invShowArchived" onchange="refreshInvestorList()"> Show archived clients
+      </label>
       <div id="newInvForm" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px">
         <!-- Row 1: contact fields -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px">
@@ -1376,7 +1404,8 @@ tr:hover td{background:var(--bg2)}
       </div>
       <!-- List view -->
       <div id="invListView">
-        <div id="investorProfilesList"><div class="empty">No profiles yet.</div></div>
+        <div id="pipelineSummaryBar"></div>
+      <div id="investorProfilesList"><div class="empty">No profiles yet.</div></div>
       </div>
       <!-- Card view (hidden until profile clicked) -->
       <div id="invCardView" style="display:none"></div>
@@ -4049,10 +4078,13 @@ function renderInsightsBar(data) {
 }
 
 // ── Top Opportunities strip ────────────────────────────────────
+let topOppsDismissed = false;
+
 function renderTopOpps(data) {
   const wrap  = document.getElementById('topOppsWrap');
   const cards = document.getElementById('topOppsCards');
   if (!wrap || !cards) return;
+  if (topOppsDismissed) return;
 
   const withPrice = data.filter(d=>d.price&&d.price>1000);
   if (!withPrice.length) { wrap.style.display='none'; return; }
@@ -4060,12 +4092,11 @@ function renderTopOpps(data) {
   const profile = { purpose:'mixed', objective:'balanced', risk:'moderate' };
   const scored  = withPrice.map(d=>({ d, score: safeScore(d, profile) }));
 
-  // Five best-of slots
+  // Four best-of slots
   const byScore   = [...scored].sort((a,b)=>b.score.total-a.score.total);
   const byValue   = [...scored].filter(s=>s.score.value_ratio!=null).sort((a,b)=>a.score.value_ratio-b.score.value_ratio);
   const byYield   = [...scored].sort((a,b)=>(b.score.yieldData?.grossYieldPct||0)-(a.score.yieldData?.grossYieldPct||0));
   const byRisk    = [...scored].sort((a,b)=>getListingRisk(a.d).level-getListingRisk(b.d).level);
-  const byGrowth  = [...scored].sort((a,b)=>(b.score.subscores?.growth?.score||0)-(a.score.subscores?.growth?.score||0));
 
   // Deduplicate: each tile prefers a different property
   const used = new Set();
@@ -4075,7 +4106,6 @@ function renderTopOpps(data) {
     { label:'Best Value',      emoji:'💰', item: pick(byValue)  },
     { label:'Highest Yield',   emoji:'📈', item: pick(byYield)  },
     { label:'Lowest Risk',     emoji:'🛡', item: pick(byRisk)   },
-    { label:'Growth Upside',   emoji:'📊', item: pick(byGrowth) },
   ].filter(t=>t.item);
 
   if (!tiles.length) { wrap.style.display='none'; return; }
@@ -4339,9 +4369,6 @@ function render() {
           <div style="color:var(--tx)">${d.ppm!=null?'€'+d.ppm.toLocaleString():'—'}</div>
           ${vl?`<div class="ip-value" style="${vlStyle};margin-top:2px">${vl}</div>`:''}
         </td>
-        <td style="padding:8px 8px;text-align:center" onclick="event.stopPropagation()">
-          <button class="hb ${sl.has(d.id)?'on':''}" onclick="heart(${d.id})">${sl.has(d.id)?'♥':'♡'}</button>
-        </td>
       </tr>`;
     }).join('');
 
@@ -4360,7 +4387,6 @@ function render() {
             <th style="${thS};text-align:center" onclick="sortBy('bedrooms')">Beds</th>
             <th style="${thS};text-align:right" onclick="sortBy('price')">Price ${sc==='price'?(sa?'↑':'↓'):''}</th>
             <th style="${thS};text-align:right" onclick="sortBy('ppm')">€/m² ${sc==='ppm'?(sa?'↑':'↓'):''}</th>
-            <th style="${thSF}"></th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -4646,7 +4672,7 @@ function openModal(id, e) {
         </div>
       </div>
       <div class="modal-actions">
-        <button class="btn primary" onclick="heartFromModal(${d.id})" id="modalHeartBtn">${on?'♥ Remove from shortlist':'♡ Add to shortlist'}</button>
+        
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
@@ -4806,7 +4832,7 @@ function renderCard(d) {
   const vlStyle = vl ? (vlColors[vl]||'background:var(--bg2);color:var(--mu)') : null;
 
   return `<div class="prop-card" onclick="openModal(${d.id})">
-    <button class="card-heart ${on?'on':''}" onclick="event.stopPropagation();heart(${d.id})">${on?'♥':'♡'}</button>
+    
     <div class="card-img-wrap">${img
       ? `<img src="${img}" alt="${d.title}" loading="lazy">`
       : `<div class="card-img-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>`
@@ -4893,6 +4919,19 @@ function clearFilters(){
 }
 
 function gotoTab(t,el){
+  // If clicking the already-active tab while a detail panel is open, go back to list
+  if (tab === t) {
+    if (t === 'investors' && currentInvestorCard) { closeInvestorCard(); return; }
+    if (t === 'developers' && currentDevFilter) { currentDevFilter=null; devPage=1; renderDev(); return; }
+    if (t === 'agents') { renderAgentsTab(); return; }
+    if (t === 'clients') {
+      var cl = document.getElementById('cCommLog'); if (cl) cl.style.display = 'none';
+      var cName = document.getElementById('cName'); if (cName) cName.value = '';
+      return;
+    }
+    // For other tabs (listings, map, etc) — fall through and re-render normally
+  }
+
   tab=t;
   ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist','agentportal'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
@@ -5806,7 +5845,7 @@ function renderInvestorCard(inv) {
         ${p.clientNote?`<div style="font-size:11px;color:var(--gold);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${safeHTML(p.clientNote.slice(0,100))}${p.clientNote.length>100?'…':''}"</div>`:''}
       </div>
       ${p.seaDist!=null?`<div style="flex-shrink:0">${seaBadge(p.seaDist)}</div>`:''}
-    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties noted yet — open a listing modal and save a note to track it here.</div>';
+    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties shortlisted yet — use Client Call to browse and shortlist properties for this client.</div>';
 
 
   // Build criteria section
@@ -5879,82 +5918,103 @@ function renderInvestorCard(inv) {
       + '</table></div>'
     : '<div style="font-size:12px;color:var(--mu);padding:4px 0 8px">No properties added yet.</div>';
 
-  document.getElementById('invCardView').innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button onclick="closeInvestorCard()" class="btn" style="font-size:11px">← All clients</button>
-      <select onchange="updateInvStatus(${inv.investorId||inv.id},this.value)" style="font-size:11px;padding:3px 12px;border-radius:99px;border:1px solid var(--bd);${stStyle};cursor:pointer">
-        ${['Active','Cold Lead','Closed','Not Interested'].map(s=>`<option value="${s}"${st===s?' selected':''}>${s}</option>`).join('')}
-      </select>
-      <div style="margin-left:auto;font-size:11px;color:var(--mu)">${lastC}</div>
-    </div>
+  const pipelineHtml = renderPipelineStepper(inv);
 
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--bd);flex-wrap:wrap">
-      <div id="invContactDisplay" style="flex:1;min-width:0">
-        <!-- Name + type + edit icon -->
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <div class="inv-card-name" style="margin-bottom:0">${inv.name}</div>
-          ${inv.clientType?`<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:${inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':'#f3e8ff;color:#7c3aed'}">${inv.clientType}</span>`:''}
-          <button onclick="showEditContact(${inv.investorId||inv.id})" title="Edit contact" style="font-size:12px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:3px 8px;line-height:1;margin-left:auto">✏</button>
-        </div>
-        <div class="inv-card-contact" style="margin-bottom:8px">
-          ${inv.phone?`<span>📞 <a href="tel:${inv.phone}" style="color:inherit;text-decoration:none">${inv.phone}</a></span>`:''}
-          ${inv.email?`<span>✉ <a href="mailto:${inv.email}" style="color:inherit;text-decoration:none">${inv.email}</a></span>`:''}
-          ${inv.nationality?`<span style="color:var(--mu)">🌍 ${inv.nationality}</span>`:''}
-          ${inv.source?`<span style="color:var(--mu)">📥 ${inv.source}</span>`:''}
-        </div>
-        <!-- Criteria pills inline -->
-        ${inlineCriteriaHtml}
-        <div style="font-size:11px;color:var(--mu)">Added ${new Date(inv.createdAt).toLocaleDateString('en-GB')}</div>
-      </div>
-      <!-- Stats on the right -->
-      <div style="display:flex;gap:8px;flex-shrink:0">
-        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700">${noteProps.length}</div><div style="font-size:10px;color:var(--mu)">Properties</div></div>
-        <div style="text-align:center;padding:8px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd)"><div style="font-size:20px;font-weight:700" id="invActCount">…</div><div style="font-size:10px;color:var(--mu)">Activities</div></div>
-      </div>
-      <div id="invContactEdit" style="display:none;width:100%">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Name</div><input id="eiName" value="${inv.name.replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Phone</div><input id="eiPhone" value="${(inv.phone||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="${(inv.email||'').replace(/"/g,'&quot;')}" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="${(inv.nationality||'').replace(/"/g,'&quot;')}" placeholder="e.g. Israeli" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Investor"${inv.clientType==='Investor'?' selected':''}>Investor</option><option value="One-off Buyer"${inv.clientType==='One-off Buyer'?' selected':''}>One-off Buyer</option><option value="Agent"${inv.clientType==='Agent'?' selected':''}>Agent</option></select></div>
-        </div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Source</div>
-          <select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option value="Outbound"${inv.source==='Outbound'?' selected':''}>Outbound</option><option value="Inbound"${inv.source==='Inbound'?' selected':''}>Inbound</option><option value="Network"${inv.source==='Network'?' selected':''}>Network</option><option value="Referrals"${inv.source==='Referrals'?' selected':''}>Referrals</option><option value="SEO"${inv.source==='SEO'?' selected':''}>SEO</option><option value="Agents"${inv.source==='Agents'?' selected':''}>Agents</option></select>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button onclick="saveEditContact(${inv.investorId||inv.id})" class="btn primary" style="font-size:11px">Save</button>
-          <button onclick="document.getElementById('invContactEdit').style.display='none';document.getElementById('invContactDisplay').style.display=''" class="btn" style="font-size:11px">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button onclick="deleteInvestorProfile(${inv.investorId||inv.id})" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">🗑 Delete</button>
-    </div>
-
-    <div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Properties (${assignedProps.length})</span>
-      <div style="display:flex;gap:6px">
-        ${assignedProps.length ? `<button onclick="exportClientProperties(${invId},'${inv.name.replace(/'/g,"\\'")}',false)" class="btn" style="font-size:11px;padding:0 12px;height:28px">↓ Internal</button><button onclick="exportClientProperties(${invId},'${inv.name.replace(/'/g,"\\'")}',true)" class="btn" style="font-size:11px;padding:0 12px;height:28px">↓ For Client</button>` : ''}
-        <button onclick="showAddPropModal(${invId})" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>
-      </div>
-    </div>
-    ${assignedPropsHtml}
-    ${renderSessionShortlistsForCard(invId)}
-
-    <div class="inv-section-title">Listings noted (${noteProps.length})</div>
-    ${propsHtml}
-
-    <div class="inv-section-title" id="invActTitle">Activity log</div>
-    <div id="invTimeline"><div class="empty" style="padding:8px 0;font-size:12px">Loading…</div></div>
-
-    <div class="inv-section-title">General notes</div>
-    <textarea class="inv-general-notes" id="invGenNotes" placeholder="Notes about this client — preferences, feedback, budget details…">${inv.generalNotes||''}</textarea>
-    <button onclick="saveInvGeneralNotes(${inv.investorId||inv.id})" class="btn primary" style="font-size:11px;margin-top:6px">Save notes</button>
-    ${inv.generalNotes?`<button onclick="logInvMeeting(${inv.investorId||inv.id})" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px">+ Log activity</button>`:''}
-  `;
+  document.getElementById('invCardView').innerHTML = ''
+    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">'
+      + '<button onclick="closeInvestorCard()" style="font-size:11px;height:30px;padding:0 12px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--tx);cursor:pointer">\u2190 All clients</button>'
+      + '<div style="margin-left:auto;font-size:11px;color:var(--mu)">' + lastC + '</div>'
+    + '</div>'
+    + pipelineHtml
+    + '<div style="padding:18px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd);margin-bottom:16px">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+            + '<div style="font-size:20px;font-weight:700;color:var(--tx);letter-spacing:-.3px">' + safeHTML(inv.name)
+              + (function(){ var d=inv.lastContact?Math.floor((Date.now()-new Date(inv.lastContact))/86400000):null; if(!d)return ''; if(d>21)return ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-bottom:2px" title="Inactive '+d+'d"></span>'; if(d>7)return ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-bottom:2px" title="Inactive '+d+'d"></span>'; return ''; })()
+            + '</div>'
+            + (inv.clientType ? '<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:' + (inv.clientType==='Investor'?'#dbeafe;color:#1e40af':'#f3e8ff;color:#7c3aed') + '">' + safeHTML(inv.clientType) + '</span>' : '')
+            + '<button onclick="showEditContact(' + (inv.investorId||inv.id) + ')" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:2px 8px;margin-left:auto">\u270f Edit</button>'
+          + '</div>'
+          + '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mu);margin-bottom:10px">'
+            + (inv.phone ? '<a href="tel:' + inv.phone + '" style="color:inherit;text-decoration:none">\ud83d\udcde ' + safeHTML(inv.phone) + '</a>' : '')
+            + (inv.email ? '<a href="mailto:' + inv.email + '" style="color:inherit;text-decoration:none">\u2709 ' + safeHTML(inv.email) + '</a>' : '')
+            + (inv.nationality ? '<span>\ud83c\udf0d ' + safeHTML(inv.nationality) + '</span>' : '')
+            + (inv.source ? '<span>\ud83d\udce5 ' + safeHTML(inv.source) + '</span>' : '')
+          + '</div>'
+          + '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + inlineCriteriaHtml + '</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:8px;flex-shrink:0">'
+          + '<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--bd);min-width:70px"><div style="font-size:22px;font-weight:700;color:var(--tx)">' + noteProps.length + '</div><div style="font-size:10px;color:var(--mu);margin-top:2px">Properties</div></div>'
+          + '<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--bd);min-width:70px"><div style="font-size:22px;font-weight:700;color:var(--tx)" id="invActCount">\u2026</div><div style="font-size:10px;color:var(--mu);margin-top:2px">Activities</div></div>'
+        + '</div>'
+      + '</div>'
+      + '<div id="invContactEdit" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--bd)">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px">'
+          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Name</div><input id="eiName" value="' + inv.name.replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Phone</div><input id="eiPhone" value="' + (inv.phone||'').replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="' + (inv.email||'').replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="' + (inv.nationality||'').replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">\u2014 Select \u2014</option><option value="Investor"' + (inv.clientType==='Investor'?' selected':'') + '>Investor</option><option value="One-off Buyer"' + (inv.clientType==='One-off Buyer'?' selected':'') + '>One-off Buyer</option><option value="Agent"' + (inv.clientType==='Agent'?' selected':'') + '>Agent</option></select></div>'
+        + '</div>'
+        + '<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Source</div>'
+          + '<select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">'
+            + '<option value="">\u2014 Select \u2014</option>'
+            + '<option value="Outbound"' + (inv.source==='Outbound'?' selected':'') + '>Outbound</option>'
+            + '<option value="Inbound"' + (inv.source==='Inbound'?' selected':'') + '>Inbound</option>'
+            + '<option value="Network"' + (inv.source==='Network'?' selected':'') + '>Network</option>'
+            + '<option value="Referrals"' + (inv.source==='Referrals'?' selected':'') + '>Referrals</option>'
+            + '<option value="SEO"' + (inv.source==='SEO'?' selected':'') + '>SEO</option>'
+            + '<option value="Agents"' + (inv.source==='Agents'?' selected':'') + '>Agents</option>'
+          + '</select>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px">'
+          + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
+          + '<button onclick="document.getElementById('invContactEdit').style.display='none'" class="btn" style="font-size:11px">Cancel</button>'
+        + '</div>'
+      + '</div>'
+    + '</div>'
+    + (inv.pipelineStage === 'closed' ?
+        '<div style="padding:12px 16px;border-radius:8px;margin-bottom:16px;background:' + (inv.closedOutcome==='won'?'#dcfce7':'#fee2e2') + ';border:1px solid ' + (inv.closedOutcome==='won'?'#86efac':'#fca5a5') + '">'
+          + '<div style="font-size:12px;font-weight:700;color:' + (inv.closedOutcome==='won'?'#15803d':'#991b1b') + ';margin-bottom:4px">' + (inv.closedOutcome==='won'?'\u2705 Closed \u2014 Won':'\u274c Closed \u2014 Lost') + '</div>'
+          + (inv.closedOutcome==='won' ? '<div style="font-size:11px">' + (inv.closedProperty||'\u2014') + ' \u00b7 \u20ac' + (inv.closedPrice||0).toLocaleString() + ' \u00b7 Commission: ' + (inv.closedCommissionPct||'\u2014') + '% (\u20ac' + (inv.closedCommissionAmt||0).toLocaleString() + ')</div>' : '')
+          + (inv.closedOutcome==='lost' ? '<div style="font-size:11px">' + (inv.closedLostReason||'\u2014') + (inv.closedCompetitor?' \u2014 '+inv.closedCompetitor:'') + '</div>' : '')
+        + '</div>' : '')
+    + '<div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between"><span>Properties (' + assignedProps.length + ')</span>'
+      + '<div style="display:flex;gap:6px">'
+        + (assignedProps.length ? '<button onclick="exportClientProperties(' + invId + ','' + inv.name.replace(/'/g,"\'") + '',false)" class="btn" style="font-size:11px;padding:0 12px;height:28px">\u2193 Internal</button><button onclick="exportClientProperties(' + invId + ','' + inv.name.replace(/'/g,"\'") + '',true)" class="btn" style="font-size:11px;padding:0 12px;height:28px">\u2193 For Client</button>' : '')
+        + '<button onclick="showAddPropModal(' + invId + ')" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>'
+      + '</div></div>'
+    + assignedPropsHtml
+    + renderSessionShortlistsForCard(invId)
+    + '<div class="inv-section-title">Shortlisted Properties (' + noteProps.length + ')</div>'
+    + propsHtml
+    + (function() {
+        var vl = inv.viewingLog || [];
+        if (!vl.length) return '<div class="inv-section-title">Viewing Log (0)</div><div style="font-size:12px;color:var(--mu);padding:4px 0 12px">No viewings logged yet.</div>';
+        var fi = {interested:'\u2705',maybe:'\ud83e\udd14',not_interested:'\u274c',second_viewing:'\ud83d\udd04'};
+        var fl = {interested:'Interested',maybe:'Maybe',not_interested:'Not Interested',second_viewing:'2nd Viewing'};
+        var rows = vl.slice().reverse().map(function(v) {
+          return '<div style="display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--bd);align-items:flex-start">'
+            + '<div style="font-size:15px;flex-shrink:0;margin-top:1px">' + (fi[v.feedback]||'\ud83d\udc41') + '</div>'
+            + '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:var(--tx)">' + safeHTML(v.property||'\u2014') + '</div>'
+              + (v.notes ? '<div style="font-size:11px;color:var(--mu);margin-top:2px">' + safeHTML(v.notes) + '</div>' : '') + '</div>'
+            + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">'
+              + '<span style="font-size:10px;padding:1px 7px;border-radius:99px;background:var(--bg2);border:1px solid var(--bd);color:var(--mu)">' + (fl[v.feedback]||'') + '</span>'
+              + '<span style="font-size:10px;color:var(--mu)">' + (v.date||'') + '</span>'
+            + '</div></div>';
+        }).join('');
+        return '<div class="inv-section-title">Viewing Log (' + vl.length + ')</div>' + rows;
+      })()
+    + '<div class="inv-section-title" id="invActTitle">Activity log</div>'
+    + '<div id="invTimeline"><div class="empty" style="padding:8px 0;font-size:12px">Loading\u2026</div></div>'
+    + '<div class="inv-section-title">General notes</div>'
+    + '<textarea class="inv-general-notes" id="invGenNotes" placeholder="Notes about this client\u2026">' + (inv.generalNotes||'') + '</textarea>'
+    + '<button onclick="saveInvGeneralNotes(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px;margin-top:6px">Save notes</button>'
+    + (inv.generalNotes ? '<button onclick="logInvMeeting(' + (inv.investorId||inv.id) + ')" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px">+ Log activity</button>' : '')
+    + '<div style="display:flex;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--bd)">'
+      + '<button onclick="deleteInvestorProfile(' + (inv.investorId||inv.id) + ')" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">Hide Client</button>'
+    + '</div>';
   // Async-load activity log from Google Sheets
   (async function(){
     try {
@@ -6054,10 +6114,13 @@ async function syncInvestorToSheets(inv) {
   if (!APPS_SCRIPT_URL) return;
   // Column order: InvestorID | Name | Phone | Email | Status | Created On | Last Contact | Client Type | Budget | Locations | Type of Properties | Notes | Nationality
   const cr = inv.criteria || {};
+  // Prefix phone with apostrophe so Google Sheets treats it as plain text
+  // and the + sign is not lost or misinterpreted
+  const phone = inv.phone ? (inv.phone.startsWith('+') ? "'" + inv.phone : inv.phone) : '';
   const row = [
     inv.investorId || inv.id,
     inv.name,
-    inv.phone || '',
+    phone,
     inv.email || '',
     inv.status || 'Active',
     inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',
@@ -6070,6 +6133,14 @@ async function syncInvestorToSheets(inv) {
     inv.nationality || '',
     inv.source || '',
   ];
+  // Append pipeline fields at end of row
+  row.push(inv.pipelineStage || 'new_lead');
+  row.push(inv.pipelineDropReason || '');
+  row.push(inv.closedOutcome || '');
+  row.push(inv.closedProperty || '');
+  row.push(inv.closedPrice ? String(inv.closedPrice) : '');
+  row.push(inv.closedCommissionPct ? String(inv.closedCommissionPct) : '');
+  row.push(inv.closedCommissionAmt ? String(inv.closedCommissionAmt) : '');
   syncViaJsonp({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row });
 }
 
@@ -8311,18 +8382,28 @@ async function apExtractProperties() {
     }
 
     const system = `You are a Cyprus real estate data extraction specialist for a professional advisory firm.
-Your task: extract individual property/unit listings from the provided content and return structured JSON.
+Your task: extract ALL individual property/development listings from the provided content and return structured JSON.
 
-CRITICAL RULES:
-- Do NOT invent or guess data. If a field is not stated, use null.
-- Mark uncertain inferences with a "?" prefix in the value, e.g. "?2026" for inferred delivery.
-- Extract as many individual units as possible from unit schedules.
-- Distinguish project-level data (developer, project name, location) from unit-level data (bedrooms, area, price).
-- If you see a price schedule/table, extract each row as a separate listing.
-- Do NOT combine different unit types into one row.
-- Confidence: "high" = directly stated, "medium" = inferred from context, "low" = guessed/proxy.
+This content may come from a developer portfolio brochure with many developments across multiple cities.
+The text may be jumbled due to PDF extraction — use context clues to reconstruct each listing.
 
-Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+EXTRACTION RULES:
+- Extract EVERY development/project mentioned as a separate unit entry. A portfolio with 30 developments = 30 units minimum.
+- Each named development (e.g. "Andriana Court", "Avora Court", "Aquamarine Villas") is a separate unit.
+- If a development has multiple bedroom types, create one entry per bedroom type.
+- Use the development name as the title.
+- Price: look for "Prices starting from €X" or "Price €X" patterns.
+- Bedrooms: look for "1,2 and 3" or "2 and 3" or "3, 4 and 5" — create separate entries per type or use the range.
+- Area: look for "Total Cov. Areas: X m² - Y m²" patterns.
+- Plot: look for "Plot Sizes: X m² - Y m²" patterns.
+- City/location: look for section headers like "PAFOS", "LIMASSOL", "NICOSIA", "LARNACA", "POLIS".
+- Pool: true if "private swimming pool" or "communal swimming pool" mentioned.
+- If field not found, use null — do NOT skip the listing entirely.
+- Confidence: "high" = directly stated, "medium" = inferred, "low" = guessed.
+
+IMPORTANT: Even if the text is messy or jumbled, extract whatever listings you can find. A partial extraction is far better than no extraction.
+
+Return ONLY valid JSON — no markdown fences, no explanation, just the JSON object:
 {
   "project": {
     "developer": string|null,
@@ -8336,7 +8417,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "units": [
     {
       "title": string,
-      "type": "Apartment"|"Villa"|"House"|"Penthouse"|"Studio"|null,
+      "type": "Apartment"|"Villa"|"House"|"Penthouse"|"Studio"|"Maisonette"|"Bungalow"|"Plot"|null,
       "bedrooms": number|null,
       "bathrooms": number|null,
       "covered_area_m2": number|null,
@@ -8348,9 +8429,10 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
       "delivery": string|null,
       "furnished": boolean|null,
       "sea_distance_km": number|null,
+      "city": string|null,
       "notes": string|null,
       "confidence": "high"|"medium"|"low",
-      "uncertain_fields": [array of field names that are uncertain]
+      "uncertain_fields": []
     }
   ],
   "extraction_notes": string,
@@ -8358,7 +8440,10 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 }`;
 
     // ── STEP 3: Call Claude for extraction ───────────────────────────
-    const rawJson = await apCallClaude(system, userContent, 4000);
+    // Use 8000 tokens for large portfolios (30+ developments need more output space)
+    const isLargeContent = (typeof userContent === 'string' && userContent.length > 10000) ||
+                           (Array.isArray(userContent) && userContent.some(b => b.type === 'document'));
+    const rawJson = await apCallClaude(system, userContent, isLargeContent ? 8000 : 4000);
     const parsed  = apParseJSON(rawJson);
     if (!parsed || !parsed.units) throw new Error('AI returned no unit data. The content may not contain recognisable property listings.');
 
@@ -8371,7 +8456,6 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
         complex:     proj.project_name || null,
         type:        u.type || typeHint || null,
         city:        u.city || proj.city || cityHint || null,
-        district:    u.district || proj.district || null,
         bedrooms:    u.bedrooms,
         bathrooms:   u.bathrooms,
         area:        u.covered_area_m2,
@@ -8514,27 +8598,26 @@ async function apApproveProperties() {
     try {
       // Write to Sheets via JSONP
       const sheetRow = [
-        '',                                         // A: ID (auto)
-        safeHTML(row.developer||''),                // B: Developer
-        safeHTML(row.title||''),                    // C: Title
-        safeHTML(row.complex||''),                  // D: Complex
-        safeHTML(row.type||''),                     // E: Type
-        safeHTML(row.city||''),                     // F: City
-        safeHTML(row.district||''),                 // G: District
-        row.bedrooms != null ? row.bedrooms : '',   // H: Bedrooms
-        row.area     != null ? row.area     : '',   // I: Area m²
-        row.plot     != null ? row.plot     : '',   // J: Plot m²
-        row.price    != null ? row.price    : '',   // K: Price
-        row.ppm      != null ? row.ppm      : '',   // L: €/m²
-        safeHTML(row.delivery||''),                 // M: Delivery
-        row.seaDist  != null ? row.seaDist  : '',   // N: Sea dist km
-        '',                                         // O: Image URL
-        '',                                         // P: URL
-        safeHTML(row.notes||''),                    // Q: Notes
-        now,                                        // R: Added on
-        `AP:${row._confidence}`,                    // S: Source tag
+        safeHTML(row.developer||''),                // A: Developer
+        safeHTML(row.title||''),                    // B: Title
+        safeHTML(row.complex||''),                  // C: Complex (New Build)
+        safeHTML(row.type||''),                     // D: Type
+        safeHTML(row.city||''),                     // E: City
+        safeHTML(row.district||''),                 // F: District
+        row.bedrooms != null ? row.bedrooms : '',   // G: Bedrooms
+        row.area     != null ? row.area     : '',   // H: Total Area m²
+        row.plot     != null ? row.plot     : '',   // I: Plot Size m²
+        row.price    != null ? row.price    : '',   // J: Price (€)
+        row.ppm      != null ? row.ppm      : '',   // K: € / m²
+        safeHTML(row.delivery||''),                 // L: Delivery
+        row.seaDist  != null ? row.seaDist  : '',   // M: Sea dist km
+        '',                                         // N: Image URL
+        '',                                         // O: URL
+        safeHTML(row.notes||''),                    // P: Notes
+        now,                                        // Q: Added on
+        `AP:${row._confidence}`,                    // R: Source tag
       ];
-      syncViaJsonp({ type:'listing', sheet:'Listings', row: sheetRow });
+      syncViaJsonp({ type:'listing', sheet:'Final List', row: sheetRow });
       imported++;
     } catch(e) { failed++; console.error('[AgentPortal] Import row failed:', e); }
   }
@@ -10539,6 +10622,7 @@ function saveClient() {
   if (!name.trim()) { alert('Please enter a client name first.'); return; }
   var clientId = 'CL' + String(Date.now()).slice(-6);
   var phone = (document.getElementById('cPhone')||{}).value||'';
+  var phoneForSheet = phone.startsWith('+') ? "'" + phone : phone;
   var email = (document.getElementById('cEmail')||{}).value||'';
   var source = '';
   var srcBtn = document.querySelector('#cSourceGroup .crit-btn.on'); if(srcBtn) source = srcBtn.dataset.val||'';
@@ -10556,7 +10640,7 @@ function saveClient() {
   var assignBtn = document.querySelector('#cAssignGroup .crit-btn.on'); var assignedTo = assignBtn ? assignBtn.dataset.val||'' : '';
   var notes = (document.getElementById('cNotes')||{}).value||'';
   var now = new Date().toISOString();
-  var row = [clientId, name, phone, email, source, agentId, agentName, purpose, types.join(', '), budgetMin, budgetMax, beds[0]||'', beds[beds.length-1]||'', cities.join(', '), seaVal, status, assignedTo, notes, now.slice(0,10), now.slice(0,10)];
+  var row = [clientId, name, phoneForSheet, email, source, agentId, agentName, purpose, types.join(', '), budgetMin, budgetMax, beds[0]||'', beds[beds.length-1]||'', cities.join(', '), seaVal, status, assignedTo, notes, now.slice(0,10), now.slice(0,10)];
   var tsv = row.join('\t');
   document.getElementById('saveClientText').value = tsv;
   var noteEl = document.getElementById('saveClientAgentNote');
@@ -10861,7 +10945,17 @@ function getInvestorNote(investorName,propertyId){
 function renderInvestorProfilesPanel(){
   if(!investorProfiles.length)return'<div class="empty" style="padding:1rem">No profiles yet. Use Client Call to create one.</div>';
   var q=(document.getElementById('invSearch')||{}).value||'';
-  var filtered=q?investorProfiles.filter(function(i){var s=q.toLowerCase();return(i.name||'').toLowerCase().includes(s)||(i.phone||'').includes(s)||(i.email||'').toLowerCase().includes(s);}):investorProfiles;
+  var showArchived = (document.getElementById('invShowArchived')||{}).checked;
+  // Filter out archived unless checkbox is on
+  var active = investorProfiles.filter(function(i){ return showArchived || i.status !== 'Archived'; });
+  var filtered=q?active.filter(function(i){var s=q.toLowerCase()
+  // Filter by pipeline stage if active
+  if (_pipelineStageFilter) {
+    filtered = filtered.filter(function(i){ return getPipelineStage(i) === _pipelineStageFilter; });
+  }
+  // Render pipeline summary bar
+  var summaryEl = document.getElementById('pipelineSummaryBar');
+  if (summaryEl) summaryEl.innerHTML = renderPipelineSummaryBar();return(i.name||'').toLowerCase().includes(s)||(i.phone||'').includes(s)||(i.email||'').toLowerCase().includes(s);}):active;
   if(!filtered.length)return'<div class="empty" style="padding:1rem">No profiles match "'+safeHTML(q)+'".</div>';
   var invTot=Math.ceil(filtered.length/invPS)||1;
   invPage=Math.max(1,Math.min(invPage,invTot));
@@ -10869,7 +10963,13 @@ function renderInvestorProfilesPanel(){
   var rows=pageItems.map(function(inv){
     var nc=Object.keys(inv.notes||{}).length;
     var myCommsCount=(communicationLog||[]).filter(function(c){return c.investorId===inv.id;}).length;
-    var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b'};
+    var statusColors={'Active':'#dcfce7;color:#15803d','Cold Lead':'#fef3c7;color:#b45309','Closed':'#dbeafe;color:#1d4ed8','Not Interested':'#fee2e2;color:#991b1b','Archived':'#f3f4f6;color:#9ca3af'};
+    var pipelineColors={'new_lead':'#6b7280','qualified':'#3b82f6','nurturing':'#8b5cf6','viewing':'#f59e0b','negotiating':'#ef4444','closed':'#22c55e','paused':'#f59e0b','dropped':'#9ca3af'};
+    var pipelineLabels={'new_lead':'New Lead','qualified':'Qualified','nurturing':'Nurturing','viewing':'Viewing','negotiating':'Negotiating','closed':'Closed','paused':'Paused','dropped':'Dropped'};
+    var pStage = getPipelineStage(inv);
+    var pColor = pipelineColors[pStage] || '#6b7280';
+    var pLabel = pipelineLabels[pStage] || pStage;
+    var pipelineBadge = '<span style="font-size:10px;padding:1px 7px;border-radius:99px;background:' + pColor + '22;color:' + pColor + ';border:1px solid ' + pColor + '44;white-space:nowrap">' + pLabel + '</span>';
     var st=inv.status||'Active';
     var stStyle=statusColors[st]||'#f3f4f6;color:#374151';
     var ctStyle=inv.clientType==='Investor'?'#dbeafe;color:#1d4ed8':inv.clientType==='One-off Buyer'?'#f3e8ff;color:#7c3aed':inv.clientType==='Agent'?'#dcfce7;color:#15803d':'';
@@ -10880,6 +10980,7 @@ function renderInvestorProfilesPanel(){
       +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">'
       +'<div style="font-size:13px;font-weight:600">'+safeHTML(inv.name)+'</div>'
       +'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+stStyle+'">'+safeHTML(st)+'</span>'
+      +' '+pipelineBadge
       +(inv.clientType?'<span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:99px;background:'+ctStyle+'">'+safeHTML(inv.clientType)+'</span>':'')
       +'</div>'
       +'<div style="font-size:11px;color:var(--mu)">'+safeHTML(inv.phone||'No phone')+(inv.email?' \u00b7 '+safeHTML(inv.email):'')+'</div>'
@@ -10902,7 +11003,7 @@ function renderInvestorProfilesPanel(){
       +'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">'
-      +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">\u2715</button>'
+      +'<button onclick="deleteInvestorProfile('+(inv.investorId||inv.id)+')" style="font-size:11px;padding:0 10px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:34px">Hide</button>'
       +'</div></div></div>';
   }).join('');
   var pager='<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px">'
@@ -11030,12 +11131,69 @@ function renderClientCommLog(investorId){
     + '</div>';
 }
 
-function deleteInvestorProfile(id){
-  if(!confirm('Delete this investor profile?'))return;
-  investorProfiles=investorProfiles.filter(function(i){return i.id!==id;});
+function deleteInvestorProfile(id) {
+  // Show reason modal instead of hard deleting
+  var existing = document.getElementById('archiveClientModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'archiveClientModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--bg);border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-size:15px;font-weight:600;color:var(--tx);margin-bottom:4px">Hide Client Record</div>
+      <div style="font-size:12px;color:var(--mu);margin-bottom:16px">This client will be hidden from the system. All details remain in the database and can be restored at any time. Please select a reason.</div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Reason</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+        ${[
+          ['duplicate', 'Duplicate entry', 'This client was entered more than once'],
+          ['accidental', 'Accidental entry', 'This client was added by mistake'],
+          ['other', 'Other', 'Another reason — please specify below'],
+        ].map(([val, label, desc]) => `
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)">
+            <input type="radio" name="archiveReason" value="${val}" style="margin-top:2px" onchange="
+              document.getElementById('archiveReasonText').style.display=this.value==='other'?'block':'none';
+            ">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--tx)">${label}</div>
+              <div style="font-size:11px;color:var(--mu)">${desc}</div>
+            </div>
+          </label>`).join('')}
+      </div>
+      <textarea id="archiveReasonText" placeholder="Please specify…" style="display:none;width:100%;height:60px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical;box-sizing:border-box;margin-bottom:14px"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('archiveClientModal').remove()" style="font-size:12px;height:34px;padding:0 16px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Cancel</button>
+        <button onclick="confirmArchiveClient(${id})" style="font-size:12px;height:34px;padding:0 16px;border:none;border-radius:var(--r);background:var(--red);color:#fff;cursor:pointer">Hide Client</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function confirmArchiveClient(id) {
+  var selected = document.querySelector('input[name="archiveReason"]:checked');
+  if (!selected) { alert('Please select a reason before hiding this client.'); return; }
+  var reason = selected.value;
+  if (reason === 'other') {
+    var detail = (document.getElementById('archiveReasonText').value || '').trim();
+    if (!detail) { alert('Please specify the reason in the text field.'); return; }
+    reason = detail;
+  }
+
+  var inv = investorProfiles.find(function(i){ return i.id === id || i.investorId === id; });
+  if (!inv) return;
+
+  inv.status = 'Archived';
+  inv.archiveReason = reason;
+  inv.archivedAt = new Date().toISOString().slice(0,10);
+
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  logActivity({ clientID: id, investorName: inv.name, type:'general', action:'Client hidden — ' + reason });
+
   saveInvestorProfiles();
+  document.getElementById('archiveClientModal').remove();
   closeInvestorCard();
-  document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  showToast('Client hidden from system');
 }
 
 var _addPropInvestorId = null;
@@ -11958,6 +12116,547 @@ function toggleAIDistrict(dist) {
 function aiPg(d) { aiPage+=d; renderAIResults(); }
 
 
+
+// ═══════════════════════════════════════════════════════════════════
+// PIPELINE SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+
+const PIPELINE_STAGES = [
+  { key:'new_lead',     label:'New Lead',    icon:'1' },
+  { key:'qualified',   label:'Qualified',   icon:'2' },
+  { key:'nurturing',   label:'Nurturing',   icon:'3' },
+  { key:'viewing',     label:'Viewing',     icon:'4' },
+  { key:'negotiating', label:'Negotiating', icon:'5' },
+  { key:'closed',      label:'Closed',      icon:'✓' },
+];
+
+const PIPELINE_STAGE_KEYS = PIPELINE_STAGES.map(s => s.key);
+
+function getPipelineStage(inv) {
+  return inv.pipelineStage || 'new_lead';
+}
+
+function getPipelineStageIndex(inv) {
+  const s = getPipelineStage(inv);
+  if (s === 'dropped' || s === 'paused') return -1;
+  return PIPELINE_STAGE_KEYS.indexOf(s);
+}
+
+function renderPipelineStepper(inv) {
+  const invId = inv.investorId || inv.id;
+  const current = getPipelineStage(inv);
+  const currentIdx = PIPELINE_STAGE_KEYS.indexOf(current);
+  const isDropped = current === 'dropped';
+  const isPaused  = current === 'paused';
+  const droppedAtIdx = inv.pipelineDroppedAtIdx || 0;
+
+  // Build stage dots + connectors
+  let steps = '';
+  PIPELINE_STAGES.forEach(function(stage, i) {
+    let dotClass = 'future';
+    let labelClass = '';
+    if (isDropped || isPaused) {
+      dotClass = i < droppedAtIdx ? 'done' : 'future';
+    } else if (i < currentIdx) {
+      dotClass = 'done'; labelClass = 'done';
+    } else if (i === currentIdx) {
+      dotClass = 'current'; labelClass = 'current';
+    }
+
+    steps += '<div class="pipeline-step" onclick="pipelineStepClick(' + invId + ',' + i + ')" title="Move to ' + stage.label + '">'
+      + '<div class="pipeline-step-dot ' + dotClass + '">' + stage.icon + '</div>'
+      + '<div class="pipeline-step-label ' + labelClass + '">' + stage.label + '</div>'
+      + '</div>';
+
+    if (i < PIPELINE_STAGES.length - 1) {
+      const connDone = !isDropped && !isPaused && i < currentIdx;
+      steps += '<div class="pipeline-connector' + (connDone ? ' done' : '') + '"></div>';
+    }
+  });
+
+  // Chips
+  const daysSince = inv.lastContact
+    ? Math.floor((Date.now() - new Date(inv.lastContact)) / 86400000)
+    : null;
+  const staleChip = daysSince !== null && daysSince > 7
+    ? '<span class="pipeline-chip" style="background:' + (daysSince > 21 ? '#fee2e2;color:#991b1b;border-color:#fca5a5' : '#fef3c7;color:#92400e;border-color:#fde68a') + '">'
+      + (daysSince > 21 ? '🔴' : '🟡') + ' Inactive ' + daysSince + 'd</span>'
+    : '';
+  const viewingCount = (inv.viewingLog || []).length;
+  const viewingChip = viewingCount
+    ? '<span class="pipeline-chip">👁 ' + viewingCount + ' viewing' + (viewingCount !== 1 ? 's' : '') + '</span>'
+    : '';
+  const droppedBadge = isDropped
+    ? '<span class="pipeline-chip" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">🚫 Dropped' + (inv.pipelineDropReason ? ' — ' + inv.pipelineDropReason : '') + '</span>'
+    : '';
+  const pausedBadge = isPaused
+    ? '<span class="pipeline-chip" style="background:#fef3c7;color:#92400e;border-color:#fde68a">⏸ Paused' + (inv.pipelineDropReason ? ' — ' + inv.pipelineDropReason : '') + '</span>'
+    : '';
+
+  // Buttons with proper hierarchy
+  const canAdvance = !isDropped && !isPaused && currentIdx >= 0 && currentIdx < PIPELINE_STAGES.length - 1;
+  const canReactivate = isDropped || isPaused;
+  const nextLabel = canAdvance ? PIPELINE_STAGES[currentIdx + 1].label : '';
+
+  const advanceBtn = canAdvance
+    ? '<button onclick="pipelineAdvance(' + invId + ')" class="pipeline-btn-primary">→ Advance to ' + nextLabel + '</button>'
+    : (currentIdx === PIPELINE_STAGES.length - 1 && !isDropped && !isPaused)
+      ? '<span class="pipeline-chip" style="background:#dcfce7;color:#15803d;border-color:#86efac;font-size:11px;padding:4px 10px">✓ Closed</span>'
+      : '';
+  const canGoBack = !isDropped && !isPaused && currentIdx > 0;
+  const prevLabel = canGoBack ? PIPELINE_STAGES[currentIdx - 1].label : '';
+  const backBtn = canGoBack
+    ? '<button onclick="pipelineGoBack(' + invId + ')" class="pipeline-btn-secondary" title="Revert to previous stage">← Back to ' + prevLabel + '</button>'
+    : '';
+  const viewingBtn = '<button onclick="pipelineAddViewing(' + invId + ')" class="pipeline-btn-secondary">+ Log Viewing</button>';
+  const dropBtn = (!isDropped && !isPaused)
+    ? '<button onclick="pipelineDropModal(' + invId + ')" class="pipeline-btn-danger">↓ Drop / Pause</button>'
+    : '';
+  const reactivateBtn = canReactivate
+    ? '<button onclick="pipelineReactivate(' + invId + ')" class="pipeline-btn-primary">↩ Reactivate</button>'
+    : '';
+
+  return '<div class="pipeline-wrap">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:12px">Client Journey</div>'
+    + '<div class="pipeline-stepper">' + steps + '</div>'
+    + ((staleChip || viewingChip || droppedBadge || pausedBadge)
+        ? '<div class="pipeline-chips">' + staleChip + viewingChip + droppedBadge + pausedBadge + '</div>'
+        : '')
+    + '<div class="pipeline-actions">' + advanceBtn + backBtn + viewingBtn + dropBtn + reactivateBtn + '</div>'
+    + '</div>';
+}
+
+function pipelineStepClick(invId, stageIdx) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const current = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
+  if (stageIdx === current) return; // already here
+
+  const targetStage = PIPELINE_STAGES[stageIdx];
+
+  // Moving to Closed — show outcome modal
+  if (stageIdx === PIPELINE_STAGES.length - 1) {
+    pipelineClosedModal(invId);
+    return;
+  }
+
+  // Confirm and move
+  const direction = stageIdx > current ? '→ Move to ' : '← Revert to ';
+  showPipelineNoteBar(invId, PIPELINE_STAGE_KEYS[stageIdx], direction + targetStage.label);
+}
+
+function pipelineAdvance(invId) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const currentIdx = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
+  if (currentIdx >= PIPELINE_STAGES.length - 1) return;
+  const nextStage = PIPELINE_STAGES[currentIdx + 1];
+  if (nextStage.key === 'closed') {
+    pipelineClosedModal(invId);
+    return;
+  }
+  showPipelineNoteBar(invId, nextStage.key, '→ Advance to ' + nextStage.label);
+}
+
+function pipelineGoBack(invId) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const currentIdx = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
+  if (currentIdx <= 0) return;
+  const prevStage = PIPELINE_STAGES[currentIdx - 1];
+  showPipelineNoteBar(invId, prevStage.key, '← Back to ' + prevStage.label);
+}
+
+function showPipelineNoteBar(invId, targetStageKey, actionLabel) {
+  // Remove any existing note bar
+  const existing = document.getElementById('pipelineNoteBar');
+  if (existing) existing.remove();
+
+  // If clicking same target that's already pending, just cancel
+  if (existing && existing.dataset.target === targetStageKey) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'pipelineNoteBar';
+  bar.dataset.target = targetStageKey;
+  bar.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;display:flex;gap:8px;align-items:center;animation:fadeIn .15s ease';
+  bar.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap;flex-shrink:0">' + actionLabel + '</span>'
+    + '<input id="pipelineNoteInput" type="text" placeholder="Add a note (optional)…" style="flex:1;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;min-width:0">'
+    + '<button onclick="confirmPipelineNoteBar(' + invId + ','' + targetStageKey + '')" style="height:30px;padding:0 14px;border:none;border-radius:6px;background:#111;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Confirm</button>'
+    + '<button onclick="document.getElementById('pipelineNoteBar').remove()" style="height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--mu);font-size:12px;cursor:pointer;flex-shrink:0">✕</button>';
+
+  // Append to pipeline-wrap inside invCardView
+  const wrap = document.querySelector('.pipeline-wrap');
+  if (wrap) {
+    wrap.appendChild(bar);
+    document.getElementById('pipelineNoteInput').focus();
+    // Allow Enter key to confirm
+    document.getElementById('pipelineNoteInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') confirmPipelineNoteBar(invId, targetStageKey);
+      if (e.key === 'Escape') bar.remove();
+    });
+  }
+}
+
+function confirmPipelineNoteBar(invId, targetStageKey) {
+  const note = (document.getElementById('pipelineNoteInput') || {value:''}).value.trim();
+  const bar = document.getElementById('pipelineNoteBar');
+  if (bar) bar.remove();
+  setPipelineStage(invId, targetStageKey, note);
+}
+
+function setPipelineStage(invId, stageKey, note) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const prevStage = getPipelineStage(inv);
+  inv.pipelineStage = stageKey;
+  inv.pipelineUpdatedAt = new Date().toISOString();
+
+  // Log the transition with human-readable labels
+  const prevLabel = (PIPELINE_STAGES.find(s => s.key === (prevStage||'new_lead')) || {label: prevStage||'New Lead'}).label;
+  const newLabel  = (PIPELINE_STAGES.find(s => s.key === stageKey) || {label: stageKey}).label;
+  logActivity({
+    clientID: invId,
+    investorName: inv.name,
+    type: 'general',
+    action: 'Journey: ' + prevLabel + ' → ' + newLabel + (note ? ' — ' + note : '')
+  });
+
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  renderInvestorCard(inv);
+  showToast('Client moved to ' + (PIPELINE_STAGES.find(s => s.key === stageKey)||{label:stageKey}).label);
+}
+
+function pipelineDropModal(invId) {
+  const existing = document.getElementById('pipelineDropModal');
+  if (existing) existing.remove();
+
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const currentStageLabel = (PIPELINE_STAGES.find(s => s.key === getPipelineStage(inv)) || {label: getPipelineStage(inv)}).label;
+
+  const modal = document.createElement('div');
+  modal.id = 'pipelineDropModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = '<div style="background:var(--bg);border-radius:12px;padding:24px;width:420px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--tx);margin-bottom:4px">Drop / Pause Client</div>'
+    + '<div style="font-size:12px;color:var(--mu);margin-bottom:16px">Currently at: <strong>' + currentStageLabel + '</strong>. This client\'s journey will be paused or ended.</div>'
+
+    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Outcome type</div>'
+    + '<div style="display:flex;gap:8px;margin-bottom:16px">'
+      + '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)">'
+        + '<input type="radio" name="dropType" value="paused" checked> <div><div style="font-size:12px;font-weight:600">⏸ Paused</div><div style="font-size:11px;color:var(--mu)">Temporarily inactive — may return</div></div></label>'
+      + '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)">'
+        + '<input type="radio" name="dropType" value="dropped"> <div><div style="font-size:12px;font-weight:600">🚫 Dropped</div><div style="font-size:11px;color:var(--mu)">Permanently lost</div></div></label>'
+    + '</div>'
+
+    + '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Reason</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px" id="dropReasonChips">'
+      + ['Lost interest', 'Budget issue', 'Bought elsewhere', 'No suitable stock', 'Timing delayed', 'Unresponsive', 'Other'].map(r =>
+          '<button onclick="document.getElementById(\'dropReasonInput\').value=\'' + r + '\'" '
+          + 'style="font-size:11px;padding:3px 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg2);color:var(--tx);cursor:pointer">' + r + '</button>'
+        ).join('')
+    + '</div>'
+    + '<input id="dropReasonInput" type="text" placeholder="Reason (required)…" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box;margin-bottom:10px">'
+
+    + '<div id="droppedElsewhereWrap" style="display:none;margin-bottom:10px">'
+      + '<input id="dropElsewhere" type="text" placeholder="Bought through whom / where? (optional)" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box">'
+    + '</div>'
+
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">'
+      + '<button onclick="document.getElementById(\'pipelineDropModal\').remove()" style="font-size:12px;height:34px;padding:0 16px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Cancel</button>'
+      + '<button onclick="confirmPipelineDrop(' + invId + ')" style="font-size:12px;height:34px;padding:0 16px;border:none;border-radius:var(--r);background:#ef4444;color:#fff;cursor:pointer">Confirm</button>'
+    + '</div>'
+  + '</div>';
+
+  document.body.appendChild(modal);
+
+  // Show/hide competitor field when "Bought elsewhere" clicked
+  document.getElementById('dropReasonInput').addEventListener('input', function() {
+    const show = this.value.toLowerCase().includes('bought elsewhere') || this.value.toLowerCase().includes('bought');
+    document.getElementById('droppedElsewhereWrap').style.display = show ? '' : 'none';
+  });
+}
+
+function confirmPipelineDrop(invId) {
+  const reason = (document.getElementById('dropReasonInput').value || '').trim();
+  if (!reason) { alert('Please provide a reason.'); return; }
+
+  const dropType = (document.querySelector('input[name="dropType"]:checked') || {value:'paused'}).value;
+  const elsewhere = (document.getElementById('dropElsewhere') || {value:''}).value.trim();
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+
+  const prevStage = getPipelineStage(inv);
+  inv.pipelineStage = dropType;
+  inv.pipelineDropReason = reason + (elsewhere ? ' — ' + elsewhere : '');
+  inv.pipelineDroppedAt = new Date().toISOString();
+  inv.pipelineDroppedAtIdx = PIPELINE_STAGE_KEYS.indexOf(prevStage);
+  inv.pipelineUpdatedAt = new Date().toISOString();
+
+  logActivity({
+    clientID: invId,
+    investorName: inv.name,
+    type: 'general',
+    action: (dropType === 'paused' ? 'Paused' : 'Dropped') + ' at ' + prevStage + ' — ' + reason + (elsewhere ? ' (' + elsewhere + ')' : '')
+  });
+
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  document.getElementById('pipelineDropModal').remove();
+  renderInvestorCard(inv);
+  showToast(dropType === 'paused' ? 'Client paused' : 'Client dropped');
+}
+
+function pipelineReactivate(invId) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const prevIdx = inv.pipelineDroppedAtIdx || 0;
+  const stage = PIPELINE_STAGE_KEYS[prevIdx] || 'new_lead';
+  const note = prompt('Reactivating client.\nResume at which stage? (Press OK to return to ' + PIPELINE_STAGES[prevIdx].label + ' or type a stage name):');
+  if (note === null) return;
+
+  inv.pipelineStage = stage;
+  inv.pipelineDropReason = null;
+  inv.pipelineDroppedAt = null;
+  inv.pipelineUpdatedAt = new Date().toISOString();
+
+  logActivity({ clientID: invId, investorName: inv.name, type:'general', action:'Reactivated — resumed at ' + stage + (note ? ' — ' + note : '') });
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  renderInvestorCard(inv);
+  showToast('Client reactivated');
+}
+
+function pipelineClosedModal(invId) {
+  const existing = document.getElementById('pipelineClosedModal');
+  if (existing) existing.remove();
+
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'pipelineClosedModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = '<div style="background:var(--bg);border-radius:12px;padding:24px;width:460px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--tx);margin-bottom:4px">Close Client</div>'
+    + '<div style="font-size:12px;color:var(--mu);margin-bottom:16px">Record the final outcome for this client.</div>'
+
+    + '<div style="display:flex;gap:8px;margin-bottom:16px">'
+      + '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)" id="closedWonLabel">'
+        + '<input type="radio" name="closedType" value="won" onchange="document.getElementById(\'closedWonFields\').style.display=\'\';document.getElementById(\'closedLostFields\').style.display=\'none\';document.getElementById(\'closedWonLabel\').style.borderColor=\'#22c55e\';document.getElementById(\'closedLostLabel\').style.borderColor=\'var(--bd)\'">'
+        + '<div><div style="font-size:13px;font-weight:700;color:#15803d">✅ Won</div><div style="font-size:11px;color:var(--mu)">Bought through us</div></div></label>'
+      + '<label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--bd);border-radius:var(--r);cursor:pointer;background:var(--bg2)" id="closedLostLabel">'
+        + '<input type="radio" name="closedType" value="lost" onchange="document.getElementById(\'closedLostFields\').style.display=\'\';document.getElementById(\'closedWonFields\').style.display=\'none\';document.getElementById(\'closedLostLabel\').style.borderColor=\'#ef4444\';document.getElementById(\'closedWonLabel\').style.borderColor=\'var(--bd)\'">'
+        + '<div><div style="font-size:13px;font-weight:700;color:#991b1b">❌ Lost</div><div style="font-size:11px;color:var(--mu)">Bought elsewhere or dropped</div></div></label>'
+    + '</div>'
+
+    + '<div id="closedWonFields" style="display:none;margin-bottom:12px">'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+        + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Property / Development</div>'
+          + '<input id="closedProperty" placeholder="e.g. Aristo Aqua, Unit 3B" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box"></div>'
+        + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Sale Price (€)</div>'
+          + '<input id="closedPrice" type="number" placeholder="e.g. 650000" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box"></div>'
+        + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Commission %</div>'
+          + '<input id="closedCommission" type="number" step="0.1" placeholder="e.g. 2" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box"></div>'
+        + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Close Date</div>'
+          + '<input id="closedDate" type="date" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box" value="' + new Date().toISOString().slice(0,10) + '"></div>'
+      + '</div>'
+    + '</div>'
+
+    + '<div id="closedLostFields" style="display:none;margin-bottom:12px">'
+      + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Reason lost</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+        + ['Bought elsewhere', 'Lost interest', 'Budget issue', 'No suitable stock', 'Chose another jurisdiction', 'Other'].map(r =>
+            '<button onclick="document.getElementById(\'closedLostReason\').value=\'' + r + '\'" style="font-size:11px;padding:3px 10px;border:1px solid var(--bd);border-radius:99px;background:var(--bg2);color:var(--tx);cursor:pointer">' + r + '</button>'
+          ).join('')
+      + '</div>'
+      + '<input id="closedLostReason" placeholder="Reason (required)…" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box;margin-bottom:8px">'
+      + '<input id="closedLostCompetitor" placeholder="Bought through / competitor (if known)…" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box">'
+    + '</div>'
+
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">'
+      + '<button onclick="document.getElementById(\'pipelineClosedModal\').remove()" style="font-size:12px;height:34px;padding:0 16px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Cancel</button>'
+      + '<button onclick="confirmPipelineClosed(' + invId + ')" style="font-size:12px;height:34px;padding:0 16px;border:none;border-radius:var(--r);background:var(--blue);color:#fff;cursor:pointer">Save Outcome</button>'
+    + '</div>'
+  + '</div>';
+
+  document.body.appendChild(modal);
+}
+
+function confirmPipelineClosed(invId) {
+  const typeEl = document.querySelector('input[name="closedType"]:checked');
+  if (!typeEl) { alert('Please select Won or Lost.'); return; }
+  const type = typeEl.value;
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+
+  if (type === 'won') {
+    const property   = (document.getElementById('closedProperty')||{}).value || '';
+    const price      = (document.getElementById('closedPrice')||{}).value || '';
+    const commission = (document.getElementById('closedCommission')||{}).value || '';
+    const date       = (document.getElementById('closedDate')||{}).value || '';
+    inv.pipelineStage      = 'closed';
+    inv.closedOutcome      = 'won';
+    inv.closedProperty     = property;
+    inv.closedPrice        = price ? +price : null;
+    inv.closedCommissionPct = commission ? +commission : null;
+    inv.closedCommissionAmt = (price && commission) ? Math.round(+price * +commission / 100) : null;
+    inv.closedDate         = date;
+    logActivity({ clientID: invId, investorName: inv.name, type:'general',
+      action: 'Closed WON — ' + (property||'—') + ' — €' + (+price||0).toLocaleString() + (commission ? ' — Commission ' + commission + '%' : '') });
+  } else {
+    const reason     = (document.getElementById('closedLostReason')||{}).value.trim();
+    const competitor = (document.getElementById('closedLostCompetitor')||{}).value.trim();
+    if (!reason) { alert('Please provide a reason.'); return; }
+    inv.pipelineStage   = 'closed';
+    inv.closedOutcome   = 'lost';
+    inv.closedLostReason = reason;
+    inv.closedCompetitor = competitor || null;
+    logActivity({ clientID: invId, investorName: inv.name, type:'general',
+      action: 'Closed LOST — ' + reason + (competitor ? ' (' + competitor + ')' : '') });
+  }
+
+  inv.pipelineUpdatedAt = new Date().toISOString();
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  document.getElementById('pipelineClosedModal').remove();
+  renderInvestorCard(inv);
+  showToast(type === 'won' ? '✅ Deal closed — Won!' : 'Client closed as Lost');
+}
+
+function pipelineAddViewing(invId) {
+  const existing = document.getElementById('pipelineViewingModal');
+  if (existing) existing.remove();
+
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+
+  // Build property options from their shortlist
+  const shortlistProps = clientProperties.filter(p => +p.investorId === +invId);
+  const propOptions = shortlistProps.map(p =>
+    '<option value="' + (p.complex||p.developer||'') + '">' + (p.complex||p.developer||'—') + ' — ' + (p.city||'') + (p.price ? ' — €' + Number(p.price).toLocaleString() : '') + '</option>'
+  ).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'pipelineViewingModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = '<div style="background:var(--bg);border-radius:12px;padding:24px;width:440px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">'
+    + '<div style="font-size:15px;font-weight:600;color:var(--tx);margin-bottom:14px">Log Viewing</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">'
+      + '<div style="grid-column:1/-1"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Property</div>'
+        + '<input id="viewingProperty" list="viewingPropList" placeholder="Development / unit name…" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box">'
+        + '<datalist id="viewingPropList">' + propOptions + '</datalist></div>'
+      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Date</div>'
+        + '<input id="viewingDate" type="date" value="' + new Date().toISOString().slice(0,10) + '" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;box-sizing:border-box"></div>'
+      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Feedback</div>'
+        + '<select id="viewingFeedback" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">'
+          + '<option value="interested">✅ Interested</option>'
+          + '<option value="maybe">🤔 Maybe</option>'
+          + '<option value="not_interested">❌ Not Interested</option>'
+          + '<option value="second_viewing">🔄 Wants Second Viewing</option>'
+        + '</select></div>'
+    + '</div>'
+    + '<textarea id="viewingNotes" placeholder="Notes, blockers, next steps…" style="width:100%;height:60px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical;box-sizing:border-box;margin-bottom:12px"></textarea>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      + '<button onclick="document.getElementById(\'pipelineViewingModal\').remove()" style="font-size:12px;height:34px;padding:0 16px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);cursor:pointer">Cancel</button>'
+      + '<button onclick="confirmAddViewing(' + invId + ')" class="btn primary" style="font-size:12px;height:34px;padding:0 16px">Save Viewing</button>'
+    + '</div>'
+  + '</div>';
+
+  document.body.appendChild(modal);
+}
+
+function confirmAddViewing(invId) {
+  const property  = (document.getElementById('viewingProperty')||{}).value.trim();
+  const date      = (document.getElementById('viewingDate')||{}).value;
+  const feedback  = (document.getElementById('viewingFeedback')||{}).value;
+  const notes     = (document.getElementById('viewingNotes')||{}).value.trim();
+
+  if (!property) { alert('Please enter a property name.'); return; }
+
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+
+  if (!inv.viewingLog) inv.viewingLog = [];
+  inv.viewingLog.push({ property, date, feedback, notes, addedAt: new Date().toISOString() });
+
+  const feedbackLabels = { interested:'Interested', maybe:'Maybe', not_interested:'Not Interested', second_viewing:'Wants 2nd Viewing' };
+  logActivity({ clientID: invId, investorName: inv.name, type:'general',
+    action: 'Viewed: ' + property + ' — ' + (feedbackLabels[feedback]||feedback) + (notes ? ' — ' + notes : '') });
+
+  // Auto-advance to Viewing stage if currently at New Lead, Qualified, or Nurturing
+  const currentStage = getPipelineStage(inv);
+  const autoAdvanceStages = ['new_lead', 'qualified', 'nurturing'];
+  if (autoAdvanceStages.includes(currentStage)) {
+    inv.pipelineStage = 'viewing';
+    logActivity({ clientID: invId, investorName: inv.name, type:'general', action:'Stage auto-advanced to Viewing after logging a viewing' });
+  }
+
+  saveInvestorProfiles();
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  document.getElementById('pipelineViewingModal').remove();
+  renderInvestorCard(inv);
+  showToast('Viewing logged' + (autoAdvanceStages.includes(currentStage) ? ' — stage advanced to Viewing' : ''));
+}
+
+// ── Pipeline summary bar for top of Clients tab ──────────────────
+function renderPipelineSummaryBar() {
+  const counts = {};
+  const labels = {
+    new_lead:'New Lead', qualified:'Qualified', nurturing:'Nurturing',
+    viewing:'Viewing', negotiating:'Negotiating', closed:'Closed',
+    paused:'Paused', dropped:'Dropped'
+  };
+  const colors = {
+    new_lead:'#6b7280', qualified:'#3b82f6', nurturing:'#8b5cf6',
+    viewing:'#f59e0b', negotiating:'#ef4444', closed:'#22c55e',
+    paused:'#f59e0b', dropped:'#9ca3af'
+  };
+
+  Object.keys(labels).forEach(k => counts[k] = 0);
+  investorProfiles.forEach(inv => {
+    if (inv.status === 'Archived') return;
+    const stage = getPipelineStage(inv);
+    if (counts[stage] !== undefined) counts[stage]++;
+    else counts['new_lead']++;
+  });
+
+  const total = Object.values(counts).reduce((a,b) => a+b, 0);
+  if (!total) return '';
+
+  const activeKeys = ['new_lead','qualified','nurturing','viewing','negotiating'];
+  const outcomeKeys = ['closed','paused','dropped'];
+
+  function makeChip(key, label) {
+    if (!counts[key]) return '';
+    const isActive = _pipelineStageFilter === key;
+    return '<div onclick="filterInvestorsByStage(\'' + key + '\')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:' + (isActive ? colors[key]+'22' : 'var(--bg2)') + ';border:1px solid ' + (isActive ? colors[key] : 'var(--bd)') + ';cursor:pointer;transition:all .15s;white-space:nowrap">'
+      + '<span style="font-size:13px;font-weight:700;color:' + colors[key] + '">' + counts[key] + '</span>'
+      + '<span style="font-size:11px;color:var(--mu)">' + label + '</span>'
+    + '</div>';
+  }
+
+  const activeChips = activeKeys.map(k => makeChip(k, labels[k])).join('');
+  const outcomeChips = outcomeKeys.map(k => makeChip(k, labels[k])).join('');
+
+  return '<div style="margin-bottom:20px;padding:14px 16px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--mu);margin-bottom:10px">Pipeline Overview</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:' + (outcomeChips ? '8px' : '0') + '">' + activeChips + '</div>'
+    + (outcomeChips ? '<div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--bd)">' + outcomeChips + '</div>' : '')
+    + '</div>';
+}
+
+let _pipelineStageFilter = null;
+function filterInvestorsByStage(stage) {
+  _pipelineStageFilter = (_pipelineStageFilter === stage) ? null : stage;
+  document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  // Update pipeline summary to show active filter
+  const summaryEl = document.getElementById('pipelineSummaryBar');
+  if (summaryEl) summaryEl.innerHTML = renderPipelineSummaryBar();
+}
+
+
 // ── Activity Log (Client Communications sheet) ────────────────
 const COMMS_WEBHOOK = ''; // n8n append webhook URL
 
@@ -12095,21 +12794,64 @@ async function renderActivityLog(clientID) {
     var count = entries.length;
     if (title) title.textContent = 'Activity Log (' + count + ')';
 
-    // Build the full entry list HTML
-    list.innerHTML = entries.map(function(e) {
-      var icon = e.type === 'session'   ? '<span style="color:var(--blue)">●</span>'
-               : e.type === 'shortlist' ? '<span style="color:#ef4444">♥</span>'
-               : '<span style="color:var(--gold)">📝</span>';
-      var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
-      return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
-        + '<div style="flex-shrink:0;margin-top:1px">' + icon + '</div>'
-        + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:12px;color:var(--tx)">' + e.action + '</div>'
-          + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+    // Group entries by date for accordion display
+    var groups = {};
+    var groupOrder = [];
+    entries.forEach(function(e) {
+      var rawDate = e.date ? new Date(e.date) : null;
+      var dayKey = rawDate && !isNaN(rawDate)
+        ? rawDate.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+        : (e.dateFormatted || 'Unknown date').split(' ')[0];
+      if (!groups[dayKey]) { groups[dayKey] = []; groupOrder.push(dayKey); }
+      groups[dayKey].push(e);
+    });
+
+    // Build accordion HTML — most recent date open by default
+    list.innerHTML = groupOrder.map(function(dayKey, gi) {
+      var dayEntries = groups[dayKey];
+      var isOpen = gi === 0;
+      var dayId = 'actDay_' + gi;
+      var rows = dayEntries.map(function(e) {
+        var icon = e.type === 'session'   ? '<span style="color:var(--blue)">&#9679;</span>'
+                 : e.type === 'shortlist' ? '<span style="color:#ef4444">&#9829;</span>'
+                 : '<span style="color:var(--gold)">&#128221;</span>';
+        var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
+        var time = e.date ? new Date(e.date).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : '';
+        return '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:11px">'
+          + '<div style="flex-shrink:0;margin-top:1px">' + icon + '</div>'
+          + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:12px;color:var(--tx)">' + safeHTML(e.action||'') + '</div>'
+            + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+          + '</div>'
+          + (time ? '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + time + '</div>' : '')
+          + '</div>';
+      }).join('');
+
+      return '<div style="border-bottom:1px solid var(--bd)">'
+        + '<div class="act-acc-hdr" data-target="' + dayId + '" style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;user-select:none">'
+          + '<span style="font-size:11px;font-weight:600;color:var(--tx)">' + dayKey + '</span>'
+          + '<span style="display:flex;align-items:center;gap:6px">'
+            + '<span style="font-size:10px;color:var(--mu)">' + dayEntries.length + ' event' + (dayEntries.length !== 1 ? 's' : '') + '</span>'
+            + '<span class="act-acc-arr" style="font-size:10px;color:var(--mu)">' + (isOpen ? '&#9662;' : '&#9656;') + '</span>'
+          + '</span>'
         + '</div>'
-        + '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + e.dateFormatted + '</div>'
-        + '</div>';
+        + '<div id="' + dayId + '" style="display:' + (isOpen ? '' : 'none') + ';padding-bottom:4px">'
+          + rows
+        + '</div>'
+      + '</div>';
     }).join('');
+
+    // Wire up accordion toggles via event delegation (avoids inline JS quote issues)
+    list.querySelectorAll('.act-acc-hdr').forEach(function(hdr) {
+      hdr.addEventListener('click', function() {
+        var body = document.getElementById(hdr.dataset.target);
+        var arr  = hdr.querySelector('.act-acc-arr');
+        if (!body) return;
+        var open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        if (arr) arr.innerHTML = open ? '&#9656;' : '&#9662;';
+      });
+    });
 
     // Apply current open/closed state
     _applyActivityLogState();
@@ -12255,3 +12997,4 @@ init();
 </script>
 </body>
 </html>
+  
