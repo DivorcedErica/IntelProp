@@ -8311,18 +8311,28 @@ async function apExtractProperties() {
     }
 
     const system = `You are a Cyprus real estate data extraction specialist for a professional advisory firm.
-Your task: extract individual property/unit listings from the provided content and return structured JSON.
+Your task: extract ALL individual property/development listings from the provided content and return structured JSON.
 
-CRITICAL RULES:
-- Do NOT invent or guess data. If a field is not stated, use null.
-- Mark uncertain inferences with a "?" prefix in the value, e.g. "?2026" for inferred delivery.
-- Extract as many individual units as possible from unit schedules.
-- Distinguish project-level data (developer, project name, location) from unit-level data (bedrooms, area, price).
-- If you see a price schedule/table, extract each row as a separate listing.
-- Do NOT combine different unit types into one row.
-- Confidence: "high" = directly stated, "medium" = inferred from context, "low" = guessed/proxy.
+This content may come from a developer portfolio brochure with many developments across multiple cities.
+The text may be jumbled due to PDF extraction — use context clues to reconstruct each listing.
 
-Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+EXTRACTION RULES:
+- Extract EVERY development/project mentioned as a separate unit entry. A portfolio with 30 developments = 30 units minimum.
+- Each named development (e.g. "Andriana Court", "Avora Court", "Aquamarine Villas") is a separate unit.
+- If a development has multiple bedroom types, create one entry per bedroom type.
+- Use the development name as the title.
+- Price: look for "Prices starting from €X" or "Price €X" patterns.
+- Bedrooms: look for "1,2 and 3" or "2 and 3" or "3, 4 and 5" — create separate entries per type or use the range.
+- Area: look for "Total Cov. Areas: X m² - Y m²" patterns.
+- Plot: look for "Plot Sizes: X m² - Y m²" patterns.
+- City/location: look for section headers like "PAFOS", "LIMASSOL", "NICOSIA", "LARNACA", "POLIS".
+- Pool: true if "private swimming pool" or "communal swimming pool" mentioned.
+- If field not found, use null — do NOT skip the listing entirely.
+- Confidence: "high" = directly stated, "medium" = inferred, "low" = guessed.
+
+IMPORTANT: Even if the text is messy or jumbled, extract whatever listings you can find. A partial extraction is far better than no extraction.
+
+Return ONLY valid JSON — no markdown fences, no explanation, just the JSON object:
 {
   "project": {
     "developer": string|null,
@@ -8336,7 +8346,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
   "units": [
     {
       "title": string,
-      "type": "Apartment"|"Villa"|"House"|"Penthouse"|"Studio"|null,
+      "type": "Apartment"|"Villa"|"House"|"Penthouse"|"Studio"|"Maisonette"|"Bungalow"|"Plot"|null,
       "bedrooms": number|null,
       "bathrooms": number|null,
       "covered_area_m2": number|null,
@@ -8348,9 +8358,10 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
       "delivery": string|null,
       "furnished": boolean|null,
       "sea_distance_km": number|null,
+      "city": string|null,
       "notes": string|null,
       "confidence": "high"|"medium"|"low",
-      "uncertain_fields": [array of field names that are uncertain]
+      "uncertain_fields": []
     }
   ],
   "extraction_notes": string,
@@ -8358,7 +8369,10 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
 }`;
 
     // ── STEP 3: Call Claude for extraction ───────────────────────────
-    const rawJson = await apCallClaude(system, userContent, 4000);
+    // Use 8000 tokens for large portfolios (30+ developments need more output space)
+    const isLargeContent = (typeof userContent === 'string' && userContent.length > 10000) ||
+                           (Array.isArray(userContent) && userContent.some(b => b.type === 'document'));
+    const rawJson = await apCallClaude(system, userContent, isLargeContent ? 8000 : 4000);
     const parsed  = apParseJSON(rawJson);
     if (!parsed || !parsed.units) throw new Error('AI returned no unit data. The content may not contain recognisable property listings.');
 
@@ -8371,7 +8385,6 @@ Return ONLY valid JSON with this exact structure (no markdown, no explanation):
         complex:     proj.project_name || null,
         type:        u.type || typeHint || null,
         city:        u.city || proj.city || cityHint || null,
-        district:    u.district || proj.district || null,
         bedrooms:    u.bedrooms,
         bathrooms:   u.bathrooms,
         area:        u.covered_area_m2,
