@@ -12237,6 +12237,11 @@ function renderPipelineStepper(inv) {
     : (currentIdx === PIPELINE_STAGES.length - 1 && !isDropped && !isPaused)
       ? '<span class="pipeline-chip" style="background:#dcfce7;color:#15803d;border-color:#86efac;font-size:11px;padding:4px 10px">✓ Closed</span>'
       : '';
+  const canGoBack = !isDropped && !isPaused && currentIdx > 0;
+  const prevLabel = canGoBack ? PIPELINE_STAGES[currentIdx - 1].label : '';
+  const backBtn = canGoBack
+    ? '<button onclick="pipelineGoBack(' + invId + ')" class="pipeline-btn-secondary" title="Revert to previous stage">← Back to ' + prevLabel + '</button>'
+    : '';
   const viewingBtn = '<button onclick="pipelineAddViewing(' + invId + ')" class="pipeline-btn-secondary">+ Log Viewing</button>';
   const dropBtn = (!isDropped && !isPaused)
     ? '<button onclick="pipelineDropModal(' + invId + ')" class="pipeline-btn-danger">↓ Drop / Pause</button>'
@@ -12251,7 +12256,7 @@ function renderPipelineStepper(inv) {
     + ((staleChip || viewingChip || droppedBadge || pausedBadge)
         ? '<div class="pipeline-chips">' + staleChip + viewingChip + droppedBadge + pausedBadge + '</div>'
         : '')
-    + '<div class="pipeline-actions">' + advanceBtn + viewingBtn + dropBtn + reactivateBtn + '</div>'
+    + '<div class="pipeline-actions">' + advanceBtn + backBtn + viewingBtn + dropBtn + reactivateBtn + '</div>'
     + '</div>';
 }
 
@@ -12296,6 +12301,17 @@ function pipelineAdvance(invId) {
   setPipelineStage(invId, nextStage.key, note || '');
 }
 
+function pipelineGoBack(invId) {
+  const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
+  if (!inv) return;
+  const currentIdx = PIPELINE_STAGE_KEYS.indexOf(getPipelineStage(inv));
+  if (currentIdx <= 0) return;
+  const prevStage = PIPELINE_STAGES[currentIdx - 1];
+  const note = prompt('Reverting to ' + prevStage.label + '\nAdd a note (optional):');
+  if (note === null) return; // cancelled
+  setPipelineStage(invId, prevStage.key, note || '');
+}
+
 function setPipelineStage(invId, stageKey, note) {
   const inv = investorProfiles.find(i => (i.investorId||i.id) === invId);
   if (!inv) return;
@@ -12303,12 +12319,14 @@ function setPipelineStage(invId, stageKey, note) {
   inv.pipelineStage = stageKey;
   inv.pipelineUpdatedAt = new Date().toISOString();
 
-  // Log the transition
+  // Log the transition with human-readable labels
+  const prevLabel = (PIPELINE_STAGES.find(s => s.key === (prevStage||'new_lead')) || {label: prevStage||'New Lead'}).label;
+  const newLabel  = (PIPELINE_STAGES.find(s => s.key === stageKey) || {label: stageKey}).label;
   logActivity({
     clientID: invId,
     investorName: inv.name,
     type: 'general',
-    action: 'Stage: ' + (prevStage || 'new_lead') + ' → ' + stageKey + (note ? ' — ' + note : '')
+    action: 'Journey: ' + prevLabel + ' → ' + newLabel + (note ? ' — ' + note : '')
   });
 
   saveInvestorProfiles();
