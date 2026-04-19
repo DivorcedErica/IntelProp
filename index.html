@@ -4893,6 +4893,20 @@ function clearFilters(){
 }
 
 function gotoTab(t,el){
+  // If clicking the already-active tab, trigger "back to list" for that tab
+  if (tab === t) {
+    if (t === 'investors') { closeInvestorCard(); return; }
+    if (t === 'developers') { currentDevFilter=null; devPage=1; renderDev(); return; }
+    if (t === 'agents') { renderAgentsTab(); return; }
+    if (t === 'clients') {
+      // Close any open client comms log / session and reset to top
+      var cl = document.getElementById('cCommLog'); if (cl) cl.style.display = 'none';
+      var cName = document.getElementById('cName'); if (cName) cName.value = '';
+      return;
+    }
+    // For other tabs just fall through — re-render is fine
+  }
+
   tab=t;
   ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist','agentportal'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
