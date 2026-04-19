@@ -6,7 +6,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  const key = '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';
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY environment variable is not set' });
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
