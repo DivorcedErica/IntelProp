@@ -4893,18 +4893,17 @@ function clearFilters(){
 }
 
 function gotoTab(t,el){
-  // If clicking the already-active tab, trigger "back to list" for that tab
+  // If clicking the already-active tab while a detail panel is open, go back to list
   if (tab === t) {
-    if (t === 'investors') { closeInvestorCard(); return; }
-    if (t === 'developers') { currentDevFilter=null; devPage=1; renderDev(); return; }
+    if (t === 'investors' && currentInvestorCard) { closeInvestorCard(); return; }
+    if (t === 'developers' && currentDevFilter) { currentDevFilter=null; devPage=1; renderDev(); return; }
     if (t === 'agents') { renderAgentsTab(); return; }
     if (t === 'clients') {
-      // Close any open client comms log / session and reset to top
       var cl = document.getElementById('cCommLog'); if (cl) cl.style.display = 'none';
       var cName = document.getElementById('cName'); if (cName) cName.value = '';
       return;
     }
-    // For other tabs just fall through — re-render is fine
+    // For other tabs (listings, map, etc) — fall through and re-render normally
   }
 
   tab=t;
