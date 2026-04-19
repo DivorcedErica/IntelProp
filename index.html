@@ -8467,313 +8467,36 @@ function calcPropertyMetrics(d) {
 
 let anMap2 = null, anMarkers2 = [], anInfoWindow2 = null, anStatsVisible = false;
 
-// ══════════════════════════════════════════════════════════════════
-// DEFENSIBLE MARKET SCORING ENGINE v2
-// Formula:
-//   BaseScore = 0.25*yield + 0.25*growth + 0.25*liquidity
-//             + 0.10*demand + 0.10*supply + 0.05*confidence
-//   FinalScore = BaseScore * thinMarketMult * confidenceMult * proxyMult
-//
-// Sources: CBC RPPI Q4 2025 · RICS Cyprus · DLS contracts 2024
-// Absolute bands only — no relative "max=100" scaling
-// Hard safety rules prevent thin/low-confidence markets from ranking #1
-// ══════════════════════════════════════════════════════════════════
-
-// ── YIELD SCORE — absolute bands, hard cap 85 ────────────────────
-// Source: LTR benchmarks (RICS/DoL) or STR estimate (calcPropertyMetrics)
-function computeMarketYieldScore(city, bedrooms, type, price, purpose) {
-  const MB        = window.MARKET_BENCHMARKS;
-  const rentBench = MB?.rents?.[city];
-  const isProxy   = rentBench?.isProxy ?? true;
-  let annualRent  = 0;
-  let yieldPct    = 0;
-  let yieldSource = 'proxy';
-  let isEstimate  = true;
-
-  if (purpose === 'str' || !rentBench) {
-    // STR mode: derive from calcPropertyMetrics (ADR × occupancy)
-    const mock  = { city, bedrooms, type: type || 'Apartment', seaDist: 2, price };
-    const m     = calcPropertyMetrics(mock);
-    annualRent  = m.annualRevenue;
-    yieldPct    = price ? (annualRent / price) * 100 : 0;
-    yieldSource = 'STR-estimate';
-    isEstimate  = true;
-  } else {
-    // LTR mode: benchmark rents (RICS/DoL)
-    const bedKey    = bedrooms >= 4 ? 'villa' : bedrooms === 3 ? '3bed' : bedrooms === 2 ? '2bed' : '1bed';
-    const monthly   = rentBench[bedKey] || rentBench['2bed'] || 0;
-    annualRent      = monthly * 12;
-    yieldPct        = price ? (annualRent / price) * 100 : 0;
-    yieldSource     = rentBench.confidence || 'proxy';
-    isEstimate      = isProxy || yieldSource === 'proxy';
-  }
-
-  // Absolute bands — hard cap 85, no relative scaling
-  let yieldScore;
-  if      (yieldPct <  2.0) yieldScore = 20;
-  else if (yieldPct <  3.0) yieldScore = 35;
-  else if (yieldPct <  4.0) yieldScore = 50;
-  else if (yieldPct <  5.0) yieldScore = 62;
-  else if (yieldPct <  6.0) yieldScore = 74;
-  else if (yieldPct <  7.0) yieldScore = 82;
-  else                       yieldScore = 85;  // cap at 85
-
-  return { yieldScore, yieldPct, annualRent, yieldSource, isProxy, isEstimate };
-}
-
-// ── GROWTH SCORE — absolute bands, cap 95, momentum adjust ──────
-function _growthScore(pct, momentum) {
-  // momentum: 'accelerating' | 'decelerating' | 'stable' | null
-  let base;
-  if      (pct <  0)   base = 20;
-  else if (pct <  2)   base = 35;
-  else if (pct <  4)   base = 50;
-  else if (pct <  6)   base = 65;
-  else if (pct <  8)   base = 78;
-  else if (pct < 10)   base = 88;
-  else                 base = 92;
-  const adj = momentum === 'accelerating' ? 3 : momentum === 'decelerating' ? -3 : 0;
-  return Math.min(95, Math.max(0, base + adj));
-}
-
-// ── LIQUIDITY SCORE — log-shaped scaling from contract count ─────
-// liquidityScore = min(95, 20 * ln(transactions))
-// Ensures thin markets score materially lower
-function _liquidityScore(contracts) {
-  if (!contracts || contracts <= 0) return 15; // no data = very thin
-  const raw = Math.min(95, 20 * Math.log(contracts));
-  // Clamp to practical bands for interpretability
-  if (contracts >= 4000) return Math.min(95, raw); // deep market
-  if (contracts >= 1500) return Math.min(78, raw);
-  if (contracts >= 500)  return Math.min(62, raw);
-  if (contracts >= 100)  return Math.min(45, raw);
-  return Math.min(35, raw);                          // <100 contracts
-}
-
-// ── DEMAND SCORE — capped at 80 ──────────────────────────────────
-function _demandScore(rawScore) {
-  if (rawScore == null) return 50;
-  // Clamp to 30–80 range per spec
-  return Math.min(80, Math.max(30, rawScore));
-}
-
-// ── SUPPLY BALANCE SCORE — capped at 75 ─────────────────────────
-function _supplyScore(rawScore) {
-  if (rawScore == null) return 55;
-  return Math.min(75, Math.max(35, rawScore));
-}
-
-// ── CONFIDENCE SCORE — fixed values per tier ─────────────────────
-function _confScore(tier) {
-  if (tier === 'CBC+RICS') return 85;
-  if (tier === 'CBC+proxy') return 65;
-  return 45; // proxy only
-}
-
-// ── THIN MARKET MULTIPLIER ────────────────────────────────────────
-function _thinMarketMult(contracts) {
-  if (contracts >= 800)  return 1.00;
-  if (contracts >= 500)  return 0.95;
-  if (contracts >= 250)  return 0.88;
-  if (contracts >= 100)  return 0.78;
-  return 0.68;
-}
-
-// ── CONFIDENCE MULTIPLIER ─────────────────────────────────────────
-function _confMult(tier) {
-  if (tier === 'CBC+RICS')  return 1.00;
-  if (tier === 'CBC+proxy') return 0.92;
-  return 0.80; // proxy only
-}
-
-// ── PROXY MULTIPLIER ─────────────────────────────────────────────
-// Caps proxy-heavy markets at 65 unless stronger evidence present
-function _proxyMult(isYieldProxy, confTier) {
-  if (!isYieldProxy && confTier === 'CBC+RICS')  return 1.00;  // mostly verified
-  if (!isYieldProxy || confTier === 'CBC+proxy') return 0.94;  // mixed
-  return 0.85;                                                  // proxy-heavy
-}
-
-// ── SAFETY RULE LABELS ────────────────────────────────────────────
-// Returns null (clean) or a warning label string
-function _safetyLabel(yieldPct, liqScore, confTier, contracts, finalScore, rank) {
-  const isLowConf  = confTier === 'proxy';
-  const isThin     = (contracts || 0) < 500;
-  const isHighYield = yieldPct >= 7.0;
-
-  // Rule 1: Low confidence + thin market cannot rank top 2
-  if (isLowConf && isThin && rank <= 2) return 'Insufficient data depth for this ranking';
-
-  // Rule 2: High yield + low liquidity = Opportunistic label
-  if (isHighYield && liqScore < 40) return 'Opportunistic / thin market — not recommended as primary';
-
-  // Rule 3: Proxy-heavy city — label it
-  if (confTier === 'proxy' && finalScore > 65) return 'Proxy-assisted — treat as indicative';
-
-  return null;
-}
-
-// ── SCORE INTERPRETATION BAND ────────────────────────────────────
-function _scoreBand(finalScore) {
-  if (finalScore >= 80) return { label:'Strong market',           cls:'high' };
-  if (finalScore >= 70) return { label:'Attractive / investable', cls:'mid-high' };
-  if (finalScore >= 60) return { label:'Selective / situational', cls:'mid' };
-  if (finalScore >= 50) return { label:'Opportunistic only',      cls:'low-mid' };
-  return                       { label:'Weak / caution',          cls:'low' };
-}
-
-// ── MAIN SCORING FUNCTION ────────────────────────────────────────
-// purpose: 'str' | 'ltr' | 'mixed'
-function computeCityMarketScore(city, bedrooms, type, price, purpose) {
-  const MB = window.MARKET_BENCHMARKS;
-  if (!MB) return null;
-
-  // Yield
-  const { yieldScore, yieldPct, annualRent, yieldSource, isProxy: yieldIsProxy, isEstimate } =
-    computeMarketYieldScore(city, bedrooms, type, price, purpose || 'mixed');
-
-  // Growth — use type-specific RPPI where available
-  const growthData  = MB.growth?.[city];
-  const typeStr     = (type || '').toLowerCase();
-  const growthPct   = typeStr.includes('villa') ? (growthData?.villas  ?? growthData?.overall ?? 5.5)
-                    : typeStr.includes('house')  ? (growthData?.houses  ?? growthData?.overall ?? 5.5)
-                    : (growthData?.apartments ?? growthData?.overall ?? 5.5);
-  const growthMomentum = growthData?.momentum ?? null;
-  const growthScore    = _growthScore(growthPct, growthMomentum);
-
-  // Liquidity — log-shaped from actual contract count
-  const liqData     = MB.liquidity?.[city];
-  const contracts   = liqData?.contracts2024 ?? 0;
-  const liqScore    = _liquidityScore(contracts);
-
-  // Demand — capped 30–80
-  const rawDemand   = MB.demand?.[city]?.score;
-  const demandScore = _demandScore(rawDemand);
-
-  // Supply balance — capped 35–75
-  const rawSupply   = MB.supply?.[city]?.score;
-  const supplyScore = _supplyScore(rawSupply);
-
-  // Confidence — fixed per tier
-  const confData    = MB.confidence?.[city];
-  const confTier    = confData?.tier  ?? 'proxy';
-  const confLabel   = confData?.label ?? 'Low';
-  const confScore   = _confScore(confTier);
-  const confIsProxy = confTier === 'proxy';
-
-  // Base score (weighted sum)
-  const baseScore = Math.round(
-    yieldScore  * 0.25 +
-    growthScore * 0.25 +
-    liqScore    * 0.25 +
-    demandScore * 0.10 +
-    supplyScore * 0.10 +
-    confScore   * 0.05
-  );
-
-  // Multipliers
-  const thinMult  = _thinMarketMult(contracts);
-  const confMultV = _confMult(confTier);
-  const proxyMultV = _proxyMult(yieldIsProxy, confTier);
-
-  // Final score — proxy-heavy cap: max 65 unless confidence supports higher
-  let finalScore = Math.round(baseScore * thinMult * confMultV * proxyMultV);
-  if (yieldIsProxy && confTier === 'proxy') finalScore = Math.min(65, finalScore);
-  finalScore = Math.max(0, Math.min(100, finalScore));
-
-  // Score band interpretation
-  const band = _scoreBand(finalScore);
-
-  return {
-    // Core scores (all absolute-banded)
-    blendedScore: finalScore,
-    baseScore,
-    yieldScore:   Math.round(yieldScore),
-    growthScore:  Math.round(growthScore),
-    liqScore:     Math.round(liqScore),
-    demandScore:  Math.round(demandScore),
-    supplyScore:  Math.round(supplyScore),
-    confScore:    Math.round(confScore),
-
-    // Raw source values
-    yieldPct, growthPct, annualRent,
-    yieldSource, yieldIsProxy, isEstimate,
-
-    // Multipliers (for transparency)
-    thinMult, confMult: confMultV, proxyMult: proxyMultV,
-    contracts,
-
-    // Confidence / source
-    confLabel, confTier, confIsProxy,
-
-    // Context / labels
-    band,
-    liqTrend:    liqData?.trend    ?? 'stable',
-    liqNote:     liqData?.note     ?? '',
-    demandNote:  MB.demand?.[city]?.primary ?? '',
-    supplyNote:  MB.supply?.[city]?.note    ?? '',
-    growthSource: growthData?.source ?? 'proxy estimate',
-    _safetyWarning: null, // set after ranking
-  };
-}
-
-// ── POST-RANKING SAFETY PASS ─────────────────────────────────────
-// Call after sorting city scores by finalScore to apply Rule 1
-function applyRankingSafetyRules(rankedCityScores) {
-  rankedCityScores.forEach((item, idx) => {
-    const ms   = item.ms;
-    if (!ms) return;
-    ms._safetyWarning = _safetyLabel(
-      ms.yieldPct, ms.liqScore, ms.confTier,
-      ms.contracts, ms.blendedScore, idx + 1
-    );
-    // Hard Rule 1: demote low-conf + thin markets out of top 2
-    if (idx < 2 && ms.confTier === 'proxy' && ms.contracts < 500) {
-      ms.blendedScore = Math.min(ms.blendedScore, 58); // push out of Attractive band
-      ms.band = _scoreBand(ms.blendedScore);
-      ms._safetyWarning = 'Demoted — insufficient data depth for top ranking';
-    }
-  });
-  // Re-sort after potential demotion
-  rankedCityScores.sort((a, b) => (b.ms?.blendedScore || 0) - (a.ms?.blendedScore || 0));
-}
-
-// Colour helpers — updated bands match spec thresholds
-function _mScore(v) {
-  return v >= 70 ? '#15803d' : v >= 55 ? '#b45309' : '#991b1b';
-}
-function _mBg(v) {
-  return v >= 70 ? '#dcfce7' : v >= 55 ? '#fef3c7' : '#fee2e2';
-}
-function _confStyle(tier) {
-  if (tier === 'CBC+RICS')  return 'background:#dcfce7;color:#15803d';
-  if (tier === 'CBC+proxy') return 'background:#dbeafe;color:#1e40af';
-  return 'background:#fef3c7;color:#92400e';
-}
+// ── Analytics support functions ──────────────────────────────────
 
 function initAnalytics() {
-  const ids = {anCity: all.map(d=>d.city), anType: all.map(d=>d.type), anBeds: all.map(d=>d.bedrooms)};
+  // City dropdown built from full all[] — Polis may appear but yields 0 results in analytics pool
+  const cities = [...new Set(all.map(d=>d.city).filter(Boolean))].sort();
+  const types  = [...new Set(all.map(d=>d.type).filter(Boolean))].sort();
+  const beds   = [...new Set(all.map(d=>d.bedrooms).filter(v=>v!=null))].sort((a,b)=>a-b);
   if (document.getElementById('anCity').options.length === 1) {
-    [...new Set(ids.anCity.filter(Boolean))].sort().forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anCity').appendChild(o); });
-    [...new Set(ids.anType.filter(Boolean))].sort().forEach(v => { const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anType').appendChild(o); });
-    [...new Set(ids.anBeds.filter(v=>v!=null))].sort((a,b)=>a-b).forEach(b => { const o=document.createElement('option');o.value=b;o.textContent=b+' bed'+(b!==1?'s':'');document.getElementById('anBeds').appendChild(o); });
+    cities.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anCity').appendChild(o);});
+    types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;document.getElementById('anType').appendChild(o);});
+    beds.forEach(b=>{const o=document.createElement('option');o.value=b;o.textContent=b+' bed'+(b!==1?'s':'');document.getElementById('anBeds').appendChild(o);});
   }
-  // Set default section
   document.querySelector('.an-nav')?.setAttribute('data-active','true');
   document.querySelector('.an-nav')?.setAttribute('data-section','overview');
   anRenderSection('overview');
 }
 
 function getAnalyticsPool() {
+  // Builds the analytics-only dataset — all[] is never modified.
+  // Polis and invalid cities excluded HERE only; they remain in all[], filt[], search, portfolio.
   const city=document.getElementById('anCity')?.value||'';
   const type=document.getElementById('anType')?.value||'';
   const beds=document.getElementById('anBeds')?.value||'';
-  const sea=document.getElementById('anSea')?.value||'';
+  const sea =document.getElementById('anSea')?.value||'';
   return all.filter(d => {
+    if (isExcludedFromAnalytics(d.city)) return false;  // analytics-only exclusion
     if (city && d.city!==city) return false;
     if (type && d.type!==type) return false;
     if (beds && d.bedrooms!==+beds) return false;
-    if (sea && (d.seaDist==null||d.seaDist>+sea)) return false;
+    if (sea  && (d.seaDist==null||d.seaDist>+sea)) return false;
     return true;
   });
 }
@@ -8787,18 +8510,19 @@ function anToggleView() {
 }
 
 function renderAnStatsBar(pool) {
-  const m = pool.map(calcPropertyMetrics);
+  const m = pool.map(d=>{try{return calcPropertyMetrics(d);}catch(e){return null;}}).filter(Boolean);
   if (!m.length) return;
-  const avgADR=Math.round(m.reduce((s,x)=>s+x.ADR,0)/m.length);
-  const avgOcc=(m.reduce((s,x)=>s+x.occupancy,0)/m.length*100).toFixed(1);
-  const avgRev=Math.round(m.reduce((s,x)=>s+x.annualRevenue,0)/m.length);
-  const avgYield=(m.reduce((s,x)=>s+x.grossYield,0)/m.length).toFixed(1);
+  const avg = arr => arr.reduce((s,v)=>s+v,0)/arr.length;
+  const avgADR = Math.round(avg(m.map(x=>x.ADR)));
+  const avgOcc = (avg(m.map(x=>x.occupancy))*100).toFixed(1);
+  const avgRev = Math.round(avg(m.map(x=>x.annualRevenue)));
+  const avgYld = avg(m.map(x=>x.grossYield)).toFixed(1);
   document.getElementById('anStatsBar').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px">
     <div class="analytics-kpi"><div class="analytics-kpi-label">Active listings</div><div class="analytics-kpi-value">${pool.length.toLocaleString()}</div></div>
     <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate</div><div class="analytics-kpi-value">€${avgADR}</div></div>
     <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div></div>
     <div class="analytics-kpi"><div class="analytics-kpi-label">Annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div></div>
-    <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgYield}%</div></div>
+    <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgYld}%</div></div>
   </div>`;
 }
 
@@ -8807,16 +8531,14 @@ function renderAnalyticsListings() {
   const sort = document.getElementById('anSort')?.value || 'revenue';
   document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings`;
   if (anStatsVisible) renderAnStatsBar(pool);
-
   const scored = pool.map(d=>({...d,...calcPropertyMetrics(d)})).sort((a,b)=>{
-    if(sort==='revenue') return b.annualRevenue-a.annualRevenue;
-    if(sort==='adr') return b.ADR-a.ADR;
+    if(sort==='revenue')   return b.annualRevenue-a.annualRevenue;
+    if(sort==='adr')       return b.ADR-a.ADR;
     if(sort==='occupancy') return b.occupancy-a.occupancy;
-    if(sort==='yield') return b.grossYield-a.grossYield;
-    if(sort==='price') return (b.price||0)-(a.price||0);
+    if(sort==='yield')     return b.grossYield-a.grossYield;
+    if(sort==='price')     return (b.price||0)-(a.price||0);
     return 0;
   });
-
   const cards = scored.slice(0,60).map(d=>{
     const img=d.imageUrl;
     return `<div class="an-card" onclick="anCardClick(${d.id})" onmouseenter="anCardHover(${d.id})" onmouseleave="anCardLeave()">
@@ -8836,11 +8558,9 @@ function renderAnalyticsListings() {
       </div>
     </div>`;
   }).join('');
-
   document.getElementById('anListings').innerHTML = scored.length
     ? cards + (scored.length>60?`<div style="padding:10px;text-align:center;font-size:11px;color:var(--mu)">Top 60 of ${scored.length.toLocaleString()} · Use filters to narrow</div>`:'')
     : '<div class="empty">No listings match.</div>';
-
   renderAnalyticsMap(scored.slice(0,300));
 }
 
@@ -8886,183 +8606,430 @@ function renderAnalyticsMap(pool) {
           <button onclick="openModal(${d.id})" style="width:100%;height:30px;font-size:11px;border:none;border-radius:6px;background:#1a1a1a;color:#fff;cursor:pointer">View details →</button>
         </div>`);
         anInfoWindow2.open(anMap2,marker);
-        document.querySelectorAll('.an-card').forEach(c=>c.classList.remove('an-card-active'));
-        const card=document.querySelector(`[onmouseenter="anCardHover(${d.id})"]`);
-        if(card){card.classList.add('an-card-active');card.scrollIntoView({behavior:'smooth',block:'nearest'});}
       });
-      marker._data=d;
-      anMarkers2.push(marker);
+      marker._data=d; anMarkers2.push(marker);
     });
   }
   const city=document.getElementById('anCity')?.value;
   if(city&&CITY_FALLBACK[city]){anMap2.setCenter({lat:CITY_FALLBACK[city][0],lng:CITY_FALLBACK[city][1]});anMap2.setZoom(12);}
 }
 
-function anCardClick(id){
-  const marker=anMarkers2.find(m=>m._data?.id===id);
-  if(marker&&anMap2){anMap2.panTo(marker.getPosition());google.maps.event.trigger(marker,'click');}
-  else openModal(id);
-}
-function anCardHover(id){
-  const m=anMarkers2.find(m=>m._data?.id===id);
-  if(m)m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:'#1a1a1a',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5,scale:11});
-}
-function anCardLeave(){
-  anMarkers2.forEach(m=>{if(!m._data)return;const c=m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7});});
-}
+function anCardClick(id){const marker=anMarkers2.find(m=>m._data?.id===id);if(marker&&anMap2){anMap2.panTo(marker.getPosition());google.maps.event.trigger(marker,'click');}else openModal(id);}
+function anCardHover(id){const m=anMarkers2.find(m=>m._data?.id===id);if(m)m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:'#1a1a1a',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5,scale:11});}
+function anCardLeave(){anMarkers2.forEach(m=>{if(!m._data)return;const c=m._data.grossYield>=7?'#15803d':m._data.grossYield>=5?'#b8860b':'#6b7280';m.setIcon({path:google.maps.SymbolPath.CIRCLE,fillColor:c,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2,scale:7});});}
+
 function anRefresh() {
   const section = document.querySelector('.an-nav[data-active="true"]')?.dataset?.section || 'overview';
   anRenderSection(section);
 }
-
 function anSection(el, section) {
-  document.querySelectorAll('.an-nav').forEach(n => { n.removeAttribute('data-active'); delete n.dataset.active; });
-  el.setAttribute('data-active','true');
-  el.dataset.section = section;
+  document.querySelectorAll('.an-nav').forEach(n=>{n.removeAttribute('data-active');delete n.dataset.active;});
+  el.setAttribute('data-active','true'); el.dataset.section=section;
   anRenderSection(section);
 }
 
 function anRenderSection(section) {
   const pool = getAnalyticsPool();
-  const el = document.getElementById('anSectionContent');
+  const el   = document.getElementById('anSectionContent');
   if (!el) return;
-
-  // Destroy existing charts
-  Object.values(anCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  Object.values(anCharts).forEach(c=>{try{c.destroy();}catch(e){}});
   anCharts = {};
-
   document.getElementById('anDataNote').textContent = `${pool.length.toLocaleString()} listings`;
-
-  if (section === 'listings') {
-    // Split view: cards + map
-    el.innerHTML = `<div style="display:grid;grid-template-columns:380px 1fr;flex:1;height:100%;overflow:hidden">
-      <div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)" id="anListings"><div class="empty">Loading...</div></div>
-      <div style="position:relative"><div id="anMap" style="width:100%;height:100%"></div></div>
-    </div>`;
-    renderAnalyticsListings();
-  } else if (section === 'overview') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsOverview(pool);
-  } else if (section === 'occupancy') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsOccupancy(pool);
-  } else if (section === 'revenue') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsRevenue(pool);
-  } else if (section === 'rates') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsRates(pool);
-  } else if (section === 'seasonality') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsSeasonality(pool);
-  } else if (section === 'rentalizer') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsRentalizer(pool);
-  } else if (section === 'comparison') {
-    el.innerHTML = `<div style="padding:16px;overflow-y:auto;flex:1"id="analyticsContent"></div>`;
-    renderAnalyticsComparison();
-  }
+  if      (section==='listings')    { el.innerHTML=`<div style="display:grid;grid-template-columns:380px 1fr;flex:1;height:100%;overflow:hidden"><div style="overflow-y:auto;border-right:1px solid var(--bd);background:var(--bg2)" id="anListings"><div class="empty">Loading...</div></div><div style="position:relative"><div id="anMap" style="width:100%;height:100%"></div></div></div>`; renderAnalyticsListings(); }
+  else if (section==='overview')    { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsOverview(pool); }
+  else if (section==='occupancy')   { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsOccupancy(pool); }
+  else if (section==='revenue')     { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsRevenue(pool); }
+  else if (section==='rates')       { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsRates(pool); }
+  else if (section==='seasonality') { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsSeasonality(pool); }
+  else if (section==='rentalizer')  { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsRentalizer(pool); }
+  else if (section==='comparison')  { el.innerHTML=`<div style="padding:16px;overflow-y:auto;flex:1" id="analyticsContent"></div>`; renderAnalyticsComparison(); }
 }
 
 function renderAnalytics() { anRenderSection('overview'); }
 function analyticsNav() {}
+// ANALYTICS SCORING ENGINE v3 — Cyprus Investment Intelligence
+// ══════════════════════════════════════════════════════════════════
+// Principles:
+//  - Real investment logic, not theoretical formulas
+//  - Polis and invalid cities excluded at source
+//  - Absolute yield bands — no relative scaling
+//  - Liquidity penalises thin markets meaningfully
+//  - Estimated/proxy data is discounted before scoring
+//  - "adj" = final score after all multiplier corrections
+//  - Score colours: green ≥70, amber 55–69, orange 40–54, red <40
+//  - Never crashes if a metric is missing — degrades gracefully
+// ══════════════════════════════════════════════════════════════════
 
+// ── Analytics-only exclusion — scoped to Analytics tab ONLY ─────
+// Polis stays in all[], filt[], sl, search, portfolio, exports.
+// Only the Analytics tab dataset (getAnalyticsPool) applies this filter.
+const ANALYTICS_EXCLUDED = new Set(['polis','Polis','POLIS']);
+
+function isExcludedFromAnalytics(city) {
+  return !city || ANALYTICS_EXCLUDED.has(String(city).trim()) ||
+    String(city).trim().toLowerCase() === 'polis';
+}
+
+// Keep backward-compatible alias used inside analytics render functions
+const anIsExcluded = isExcludedFromAnalytics;
+
+function anNormaliseCity(city) {
+  if (!city) return null;
+  const v = String(city).trim();
+  return isExcludedFromAnalytics(v) ? null : v;
+}
+
+// ── Score colour bands ───────────────────────────────────────────
+// green ≥70 | amber 55–69 | orange 40–54 | red <40
+function anScoreColor(v) {
+  if (v >= 70) return '#15803d';  // green
+  if (v >= 55) return '#b45309';  // amber
+  if (v >= 40) return '#c2410c';  // orange
+  return '#991b1b';               // red
+}
+function anScoreBg(v) {
+  if (v >= 70) return '#dcfce7';
+  if (v >= 55) return '#fef3c7';
+  if (v >= 40) return '#ffedd5';
+  return '#fee2e2';
+}
+
+// ── Reliability tier ─────────────────────────────────────────────
+function anReliabilityStyle(label) {
+  if (label === 'High')   return 'background:#dcfce7;color:#15803d';  // green
+  if (label === 'Medium') return 'background:#fef3c7;color:#b45309';  // amber
+  return 'background:#fee2e2;color:#991b1b';                          // red — Low
+}
+
+// ── YIELD SCORE — absolute bands, hard cap 85 ───────────────────
+// Uses LTR benchmark rents (RICS/DoL) or STR calcPropertyMetrics
+// Seasonal & thin-market occupancy adjustments applied
+function _an_yieldScore(city, bedrooms, price, purpose, rentBench) {
+  if (!price || price < 10000) return { score: 0, pct: 0, estimated: true };
+
+  let annualRent = 0;
+  let estimated  = true;
+
+  if (rentBench && !rentBench.isProxy) {
+    // Use verified LTR benchmark
+    const bedKey = bedrooms >= 4 ? 'villa' : bedrooms === 3 ? '3bed' : bedrooms === 2 ? '2bed' : '1bed';
+    const monthly = rentBench[bedKey] || rentBench['2bed'] || 0;
+    if (monthly > 0) {
+      annualRent = monthly * 12;
+      estimated  = false;
+    }
+  }
+
+  if (!annualRent) {
+    // Fallback: STR estimate with realistic seasonal adjustment
+    try {
+      const mock = { city, bedrooms: bedrooms||2, type:'Apartment', seaDist:3, price };
+      const m    = calcPropertyMetrics(mock);
+      // Apply seasonal discount for non-year-round markets
+      const CITY_SEASON_DISC = { Limassol:1.0, Nicosia:1.0, Larnaca:0.88, Paphos:0.82, Famagusta:0.75 };
+      const disc = CITY_SEASON_DISC[city] ?? 0.80;
+      annualRent = (m.annualRevenue || 0) * disc * 0.80; // 80% = mgmt + voids
+      estimated  = true;
+    } catch(e) { return { score: 0, pct: 0, estimated: true }; }
+  }
+
+  const pct = annualRent / price * 100;
+
+  // Absolute bands — cap 85
+  let score;
+  if      (pct <  2.0) score = 20;
+  else if (pct <  3.0) score = 35;
+  else if (pct <  4.0) score = 50;
+  else if (pct <  5.0) score = 62;
+  else if (pct <  6.0) score = 74;
+  else if (pct <  7.0) score = 82;
+  else                  score = 85;
+
+  // Estimated discount: cap at 72 if rent is proxy-based
+  if (estimated) score = Math.min(72, score);
+
+  return { score, pct, estimated };
+}
+
+// ── GROWTH SCORE — CBC RPPI bands, cap 95 ───────────────────────
+function _an_growthScore(pct) {
+  if (pct == null) return { score: 45, estimated: true }; // neutral conservative
+  let score;
+  if      (pct <  0) score = 20;
+  else if (pct <  2) score = 35;
+  else if (pct <  4) score = 50;
+  else if (pct <  6) score = 65;
+  else if (pct <  8) score = 78;
+  else if (pct < 10) score = 88;
+  else               score = 92;
+  return { score: Math.min(95, score), estimated: false };
+}
+
+// ── LIQUIDITY SCORE — log-scale from DLS contracts ───────────────
+// Thin markets score materially lower; deep markets score higher
+function _an_liquidityScore(contracts) {
+  if (!contracts || contracts <= 0) return { score: 18, estimated: true };
+  // log-shaped: 20 * ln(n), with practical band ceilings
+  const raw = Math.min(95, 20 * Math.log(contracts));
+  let score;
+  if      (contracts >= 4000) score = Math.min(95, raw);
+  else if (contracts >= 1500) score = Math.min(80, raw);
+  else if (contracts >= 500)  score = Math.min(65, raw);
+  else if (contracts >= 100)  score = Math.min(48, raw);
+  else                         score = Math.min(32, raw);
+  return { score: Math.round(score), estimated: false };
+}
+
+// ── DEMAND STABILITY SCORE — derived from multiple signals ───────
+// Incorporates occupancy consistency, year-round demand, foreign mix
+function _an_demandScore(rawScore) {
+  if (rawScore == null) return { score: 45, estimated: true };
+  return { score: Math.min(80, Math.max(30, rawScore)), estimated: false };
+}
+
+// ── RELIABILITY SCORE & LABEL ────────────────────────────────────
+function _an_reliability(confTier, estimatedYield, liqScore) {
+  // High: CBC+RICS data, verified rents, deep market
+  // Medium: partial data, some proxies
+  // Low: proxy-heavy or thin market
+  if (confTier === 'CBC+RICS'  && !estimatedYield && liqScore >= 60) return 'High';
+  if (confTier === 'CBC+proxy' || (confTier === 'CBC+RICS' && estimatedYield)) return 'Medium';
+  if (estimatedYield && liqScore < 40) return 'Low';
+  if (liqScore < 35) return 'Low';
+  return 'Medium';
+}
+function _an_reliabilityScore(label) {
+  return label === 'High' ? 85 : label === 'Medium' ? 62 : 40;
+}
+
+// ── MULTIPLIERS ──────────────────────────────────────────────────
+function _an_thinMult(contracts) {
+  if (contracts >= 800)  return 1.00;
+  if (contracts >= 500)  return 0.95;
+  if (contracts >= 250)  return 0.88;
+  if (contracts >= 100)  return 0.78;
+  return 0.68;
+}
+function _an_estMult(estimatedYield, confTier) {
+  if (!estimatedYield) return 1.00;                    // verified
+  if (confTier === 'CBC+RICS') return 0.96;            // good source, proxy yield
+  return 0.88;                                         // proxy-heavy
+}
+function _an_reliabilityMult(relLabel) {
+  return relLabel === 'High' ? 1.00 : relLabel === 'Medium' ? 0.93 : 0.82;
+}
+
+// ── CITY INTERPRETATION LABEL ────────────────────────────────────
+function _an_cityLabel(city, finalScore) {
+  const labels = {
+    Limassol:  'Premium / safe / capital growth',
+    Nicosia:   'Steady / income-supportive / balanced',
+    Paphos:    'Hybrid lifestyle + investment',
+    Larnaca:   'Emerging / improving opportunity',
+    Famagusta: 'Selective / situational / caution',
+  };
+  // Fallback from score band if city not mapped
+  if (labels[city]) return labels[city];
+  if (finalScore >= 70) return 'Strong market';
+  if (finalScore >= 60) return 'Attractive / selective';
+  if (finalScore >= 50) return 'Opportunistic';
+  return 'Caution';
+}
+
+// ── MASTER CITY SCORER ───────────────────────────────────────────
+// Returns full scored object or null if city should be excluded
+function _an_scoreCity(city, listings) {
+  if (anIsExcluded(city)) return null;
+
+  const MB = window.MARKET_BENCHMARKS;
+  const rentBench  = MB?.rents?.[city];
+  const growthData = MB?.growth?.[city];
+  const liqData    = MB?.liquidity?.[city];
+  const demandData = MB?.demand?.[city];
+  const confData   = MB?.confidence?.[city];
+
+  const confTier   = confData?.tier  ?? 'proxy';
+  const contracts  = liqData?.contracts2024 ?? 0;
+
+  // Avg price & beds from real listings for yield calculation
+  const priced    = listings.filter(d => d.price > 0);
+  const avgPrice  = priced.length
+    ? priced.reduce((s,d)=>s+d.price,0) / priced.length : 300000;
+  const beddedL   = listings.filter(d => d.bedrooms != null);
+  const avgBeds   = beddedL.length
+    ? Math.round(beddedL.reduce((s,d)=>s+d.bedrooms,0)/beddedL.length) : 2;
+
+  // Growth — prefer apartment type, fallback to overall
+  const growthPct  = growthData?.apartments ?? growthData?.overall ?? null;
+
+  // Component scores
+  const yld  = _an_yieldScore(city, avgBeds, avgPrice, 'mixed', rentBench);
+  const grw  = _an_growthScore(growthPct);
+  const liq  = _an_liquidityScore(contracts);
+  const dem  = _an_demandScore(demandData?.score);
+  const rel  = _an_reliability(confTier, yld.estimated, liq.score);
+  const relScore = _an_reliabilityScore(rel);
+
+  // Base score — 30% yield + 25% growth + 25% liquidity + 10% demand + 10% reliability
+  const baseScore = Math.round(
+    yld.score * 0.30 +
+    grw.score * 0.25 +
+    liq.score * 0.25 +
+    dem.score * 0.10 +
+    relScore  * 0.10
+  );
+
+  // Multipliers
+  const thinMult  = _an_thinMult(contracts);
+  const estMult   = _an_estMult(yld.estimated, confTier);
+  const relMult   = _an_reliabilityMult(rel);
+
+  // Adjusted score — proxy-heavy hard cap at 65
+  let adjScore = Math.round(baseScore * thinMult * estMult * relMult);
+  if (yld.estimated && confTier === 'proxy') adjScore = Math.min(65, adjScore);
+  adjScore = Math.max(0, Math.min(100, adjScore));
+
+  return {
+    city,
+    count:       listings.length,
+    avgPrice,
+    // Component scores
+    yieldScore:  yld.score,
+    yieldPct:    yld.pct,
+    yieldEst:    yld.estimated,
+    growthScore: grw.score,
+    growthPct:   growthPct,
+    growthEst:   grw.estimated,
+    liqScore:    liq.score,
+    contracts,
+    demandScore: dem.score,
+    relLabel:    rel,
+    relScore,
+    // Multipliers
+    baseScore,
+    thinMult, estMult, relMult,
+    // Final
+    adjScore,
+    // Meta
+    liqTrend:    liqData?.trend   ?? 'stable',
+    liqNote:     liqData?.note    ?? '',
+    demandNote:  demandData?.primary ?? '',
+    growthSource: growthData?.source ?? 'Estimate',
+    confTier,
+    cityLabel:   _an_cityLabel(city, adjScore),
+  };
+}
+
+// ── SAFETY PASS — post-ranking rules ─────────────────────────────
+function _an_safetyPass(ranked) {
+  ranked.forEach((item, idx) => {
+    if (!item) return;
+    item._safetyNote = null;
+    // Rule 1: Low confidence + thin market out of top 2
+    if (idx < 2 && item.confTier === 'proxy' && item.contracts < 500) {
+      item.adjScore   = Math.min(item.adjScore, 57);
+      item._safetyNote = 'Insufficient data for top ranking';
+    }
+    // Rule 2: High yield + thin liquidity = opportunistic label
+    if (item.yieldPct >= 7 && item.liqScore < 40) {
+      item._safetyNote = 'Opportunistic / thin market';
+    }
+  });
+  ranked.sort((a,b) => b.adjScore - a.adjScore);
+}
+
+// ── MINI SCORE BAR ───────────────────────────────────────────────
+function _an_bar(score, maxScore, color) {
+  const w = Math.round(Math.min(100, (score / (maxScore||100)) * 100));
+  return `<div style="width:52px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden;display:inline-block;vertical-align:middle;margin-right:4px">
+    <div style="height:100%;width:${w}%;background:${color};border-radius:99px"></div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// renderAnalyticsOverview — main city ranking table
+// ══════════════════════════════════════════════════════════════════
 function renderAnalyticsOverview(pool) {
-  const metrics = pool.map(calcPropertyMetrics);
-  const avgADR      = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
-  const avgOcc      = (metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length*100).toFixed(1);
-  const avgRevPAR   = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
-  const avgAnnRev   = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
-  const avgGrossYield = (metrics.reduce((s,m)=>s+m.grossYield,0)/metrics.length).toFixed(1);
-  const avgNetYield   = (metrics.reduce((s,m)=>s+m.netYield,0)/metrics.length).toFixed(1);
+  // Guard: empty pool
+  if (!pool || !pool.length) {
+    document.getElementById('analyticsContent').innerHTML =
+      '<div class="empty" style="padding:2rem"><div class="empty-title">No listings match filters</div><div class="empty-sub">Broaden city or type filters to see analytics.</div></div>';
+    return;
+  }
 
-  // City market scores using defensible absolute-band model
-  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
-  const cityData = cities.map(city => {
-    const cp = pool.filter(d=>d.city===city);
-    const cm = cp.map(calcPropertyMetrics);
-    const avgPrice = cp.filter(d=>d.price).reduce((s,d)=>s+d.price,0) / (cp.filter(d=>d.price).length||1);
-    const avgBeds  = Math.round(cp.filter(d=>d.bedrooms!=null).reduce((s,d)=>s+d.bedrooms,0)/(cp.filter(d=>d.bedrooms!=null).length||1)) || 2;
-    const ms = computeCityMarketScore(city, avgBeds, 'Apartment', avgPrice||300000, 'mixed');
-    return {
-      city,
-      count:     cp.length,
-      avgADR:    Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length),
-      avgOcc:    (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1),
-      avgRevPAR: Math.round(cm.reduce((s,m)=>s+m.revPAR,0)/cm.length),
-      avgAnnRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length),
-      avgYield:  (cm.reduce((s,m)=>s+m.grossYield,0)/cm.length).toFixed(1),
-      ms,
-    };
-  }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
+  // Aggregate STR metrics for top KPI tiles
+  const metrics    = pool.map(d => { try { return calcPropertyMetrics(d); } catch(e) { return null; } }).filter(Boolean);
+  const safeAvg    = (arr) => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
+  const avgADR     = Math.round(safeAvg(metrics.map(m=>m.ADR)));
+  const avgOcc     = (safeAvg(metrics.map(m=>m.occupancy))*100).toFixed(1);
+  const avgRevPAR  = Math.round(safeAvg(metrics.map(m=>m.revPAR)));
+  const avgAnnRev  = Math.round(safeAvg(metrics.map(m=>m.annualRevenue)));
+  const avgGross   = safeAvg(metrics.map(m=>m.grossYield)).toFixed(1);
+  const avgNet     = (safeAvg(metrics.map(m=>m.netYield))).toFixed(1);
 
-  // Apply safety rules AFTER initial sort (rank-aware)
-  applyRankingSafetyRules(cityData.map((c,i) => ({ ...c, ms: c.ms })));
-  // Re-sort after potential demotion
-  cityData.sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
+  // Build per-city scores — exclude Polis and invalid cities
+  const cityGroups = {};
+  pool.forEach(d => {
+    const c = anNormaliseCity(d.city);
+    if (!c) return;
+    (cityGroups[c] = cityGroups[c] || []).push(d);
+  });
 
-  // Type breakdown
-  const types = [...new Set(pool.map(d=>d.type).filter(Boolean))];
-  const typeData = types.map(type => {
-    const tp = pool.filter(d=>d.type===type);
-    const tm = tp.map(calcPropertyMetrics);
-    return { type, count: tp.length, avgYield:(tm.reduce((s,m)=>s+m.grossYield,0)/tm.length).toFixed(1), avgADR:Math.round(tm.reduce((s,m)=>s+m.ADR,0)/tm.length) };
+  let ranked = Object.entries(cityGroups)
+    .map(([city, listings]) => _an_scoreCity(city, listings))
+    .filter(Boolean)
+    .sort((a,b) => b.adjScore - a.adjScore);
+
+  _an_safetyPass(ranked);
+
+  // Type breakdown for second chart
+  const typeGroups = {};
+  pool.forEach(d => { const t=d.type; if(t) (typeGroups[t]=typeGroups[t]||[]).push(d); });
+  const typeData = Object.entries(typeGroups).map(([type, items]) => {
+    const tm = items.map(d => { try { return calcPropertyMetrics(d); } catch(e){return null;} }).filter(Boolean);
+    return { type, avgYield: tm.length ? (safeAvg(tm.map(m=>m.grossYield))).toFixed(1) : '0', count: items.length };
   }).sort((a,b) => +b.avgYield - +a.avgYield);
 
-  // Build city rows with band, safety labels, estimated badges
-  const cityRows = cityData.map((c, idx) => {
-    const ms = c.ms;
-    if (!ms) return `<tr><td style="font-weight:500">${c.city}</td><td>${c.count}</td><td colspan="6" style="color:var(--mu)">—</td></tr>`;
-    const confStyle  = _confStyle(ms.confTier);
-    const estBadge   = ms.isEstimate ? '<span class="trust-proxy" style="margin-left:3px;font-size:8px">est</span>' : '';
-    const liqIcon    = ms.liqTrend === 'growing' ? ' ↑' : ms.liqTrend === 'declining' ? ' ↓' : '';
-    const bandClr    = ms.blendedScore >= 70 ? '#15803d' : ms.blendedScore >= 60 ? '#b45309' : '#991b1b';
-    const bandBg     = ms.blendedScore >= 70 ? '#dcfce7' : ms.blendedScore >= 60 ? '#fef3c7' : '#fee2e2';
-    const safetyNote = ms._safetyWarning ? `<div style="font-size:9px;color:#991b1b;margin-top:2px">${ms._safetyWarning}</div>` : '';
-    const multNote   = (ms.thinMult < 1 || ms.confMult < 1 || ms.proxyMult < 1)
-      ? `<span style="font-size:9px;color:var(--mu);margin-left:4px" title="Thin×${ms.thinMult} Conf×${ms.confMult} Proxy×${ms.proxyMult}">× adj</span>` : '';
+  // Table rows
+  const cityRows = ranked.map((c, i) => {
+    const adjC  = anScoreColor(c.adjScore);
+    const adjBg = anScoreBg(c.adjScore);
+    const yldC  = c.yieldPct >= 5 ? '#15803d' : c.yieldPct >= 3.5 ? '#b45309' : '#991b1b';
+    const grwC  = c.growthScore >= 70 ? '#15803d' : c.growthScore >= 50 ? '#b45309' : '#c2410c';
+    const liqC  = c.liqScore >= 65 ? '#15803d' : c.liqScore >= 45 ? '#b45309' : '#991b1b';
+    const estBadge = c.yieldEst ? '<span class="trust-proxy" style="font-size:8px;margin-left:3px">est</span>' : '';
+    const safety = c._safetyNote ? `<div style="font-size:9px;color:#991b1b;margin-top:1px">${c._safetyNote}</div>` : '';
 
-    return `<tr>
-      <td style="font-weight:600;color:var(--tx)">
-        <div>${c.city}</div>
-        <div style="font-size:9px;color:var(--mu);margin-top:1px">${ms.band?.label||''}</div>
-        ${safetyNote}
+    return `<tr style="${i===0?'background:rgba(21,128,61,.03)':''}">
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        <div style="font-weight:600;color:var(--tx)">${c.city}</div>
+        <div style="font-size:9px;color:var(--mu);margin-top:1px">${c.cityLabel}</div>
+        ${safety}
       </td>
-      <td>${c.count.toLocaleString()}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${ms.yieldScore}%;background:${_mScore(ms.yieldScore)};border-radius:99px"></div>
-          </div>
-          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${estBadge}</span>
-        </div>
-        <div style="font-size:9px;color:var(--mu)">score ${ms.yieldScore}/85</div>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd);font-size:11px;color:var(--mu)">${c.count.toLocaleString()}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        ${_an_bar(c.yieldScore, 85, yldC)}
+        <span style="font-size:11px;font-weight:600;color:${yldC}">${c.yieldPct.toFixed(1)}%${estBadge}</span>
       </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${ms.growthScore}%;background:${_mScore(ms.growthScore)};border-radius:99px"></div>
-          </div>
-          <span style="font-size:11px;font-weight:600;color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span>
-        </div>
-        <div style="font-size:9px;color:var(--mu)">score ${ms.growthScore}/95</div>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        ${_an_bar(c.growthScore, 95, grwC)}
+        <span style="font-size:11px;font-weight:600;color:${grwC}">${c.growthPct != null ? c.growthPct.toFixed(1)+'%' : '—'}${c.growthEst?'<span class="trust-proxy" style="font-size:8px;margin-left:2px">est</span>':''}</span>
       </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div style="width:44px;height:5px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${ms.liqScore}%;background:${_mScore(ms.liqScore)};border-radius:99px"></div>
-          </div>
-          <span style="font-size:11px;color:${_mScore(ms.liqScore)}">${ms.liqScore}${liqIcon}</span>
-        </div>
-        <div style="font-size:9px;color:var(--mu)">${(ms.contracts||0).toLocaleString()} contracts</div>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        ${_an_bar(c.liqScore, 95, liqC)}
+        <span style="font-size:11px;color:${liqC}">${c.liqScore}</span>
+        <span style="font-size:9px;color:var(--mu);margin-left:3px">${c.contracts.toLocaleString()} sales</span>
       </td>
-      <td><span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confLabel}</span></td>
-      <td>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div style="width:48px;height:7px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${ms.blendedScore}%;background:${bandClr};border-radius:99px"></div>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;${anReliabilityStyle(c.relLabel)}">${c.relLabel}</span>
+      </td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--bd)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:44px;height:7px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${c.adjScore}%;background:${adjC};border-radius:99px"></div>
           </div>
-          <span style="font-size:13px;font-weight:700;color:${bandClr}">${ms.blendedScore}${multNote}</span>
+          <span style="font-size:14px;font-weight:700;color:${adjC}">${c.adjScore}</span>
+          <span style="font-size:9px;color:var(--mu)">adj</span>
         </div>
       </td>
     </tr>`;
@@ -9071,26 +9038,34 @@ function renderAnalyticsOverview(pool) {
   document.getElementById('analyticsContent').innerHTML = `
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Active listings</div><div class="analytics-kpi-value">${pool.length.toLocaleString()}</div><div class="analytics-kpi-sub">In selected market</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR.toLocaleString()}</div><div class="analytics-kpi-sub">Per booked night</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div><div class="analytics-kpi-sub">Booked / available days</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate</div><div class="analytics-kpi-value">€${avgADR.toLocaleString()}</div><div class="analytics-kpi-sub">STR estimate</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${avgOcc}%</div><div class="analytics-kpi-sub">Annual avg</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${avgRevPAR}</div><div class="analytics-kpi-sub">ADR × Occupancy</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Annual revenue</div><div class="analytics-kpi-value">€${avgAnnRev.toLocaleString()}</div><div class="analytics-kpi-sub">Avg per listing</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value">${avgGrossYield}%</div><div class="analytics-kpi-sub">Before mgmt fees</div></div>
-      <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Net yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgNetYield}%</div><div class="analytics-kpi-sub">After 20% mgmt fee</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Gross yield</div><div class="analytics-kpi-value">${avgGross}%</div><div class="analytics-kpi-sub">Before mgmt</div></div>
+      <div class="analytics-kpi" style="border-color:var(--gold)"><div class="analytics-kpi-label">Net yield</div><div class="analytics-kpi-value" style="color:var(--gold)">${avgNet}%</div><div class="analytics-kpi-sub">After 20% mgmt</div></div>
     </div>
 
-    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--mu);line-height:1.6">
-      <b style="color:var(--tx)">Scoring model v2 — defensible absolute-band methodology:</b>
-      Final Score = BaseScore × thin-market × confidence × proxy multipliers.
-      BaseScore = 25% Yield + 25% Growth + 25% Liquidity + 10% Demand + 10% Supply + 5% Confidence.
-      <b style="color:var(--tx)">Sources:</b> CBC RPPI Q4 2025 · RICS Cyprus · DLS contracts 2024.
-      Yield uses absolute bands (cap 85). Growth uses CBC RPPI bands (cap 95). Liquidity uses log-scale from DLS contract count — thin markets are structurally penalised. Low-confidence + thin markets cannot rank in the top 2.
-      <b style="color:#991b1b">This model provides directional guidance over 3–6 months. It is not a forecast.</b>
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--mu);line-height:1.7">
+      <b style="color:var(--tx)">Scoring model:</b>
+      Blended score adj = 30% Yield + 25% Growth + 25% Liquidity + 10% Demand Stability + 10% Reliability.
+      Scores are adjusted for data quality, market depth, and estimation confidence.
+      <b style="color:var(--tx)">Sources:</b> CBC RPPI Q4 2025 · RICS Cyprus · DLS contract data 2024.
+      "adj" = score after risk and reliability corrections. Polis excluded from Analytics tab only — fully available elsewhere.
+      <b style="color:#991b1b">Directional guidance only — not a forecast.</b>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <span style="font-size:10px;color:var(--mu);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Score bands:</span>
+      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">70+ Strong</span>
+      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">55–69 Attractive</span>
+      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">40–54 Selective</span>
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;40 Caution</span>
     </div>
 
     <div class="analytics-charts">
       <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Blended market score by city <span>Multi-factor — not yield-only</span></div>
+        <div class="analytics-chart-title">Blended score adj by city <span>All multipliers applied</span></div>
         <div class="analytics-chart-wrap"><canvas id="chartCityRev"></canvas></div>
       </div>
       <div class="analytics-chart-card">
@@ -9100,418 +9075,403 @@ function renderAnalyticsOverview(pool) {
     </div>
 
     <div class="analytics-table-card">
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City market ranking — blended score model</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:12px">City investment ranking</div>
       <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>City</th>
-            <th>Listings</th>
-            <th>Yield potential</th>
-            <th>Growth</th>
-            <th>Liquidity</th>
-            <th>Confidence</th>
-            <th>Blended score</th>
-          </tr>
-        </thead>
-        <tbody>${cityRows}</tbody>
-      </table>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg2)">
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">City</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Listings</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Yield</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Growth</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Liquidity</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Reliability</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Blended score adj</th>
+            </tr>
+          </thead>
+          <tbody>${cityRows}</tbody>
+        </table>
       </div>
       <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
-        Final Score = 25% yield + 25% growth (CBC RPPI) + 25% liquidity (DLS log-scale) + 10% demand + 10% supply + 5% confidence × thin-market × confidence × proxy multipliers.
-        Yield capped at 85. Growth capped at 95. Markets with &lt;500 contracts receive thin-market penalty. "est" = benchmark-based or proxy-assisted yield figure.
-        Scores provide directional guidance only — not a forecast.
+        Yield: absolute bands — &lt;2%=20 … ≥7%=85 (cap). Estimated yields discounted before scoring. Liquidity: from DLS sales contract depth — thin markets score materially lower.
+        Polis excluded from the Analytics tab only. "adj" = adjusted score after data-quality and market-depth corrections.
       </div>
     </div>`;
 
   setTimeout(() => {
-    const isDark   = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
+    try {
+      const isDark    = window.matchMedia('(prefers-color-scheme:dark)').matches;
+      const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+      const textColor = isDark ? '#888' : '#999';
 
-    // Chart: blended market scores (bar chart by city)
-    anCharts.cityRev = new Chart(document.getElementById('chartCityRev'), {
-      type: 'bar',
-      data: {
-        labels: cityData.map(c=>c.city),
-        datasets: [
-          { label:'Blended score', data:cityData.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4, order:0 },
-          { label:'Yield',  data:cityData.map(c=>c.ms?.yieldScore||0),  backgroundColor:'rgba(184,134,11,.35)', borderRadius:4, order:1 },
-          { label:'Growth', data:cityData.map(c=>c.ms?.growthScore||0), backgroundColor:'rgba(21,128,61,.3)',   borderRadius:4, order:2 },
-          { label:'Liquidity', data:cityData.map(c=>c.ms?.liqScore||0), backgroundColor:'rgba(29,78,216,.25)', borderRadius:4, order:3 },
-        ],
-      },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top',labels:{font:{size:10},color:textColor}}},
-        scales:{
-          x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-          y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},max:100,min:0},
+      anCharts.cityRev = new Chart(document.getElementById('chartCityRev'), {
+        type:'bar',
+        data:{
+          labels: ranked.map(c=>c.city),
+          datasets:[
+            { label:'Score adj',  data:ranked.map(c=>c.adjScore),    backgroundColor:ranked.map(c=>anScoreColor(c.adjScore)), borderRadius:4 },
+            { label:'Yield',      data:ranked.map(c=>c.yieldScore),  backgroundColor:'rgba(184,134,11,.35)', borderRadius:4 },
+            { label:'Growth',     data:ranked.map(c=>c.growthScore), backgroundColor:'rgba(21,128,61,.3)',   borderRadius:4 },
+            { label:'Liquidity',  data:ranked.map(c=>c.liqScore),    backgroundColor:'rgba(29,78,216,.25)', borderRadius:4 },
+          ]
+        },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ position:'top', labels:{font:{size:10},color:textColor} } },
+          scales:{ x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},max:100,min:0} }
         }
-      }
-    });
+      });
 
-    anCharts.typeYield = new Chart(document.getElementById('chartTypeYield'), {
-      type:'bar',
-      data:{
-        labels: typeData.map(t=>t.type),
-        datasets:[{label:'Gross yield %', data:typeData.map(t=>+t.avgYield), backgroundColor:typeData.map(t=>+t.avgYield>=7?'#15803d':+t.avgYield>=5?'#b8860b':'#6b7280'), borderRadius:4}]
-      },
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},max:12}
-      }}
-    });
+      anCharts.typeYield = new Chart(document.getElementById('chartTypeYield'), {
+        type:'bar',
+        data:{
+          labels:typeData.map(t=>t.type),
+          datasets:[{ label:'Gross yield %', data:typeData.map(t=>+t.avgYield),
+            backgroundColor:typeData.map(t=>+t.avgYield>=6?'#15803d':+t.avgYield>=4?'#b45309':'#991b1b'), borderRadius:4 }]
+        },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{ x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},max:12} }
+        }
+      });
+    } catch(e) { console.warn('[Analytics] Chart render error:', e.message); }
   }, 50);
 }
 
-function renderAnalyticsOccupancy(pool) {
-  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
-  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
-  const cityOcc = cities.map(city => {
-    const cm = metrics.filter(d=>d.city===city);
-    return { city, occ: (cm.reduce((s,m)=>s+m.occupancy,0)/cm.length*100).toFixed(1) };
-  }).sort((a,b) => +b.occ - +a.occ);
+// ══════════════════════════════════════════════════════════════════
+// renderAnalyticsComparison — city × bedroom comparison view
+// ══════════════════════════════════════════════════════════════════
+function renderAnalyticsComparison() {
+  const CITIES = Object.keys(CITY_ADR).filter(c => !anIsExcluded(c));
+  const beds   = [1, 2, 3];
 
-  // Monthly occupancy (seasonality-adjusted)
-  const avgBaseOcc = metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length;
-  const monthlyOcc = CYPRUS_SEASONALITY.map(s => (avgBaseOcc * s * 100).toFixed(1));
+  // Per-city 2-bed representative score for cards
+  const cityGroups = {};
+  all.forEach(d => {
+    const c = anNormaliseCity(d.city);
+    if (!c || !CITIES.includes(c)) return;
+    (cityGroups[c] = cityGroups[c] || []).push(d);
+  });
+
+  let ranked = CITIES.map(city => {
+    const listings = cityGroups[city] || [];
+    return _an_scoreCity(city, listings.length ? listings : [{ city, bedrooms:2, price:300000, type:'Apartment' }]);
+  }).filter(Boolean).sort((a,b) => b.adjScore - a.adjScore);
+
+  _an_safetyPass(ranked);
+
+  // Full table: city × bed
+  const tableRows = CITIES.flatMap(city => beds.map(b => {
+    try {
+      const mock    = { city, type:'Apartment', bedrooms:b, seaDist:2, price:null };
+      const m       = calcPropertyMetrics(mock);
+      const rPrices = all.filter(d=>anNormaliseCity(d.city)===city&&d.bedrooms===b&&d.price).map(d=>d.price);
+      const avgP    = rPrices.length ? Math.round(rPrices.reduce((a,c)=>a+c,0)/rPrices.length) : null;
+      const cs      = ranked.find(r=>r.city===city);
+      return { city, beds:b, avgPrice:avgP, ...m, cs };
+    } catch(e) { return null; }
+  }).filter(Boolean));
+
+  // Score cards
+  const scoreCards = ranked.map((c, i) => {
+    const adjC   = anScoreColor(c.adjScore);
+    const adjBg  = anScoreBg(c.adjScore);
+    const rank   = i+1;
+    const rankClr = rank===1?'#b8860b':rank===2?'#6b7280':'var(--mu)';
+    const metricRows = [
+      { label:'Yield',      score:c.yieldScore,  max:85, val:`${c.yieldPct.toFixed(1)}%`,         clr:c.yieldScore>=65?'#15803d':c.yieldScore>=45?'#b45309':'#991b1b', est:c.yieldEst },
+      { label:'Growth',     score:c.growthScore, max:95, val:c.growthPct!=null?`${c.growthPct.toFixed(1)}% p.a.`:'—', clr:c.growthScore>=70?'#15803d':c.growthScore>=50?'#b45309':'#c2410c', est:c.growthEst },
+      { label:'Liquidity',  score:c.liqScore,    max:95, val:`${c.contracts.toLocaleString()} sales`, clr:c.liqScore>=65?'#15803d':c.liqScore>=45?'#b45309':'#991b1b', est:false },
+      { label:'Reliability',score:c.relScore,    max:85, val:c.relLabel, clr:c.relLabel==='High'?'#15803d':c.relLabel==='Medium'?'#1e40af':'#92400e', est:false },
+    ];
+    const safety = c._safetyNote ? `<div style="font-size:9px;color:#991b1b;background:#fee2e2;padding:2px 7px;border-radius:4px;margin-bottom:7px">${c._safetyNote}</div>` : '';
+    return `<div class="portfolio-card" style="border-top:3px solid ${adjC}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:9px;font-weight:700;color:${rankClr};margin-bottom:2px">#${rank}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--tx)">${c.city}</div>
+          <div style="font-size:9px;color:var(--mu);margin-top:1px">${c.cityLabel}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:26px;font-weight:700;color:${adjC};line-height:1">${c.adjScore}</div>
+          <div style="font-size:9px;color:var(--mu)">score adj</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;${anReliabilityStyle(c.relLabel)};display:inline-block;margin-top:3px">${c.relLabel}</span>
+        </div>
+      </div>
+      ${safety}
+      ${metricRows.map(mt=>`
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+          <div style="font-size:9px;color:var(--mu);width:62px;flex-shrink:0">${mt.label}</div>
+          <div style="flex:1;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
+            <div style="height:100%;width:${Math.round(mt.score/mt.max*100)}%;background:${mt.clr};border-radius:99px"></div>
+          </div>
+          <div style="font-size:10px;font-weight:600;color:${mt.clr};min-width:56px;text-align:right">
+            ${mt.val}${mt.est?'<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>':''}
+          </div>
+        </div>`).join('')}
+      <div style="font-size:9px;color:var(--mu);margin-top:6px;border-top:1px solid var(--bd);padding-top:5px;line-height:1.5">
+        ${c.demandNote?`<div>👥 ${c.demandNote}</div>`:''}
+        ${c.liqNote?`<div>🔄 ${c.liqNote}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
 
   document.getElementById('analyticsContent').innerHTML = `
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">City investment comparison</div>
+    <div style="font-size:11px;color:var(--mu);margin-bottom:10px">
+      Blended score adj = 30% yield + 25% growth + 25% liquidity + 10% demand + 10% reliability, adjusted for data quality and market depth.
+      Sources: CBC RPPI Q4 2025 · RICS · DLS 2024. Directional guidance — not a forecast.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">70+ Strong</span>
+      <span style="background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">55–69 Attractive</span>
+      <span style="background:#ffedd5;color:#c2410c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">40–54 Selective</span>
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600">&lt;40 Caution</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:20px">
+      ${scoreCards}
+    </div>
+
+    <div class="analytics-charts">
+      <div class="analytics-chart-card" style="grid-column:1/-1">
+        <div class="analytics-chart-title">Score components by city <span>Absolute bands — Polis excluded</span></div>
+        <div class="analytics-chart-wrap" style="height:240px"><canvas id="chartCompare"></canvas></div>
+      </div>
+    </div>
+
+    <div class="analytics-table-card">
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City × bedroom detail</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead>
+            <tr style="background:var(--bg2)">
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">City</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Beds</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">ADR</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Occupancy</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Annual revenue</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Yield</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Growth</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Liquidity</th>
+              <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);border-bottom:1px solid var(--bd)">Score adj</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows.map(r => {
+            if (!r || !r.cs) return '';
+            const c   = r.cs;
+            const adjC = anScoreColor(c.adjScore);
+            const grwC = c.growthScore>=70?'#15803d':c.growthScore>=50?'#b45309':'#c2410c';
+            const liqBg = c.liqScore>=65?'#dcfce7':c.liqScore>=45?'#fef3c7':'#ffedd5';
+            const liqC  = anScoreColor(c.liqScore);
+            const yEst  = c.yieldEst ? '<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>' : '';
+            return `<tr>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd);font-weight:500">${r.city}</td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd);color:var(--mu)">${r.beds} bed</td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">€${r.ADR}</td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">${(r.occupancy*100).toFixed(1)}%</td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">€${r.annualRevenue.toLocaleString()}</td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">
+                <span style="font-weight:600;color:${anScoreColor(c.yieldScore)}">${c.yieldPct.toFixed(1)}%${yEst}</span>
+              </td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">
+                <span style="color:${grwC}">${c.growthPct!=null?c.growthPct.toFixed(1)+'%':'—'}</span>
+              </td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">
+                <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${liqBg};color:${liqC}">${c.liqScore}</span>
+              </td>
+              <td style="padding:7px 10px;border-bottom:1px solid var(--bd)">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <div style="width:34px;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
+                    <div style="height:100%;width:${c.adjScore}%;background:${adjC};border-radius:99px"></div>
+                  </div>
+                  <b style="color:${adjC}">${c.adjScore}</b>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
+        Polis excluded from the Analytics tab only — searchable and available in all other workflows.
+        Yield bands: absolute — not relative to sample. "est" = benchmark-based or proxy-assisted. Liquidity from DLS sales contract data 2024.
+      </div>
+    </div>`;
+
+  setTimeout(() => {
+    try {
+      const isDark    = window.matchMedia('(prefers-color-scheme:dark)').matches;
+      const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+      const textColor = isDark ? '#888' : '#999';
+      anCharts.compare = new Chart(document.getElementById('chartCompare'), {
+        type:'bar',
+        data:{
+          labels: ranked.map(c=>c.city),
+          datasets:[
+            { label:'Score adj',  data:ranked.map(c=>c.adjScore),    backgroundColor:ranked.map(c=>anScoreColor(c.adjScore)), borderRadius:4 },
+            { label:'Yield',      data:ranked.map(c=>c.yieldScore),  backgroundColor:'rgba(184,134,11,.45)', borderRadius:4 },
+            { label:'Growth',     data:ranked.map(c=>c.growthScore), backgroundColor:'rgba(21,128,61,.4)',   borderRadius:4 },
+            { label:'Liquidity',  data:ranked.map(c=>c.liqScore),    backgroundColor:'rgba(29,78,216,.3)',   borderRadius:4 },
+            { label:'Reliability',data:ranked.map(c=>c.relScore),    backgroundColor:'rgba(109,40,217,.2)', borderRadius:4 },
+          ]
+        },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ position:'top', labels:{font:{size:10},color:textColor} } },
+          scales:{ x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},max:100,min:0} }
+        }
+      });
+    } catch(e) { console.warn('[Analytics] Comparison chart error:', e.message); }
+  }, 50);
+}
+
+
+
+function renderAnalyticsOccupancy(pool) {
+  if (!pool.length) { document.getElementById('analyticsContent').innerHTML='<div class="empty" style="padding:2rem">No listings match filters.</div>'; return; }
+  const metrics = pool.map(d=>{try{return{...d,...calcPropertyMetrics(d)};}catch(e){return null;}}).filter(Boolean);
+  const cities  = [...new Set(pool.map(d=>d.city).filter(c=>c&&!anIsExcluded(c)))];
+  const safeAvg = arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+  const avgBaseOcc = safeAvg(metrics.map(m=>m.occupancy));
+  const monthlyOcc = CYPRUS_SEASONALITY.map(s=>(avgBaseOcc*s*100).toFixed(1));
+  const cityOcc = cities.map(city=>{
+    const cm=metrics.filter(d=>d.city===city);
+    return{city,occ:(safeAvg(cm.map(m=>m.occupancy))*100).toFixed(1)};
+  }).sort((a,b)=>+b.occ-+a.occ);
+
+  document.getElementById('analyticsContent').innerHTML=`
     <div class="analytics-kpis">
       <div class="analytics-kpi"><div class="analytics-kpi-label">Avg occupancy</div><div class="analytics-kpi-value">${(avgBaseOcc*100).toFixed(1)}%</div><div class="analytics-kpi-sub">Annual average</div></div>
       <div class="analytics-kpi"><div class="analytics-kpi-label">Peak occupancy</div><div class="analytics-kpi-value">${Math.max(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jul–Aug peak</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season</div><div class="analytics-kpi-value">${Math.min(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jan–Feb</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">High season months</div><div class="analytics-kpi-value">5</div><div class="analytics-kpi-sub">May–Sep</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season</div><div class="analytics-kpi-value">${Math.min(...monthlyOcc)}%</div><div class="analytics-kpi-sub">Jan–Feb low</div></div>
     </div>
     <div class="analytics-charts">
-      <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Monthly occupancy rate <span>Seasonality-adjusted · Cyprus tourism data</span></div>
-        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthOcc"></canvas></div>
-      </div>
-    </div>
-    <div class="analytics-charts">
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Occupancy by city</div>
-        <div class="analytics-chart-wrap"><canvas id="chartCityOcc"></canvas></div>
-      </div>
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Occupancy by beds</div>
-        <div class="analytics-chart-wrap"><canvas id="chartBedsOcc"></canvas></div>
-      </div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">Monthly occupancy <span>Seasonality-adjusted</span></div><div class="analytics-chart-wrap"><canvas id="chartMonthOcc"></canvas></div></div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">Occupancy by city <span>Annual average</span></div><div class="analytics-chart-wrap"><canvas id="chartCityOcc"></canvas></div></div>
     </div>`;
 
-  const bedGroups = [0,1,2,3,4].map(b => {
-    const bm = metrics.filter(d => (d.bedrooms||0) === b || (b===4 && (d.bedrooms||0)>=4));
-    if (!bm.length) return null;
-    return { label: b===0?'Studio':b===4?'4+ bed':b+' bed', occ: (bm.reduce((s,m)=>s+m.occupancy,0)/bm.length*100).toFixed(1) };
-  }).filter(Boolean);
-
-  setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
-
-    anCharts.monthOcc = new Chart(document.getElementById('chartMonthOcc'), {
-      type: 'line',
-      data: {
-        labels: MONTH_NAMES,
-        datasets: [{ label: 'Occupancy %', data: monthlyOcc.map(Number), borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.08)', fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1a1a1a' }]
-      },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
-      }}
-    });
-    anCharts.cityOcc = new Chart(document.getElementById('chartCityOcc'), {
-      type: 'bar',
-      data: { labels: cityOcc.map(c=>c.city), datasets: [{ data: cityOcc.map(c=>+c.occ), backgroundColor: '#1a1a1a', borderRadius: 4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
-      }}
-    });
-    anCharts.bedsOcc = new Chart(document.getElementById('chartBedsOcc'), {
-      type: 'bar',
-      data: { labels: bedGroups.map(b=>b.label), datasets: [{ data: bedGroups.map(b=>+b.occ), backgroundColor: '#b8860b', borderRadius: 4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},min:0,max:100}
-      }}
-    });
-  }, 50);
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+    const tc=isDark?'#888':'#999';
+    anCharts.monthOcc=new Chart(document.getElementById('chartMonthOcc'),{type:'bar',data:{labels:MONTH_NAMES,datasets:[{label:'Occupancy %',data:monthlyOcc,backgroundColor:monthlyOcc.map(v=>+v>=80?'#15803d':+v>=65?'#b8860b':'#6b7280'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},max:100}}}});
+    anCharts.cityOcc=new Chart(document.getElementById('chartCityOcc'),{type:'bar',data:{labels:cityOcc.map(c=>c.city),datasets:[{label:'Occupancy %',data:cityOcc.map(c=>+c.occ),backgroundColor:'#1a1a1a',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},max:100}}}});
+  },50);
 }
 
 function renderAnalyticsRevenue(pool) {
-  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
-  const avgRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
-  const totalMarketRev = metrics.reduce((s,m)=>s+m.annualRevenue,0);
-  const avgRevPAR = Math.round(metrics.reduce((s,m)=>s+m.revPAR,0)/metrics.length);
+  if (!pool.length) { document.getElementById('analyticsContent').innerHTML='<div class="empty" style="padding:2rem">No listings match filters.</div>'; return; }
+  const metrics = pool.map(d=>{try{return{...d,...calcPropertyMetrics(d)};}catch(e){return null;}}).filter(Boolean);
+  const cities  = [...new Set(pool.map(d=>d.city).filter(c=>c&&!anIsExcluded(c)))];
+  const safeAvg = arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+  const avgRev  = Math.round(safeAvg(metrics.map(m=>m.annualRevenue)));
+  const avgBaseOcc = safeAvg(metrics.map(m=>m.occupancy));
+  const avgADR  = Math.round(safeAvg(metrics.map(m=>m.ADR)));
+  const monthlyRev = CYPRUS_SEASONALITY.map(s=>Math.round(avgADR*avgBaseOcc*s*30));
+  const cityRev = cities.map(city=>{
+    const cm=metrics.filter(d=>d.city===city);
+    return{city,rev:Math.round(safeAvg(cm.map(m=>m.annualRevenue)))};
+  }).sort((a,b)=>b.rev-a.rev);
 
-  // Monthly revenue
-  const monthlyRev = CYPRUS_SEASONALITY.map(s => Math.round(avgRev / 12 * s * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))));
-
-  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
-  const cityRevData = cities.map(city => {
-    const cm = metrics.filter(d=>d.city===city);
-    return { city, avgRev: Math.round(cm.reduce((s,m)=>s+m.annualRevenue,0)/cm.length), count: cm.length };
-  }).sort((a,b)=>b.avgRev-a.avgRev);
-
-  document.getElementById('analyticsContent').innerHTML = `
+  document.getElementById('analyticsContent').innerHTML=`
     <div class="analytics-kpis">
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div><div class="analytics-kpi-sub">Per listing</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">RevPAR</div><div class="analytics-kpi-value">€${avgRevPAR}</div><div class="analytics-kpi-sub">Per available night</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Total market rev.</div><div class="analytics-kpi-value">€${(totalMarketRev/1000000).toFixed(1)}M</div><div class="analytics-kpi-sub">Across all listings</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak month</div><div class="analytics-kpi-value">€${Math.max(...monthlyRev).toLocaleString()}</div><div class="analytics-kpi-sub">July / August</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg annual revenue</div><div class="analytics-kpi-value">€${avgRev.toLocaleString()}</div><div class="analytics-kpi-sub">Per listing estimate</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak month</div><div class="analytics-kpi-value">€${Math.max(...monthlyRev).toLocaleString()}</div><div class="analytics-kpi-sub">Jul–Aug</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season</div><div class="analytics-kpi-value">€${Math.min(...monthlyRev).toLocaleString()}</div><div class="analytics-kpi-sub">Jan–Feb</div></div>
     </div>
     <div class="analytics-charts">
-      <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Monthly revenue projection <span>Based on Cyprus seasonality index</span></div>
-        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthRev"></canvas></div>
-      </div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">Monthly revenue <span>Seasonality-adjusted estimate</span></div><div class="analytics-chart-wrap"><canvas id="chartMonthRev"></canvas></div></div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">Annual revenue by city <span>Average per listing</span></div><div class="analytics-chart-wrap"><canvas id="chartCityRevBar"></canvas></div></div>
     </div>
-    <div class="analytics-charts">
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Revenue by city</div>
-        <div class="analytics-chart-wrap"><canvas id="chartCityRevBar"></canvas></div>
-      </div>
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">Revenue potential distribution</div>
-        <div class="analytics-chart-wrap"><canvas id="chartRevDist"></canvas></div>
-      </div>
-    </div>`;
+    <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">⚠ Estimates based on Cyprus market averages using AirDNA methodology (ADR × Occupancy × 365 with seasonality). Actual performance varies by management, amenities and competition.</div>`;
 
-  // Revenue distribution buckets
-  const buckets = [
-    { label: '<€10k', min:0, max:10000 },
-    { label: '€10-20k', min:10000, max:20000 },
-    { label: '€20-35k', min:20000, max:35000 },
-    { label: '€35-50k', min:35000, max:50000 },
-    { label: '€50k+', min:50000, max:Infinity },
-  ];
-  const distData = buckets.map(b => metrics.filter(m=>m.annualRevenue>=b.min&&m.annualRevenue<b.max).length);
-
-  setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
-    anCharts.monthRev = new Chart(document.getElementById('chartMonthRev'), {
-      type: 'bar',
-      data: { labels: MONTH_NAMES, datasets: [{ data: monthlyRev, backgroundColor: MONTH_NAMES.map((_,i)=>CYPRUS_SEASONALITY[i]>0.9?'#15803d':CYPRUS_SEASONALITY[i]>0.7?'#b8860b':'#6b7280'), borderRadius: 4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
-      }}
-    });
-    anCharts.cityRevBar = new Chart(document.getElementById('chartCityRevBar'), {
-      type: 'bar',
-      data: { labels: cityRevData.map(c=>c.city), datasets: [{ data: cityRevData.map(c=>c.avgRev), backgroundColor: '#1a1a1a', borderRadius: 4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v.toLocaleString()}}
-      }}
-    });
-    anCharts.revDist = new Chart(document.getElementById('chartRevDist'), {
-      type: 'doughnut',
-      data: { labels: buckets.map(b=>b.label), datasets: [{ data: distData, backgroundColor: ['#6b7280','#b8860b','#15803d','#1d4ed8','#9d174d'], borderWidth: 2 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{font:{size:10},color:textColor}}} }
-    });
-  }, 50);
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+    const tc=isDark?'#888':'#999';
+    anCharts.monthRev=new Chart(document.getElementById('chartMonthRev'),{type:'bar',data:{labels:MONTH_NAMES,datasets:[{label:'Revenue €',data:monthlyRev,backgroundColor:monthlyRev.map(v=>v>=Math.max(...monthlyRev)*0.85?'#15803d':v>=Math.max(...monthlyRev)*0.65?'#b8860b':'#6b7280'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'€'+v.toLocaleString()}}}}});
+    anCharts.cityRevBar=new Chart(document.getElementById('chartCityRevBar'),{type:'bar',data:{labels:cityRev.map(c=>c.city),datasets:[{label:'Annual revenue',data:cityRev.map(c=>c.rev),backgroundColor:'#1a1a1a',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'€'+v.toLocaleString()}}}}});
+  },50);
 }
 
 function renderAnalyticsRates(pool) {
-  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
-  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
-
-  // ADR by beds
-  const bedGroups = [0,1,2,3,4].map(b => {
-    const bm = metrics.filter(d => b===4 ? (d.bedrooms||0)>=4 : (d.bedrooms||0)===b);
-    if (!bm.length) return null;
-    return { label: b===0?'Studio':b===4?'4+ bed':b+' bed', adr: Math.round(bm.reduce((s,m)=>s+m.ADR,0)/bm.length) };
-  }).filter(Boolean);
-
-  // ADR by city
-  const cities = [...new Set(pool.map(d=>d.city).filter(Boolean))];
-  const cityADRData = cities.map(city => {
-    const cm = metrics.filter(d=>d.city===city);
-    return { city, adr: Math.round(cm.reduce((s,m)=>s+m.ADR,0)/cm.length) };
+  if (!pool.length) { document.getElementById('analyticsContent').innerHTML='<div class="empty" style="padding:2rem">No listings match filters.</div>'; return; }
+  const metrics = pool.map(d=>{try{return{...d,...calcPropertyMetrics(d)};}catch(e){return null;}}).filter(Boolean);
+  const safeAvg = arr=>arr.length?arr.reduce((s,v)=>s+v,0)/arr.length:0;
+  const avgADR  = Math.round(safeAvg(metrics.map(m=>m.ADR)));
+  const avgBaseOcc = safeAvg(metrics.map(m=>m.occupancy));
+  const monthlyADR = CYPRUS_SEASONALITY.map(s=>Math.round(avgADR*s));
+  const cities  = [...new Set(pool.map(d=>d.city).filter(c=>c&&!anIsExcluded(c)))];
+  const cityADR = cities.map(city=>{
+    const cm=metrics.filter(d=>d.city===city);
+    return{city,adr:Math.round(safeAvg(cm.map(m=>m.ADR)))};
   }).sort((a,b)=>b.adr-a.adr);
 
-  // Monthly ADR (rates higher in peak season)
-  const monthlyADR = CYPRUS_SEASONALITY.map(s => Math.round(avgADR * (0.7 + s * 0.5)));
-
-  document.getElementById('analyticsContent').innerHTML = `
+  document.getElementById('analyticsContent').innerHTML=`
     <div class="analytics-kpis">
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate (ADR)</div><div class="analytics-kpi-value">€${avgADR}</div><div class="analytics-kpi-sub">Per booked night</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak ADR</div><div class="analytics-kpi-value">€${Math.max(...monthlyADR)}</div><div class="analytics-kpi-sub">July / August</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season ADR</div><div class="analytics-kpi-value">€${Math.min(...monthlyADR)}</div><div class="analytics-kpi-sub">January / February</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Rate seasonality</div><div class="analytics-kpi-value">${Math.round((Math.max(...monthlyADR)/Math.min(...monthlyADR)-1)*100)}%</div><div class="analytics-kpi-sub">Peak vs low variance</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Avg ADR</div><div class="analytics-kpi-value">€${avgADR}</div><div class="analytics-kpi-sub">Average daily rate</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak ADR</div><div class="analytics-kpi-value">€${Math.max(...monthlyADR)}</div><div class="analytics-kpi-sub">Peak season</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low ADR</div><div class="analytics-kpi-value">€${Math.min(...monthlyADR)}</div><div class="analytics-kpi-sub">Low season</div></div>
     </div>
     <div class="analytics-charts">
-      <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Monthly average daily rate <span>Dynamic pricing — peak season premium</span></div>
-        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartMonthADR"></canvas></div>
-      </div>
-    </div>
-    <div class="analytics-charts">
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">ADR by city</div>
-        <div class="analytics-chart-wrap"><canvas id="chartCityADR"></canvas></div>
-      </div>
-      <div class="analytics-chart-card">
-        <div class="analytics-chart-title">ADR by bedroom count</div>
-        <div class="analytics-chart-wrap"><canvas id="chartBedsADR"></canvas></div>
-      </div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">Monthly ADR <span>Seasonal variation</span></div><div class="analytics-chart-wrap"><canvas id="chartMonthADR"></canvas></div></div>
+      <div class="analytics-chart-card"><div class="analytics-chart-title">ADR by city <span>Average daily rate</span></div><div class="analytics-chart-wrap"><canvas id="chartCityADR"></canvas></div></div>
     </div>`;
 
-  setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
-    anCharts.monthADR = new Chart(document.getElementById('chartMonthADR'), {
-      type: 'line',
-      data: { labels: MONTH_NAMES, datasets: [{ data: monthlyADR, borderColor: '#b8860b', backgroundColor: 'rgba(184,134,11,0.08)', fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#b8860b' }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
-      }}
-    });
-    anCharts.cityADR = new Chart(document.getElementById('chartCityADR'), {
-      type: 'bar',
-      data: { labels: cityADRData.map(c=>c.city), datasets: [{ data: cityADRData.map(c=>c.adr), backgroundColor: '#1a1a1a', borderRadius:4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
-      }}
-    });
-    anCharts.bedsADR = new Chart(document.getElementById('chartBedsADR'), {
-      type: 'bar',
-      data: { labels: bedGroups.map(b=>b.label), datasets: [{ data: bedGroups.map(b=>b.adr), backgroundColor: '#b8860b', borderRadius:4 }] },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>'€'+v}}
-      }}
-    });
-  }, 50);
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+    const tc=isDark?'#888':'#999';
+    anCharts.monthADR=new Chart(document.getElementById('chartMonthADR'),{type:'line',data:{labels:MONTH_NAMES,datasets:[{label:'ADR €',data:monthlyADR,borderColor:'#1a1a1a',backgroundColor:'rgba(26,26,26,.08)',tension:0.4,fill:true,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'€'+v}}}}});
+    anCharts.cityADR=new Chart(document.getElementById('chartCityADR'),{type:'bar',data:{labels:cityADR.map(c=>c.city),datasets:[{label:'ADR €',data:cityADR.map(c=>c.adr),backgroundColor:'#1a1a1a',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'€'+v}}}}});
+  },50);
 }
 
 function renderAnalyticsSeasonality(pool) {
-  const metrics = pool.map(d => ({ ...d, ...calcPropertyMetrics(d) }));
-  const avgRev = Math.round(metrics.reduce((s,m)=>s+m.annualRevenue,0)/metrics.length);
-  const avgADR = Math.round(metrics.reduce((s,m)=>s+m.ADR,0)/metrics.length);
-  const avgOcc = metrics.reduce((s,m)=>s+m.occupancy,0)/metrics.length;
+  if (!pool.length) { document.getElementById('analyticsContent').innerHTML='<div class="empty" style="padding:2rem">No listings match filters.</div>'; return; }
+  const months   = MONTH_NAMES;
+  const indices  = CYPRUS_SEASONALITY;
+  const avgOcc   = pool.map(d=>{try{return calcPropertyMetrics(d).occupancy;}catch(e){return 0.65;}});
+  const baseOcc  = avgOcc.reduce((s,v)=>s+v,0)/avgOcc.length;
+  const monthlyOcc  = indices.map(s=>(baseOcc*s*100).toFixed(1));
+  const peakMonths  = months.filter((_,i)=>indices[i]>=0.90).join(', ');
+  const lowMonths   = months.filter((_,i)=>indices[i]<=0.60).join(', ');
 
-  const seasonData = MONTH_NAMES.map((month, i) => ({
-    month,
-    occ: (avgOcc * CYPRUS_SEASONALITY[i] * 100).toFixed(1),
-    adr: Math.round(avgADR * (0.7 + CYPRUS_SEASONALITY[i] * 0.5)),
-    rev: Math.round(avgRev / 12 * CYPRUS_SEASONALITY[i] * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))),
-    index: (CYPRUS_SEASONALITY[i] * 100).toFixed(0),
-  }));
-
-  document.getElementById('analyticsContent').innerHTML = `
+  document.getElementById('analyticsContent').innerHTML=`
     <div class="analytics-kpis">
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak months</div><div class="analytics-kpi-value">Jul–Sep</div><div class="analytics-kpi-sub">Highest revenue</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Seasonality score</div><div class="analytics-kpi-value">48</div><div class="analytics-kpi-sub">Higher = more seasonal</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak / low ratio</div><div class="analytics-kpi-value">2.0×</div><div class="analytics-kpi-sub">Jul vs Jan revenue</div></div>
-      <div class="analytics-kpi"><div class="analytics-kpi-label">Shoulder months</div><div class="analytics-kpi-value">May, Oct</div><div class="analytics-kpi-sub">Good value entry</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Peak season</div><div class="analytics-kpi-value" style="font-size:13px">${peakMonths}</div><div class="analytics-kpi-sub">≥90% of peak index</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Low season</div><div class="analytics-kpi-value" style="font-size:13px">${lowMonths}</div><div class="analytics-kpi-sub">≤60% of peak index</div></div>
+      <div class="analytics-kpi"><div class="analytics-kpi-label">Seasonality range</div><div class="analytics-kpi-value">${Math.round((1-Math.min(...indices)/Math.max(...indices))*100)}%</div><div class="analytics-kpi-sub">Peak vs low variation</div></div>
     </div>
     <div class="analytics-charts">
-      <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Seasonality index <span>100 = peak demand · Cyprus tourism patterns</span></div>
-        <div class="analytics-chart-wrap" style="height:220px"><canvas id="chartSeason"></canvas></div>
-      </div>
+      <div class="analytics-chart-card" style="grid-column:1/-1"><div class="analytics-chart-title">Cyprus tourism seasonality index <span>Based on tourist arrivals data</span></div><div class="analytics-chart-wrap" style="height:220px"><canvas id="chartSeason"></canvas></div></div>
     </div>
-    <div class="analytics-table-card">
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px">Monthly performance breakdown</div>
-      <table>
-        <thead><tr><th>Month</th><th>Season index</th><th>Occupancy</th><th>ADR</th><th>Est. revenue</th><th>Season</th></tr></thead>
-        <tbody>${seasonData.map(s => {
-          const peak = s.index >= 90;
-          const high = s.index >= 70 && s.index < 90;
-          const low = s.index < 60;
-          const seasonLabel = peak ? '<span style="color:#15803d;font-weight:500">Peak</span>' : high ? '<span style="color:#b8860b;font-weight:500">High</span>' : low ? '<span style="color:#6b7280">Low</span>' : '<span style="color:#1d4ed8">Shoulder</span>';
-          return `<tr>
-            <td style="font-weight:500">${s.month}</td>
-            <td><div style="display:flex;align-items:center;gap:8px"><span>${s.index}</span><div class="analytics-score-bar" style="width:60px"><div class="analytics-score-fill" style="width:${s.index}%;background:${peak?'#15803d':high?'#b8860b':'#6b7280'}"></div></div></div></td>
-            <td>${s.occ}%</td>
-            <td>€${s.adr}</td>
-            <td>€${s.rev.toLocaleString()}</td>
-            <td>${seasonLabel}</td>
-          </tr>`;
-        }).join('')}
-        </tbody>
-      </table>
-    </div>`;
+    <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">Seasonality index based on Cyprus tourist arrivals (CyStat). Peak = July–September. Low = January–February. Coastal/STR properties are most affected; LTR is year-round.</div>`;
 
-  setTimeout(() => {
-    const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
-    anCharts.season = new Chart(document.getElementById('chartSeason'), {
-      type: 'line',
-      data: { labels: MONTH_NAMES, datasets: [
-        { label: 'Season index', data: CYPRUS_SEASONALITY.map(s=>+(s*100).toFixed(0)), borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.06)', fill:true, tension:0.4, yAxisID:'y', pointRadius:5, pointBackgroundColor: CYPRUS_SEASONALITY.map(s=>s>=0.9?'#15803d':s>=0.7?'#b8860b':'#6b7280') },
-      ]},
-      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10}},min:0,max:110}
-      }}
-    });
-  }, 50);
+  setTimeout(()=>{
+    const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const gc=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.06)';
+    const tc=isDark?'#888':'#999';
+    anCharts.season=new Chart(document.getElementById('chartSeason'),{type:'bar',data:{labels:months,datasets:[{label:'Seasonality index',data:indices.map(v=>+(v*100).toFixed(0)),backgroundColor:indices.map(v=>v>=0.90?'#15803d':v>=0.70?'#b8860b':'#6b7280'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},max:110}}}});
+  },50);
 }
 
 function renderAnalyticsRentalizer(pool) {
-  document.getElementById('analyticsContent').innerHTML = `
-    <div style="max-width:560px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Rentalizer</div>
-      <div style="font-size:11px;color:var(--mu);margin-bottom:20px">Estimate the revenue potential of any property in Cyprus</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">City</div>
-          <select id="rzCity" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            ${Object.keys(CITY_ADR).map(c=>`<option>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Property type</div>
-          <select id="rzType" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="Apartment">Apartment</option><option value="Villa">Villa</option><option value="House">House</option><option value="Penthouse">Penthouse</option>
-          </select>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Bedrooms</div>
-          <select id="rzBeds" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="0">Studio</option><option value="1">1 bed</option><option value="2">2 bed</option><option value="3">3 bed</option><option value="4">4+ bed</option>
-          </select>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Sea distance</div>
-          <select id="rzSea" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="">Any</option><option value="0.2">Beachfront</option><option value="0.8">Under 1km</option><option value="2">Under 3km</option><option value="6">Under 8km</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:5px">Purchase price (€)</div>
-          <input type="number" id="rzPrice" placeholder="e.g. 450000" step="10000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-      </div>
-      <button onclick="runRentalizer()" class="btn primary" style="width:100%">▶ Calculate revenue potential</button>
-      <div id="rzResult" style="margin-top:16px"></div>
-    </div>`;
-}
+  const city = document.getElementById('anCity')?.value || '';
+  const type = document.getElementById('anType')?.value || 'Apartment';
+  const beds = document.getElementById('anBeds')?.value || '2';
+  const price = document.getElementById('anPrice')?.value ? +document.getElementById('anPrice').value : null;
 
-function runRentalizer() {
-  const city = document.getElementById('rzCity').value;
-  const type = document.getElementById('rzType').value;
-  const beds = +document.getElementById('rzBeds').value;
-  const seaVal = document.getElementById('rzSea').value;
-  const price = +document.getElementById('rzPrice').value || 0;
-  const seaDist = seaVal ? +seaVal : null;
+  if (!city) {
+    document.getElementById('analyticsContent').innerHTML=`<div class="intel-summary">Select a city in the filters above to use the Rentalizer.</div>`;
+    return;
+  }
 
-  const mockListing = { city, type, bedrooms: beds, seaDist, price };
-  const m = calcPropertyMetrics(mockListing);
-  const monthlyRev = CYPRUS_SEASONALITY.map(s => Math.round(m.annualRevenue / 12 * s * (12 / CYPRUS_SEASONALITY.reduce((a,b)=>a+b,0))));
+  try {
+    const mock = { city, type: type||'Apartment', bedrooms: +beds||2, seaDist:2, price };
+    const m    = calcPropertyMetrics(mock);
+    const monthlyRev = CYPRUS_SEASONALITY.map(s=>Math.round(m.ADR*m.occupancy*s*30));
 
-  document.getElementById('rzResult').innerHTML = `
-    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-top:8px">
+    document.getElementById('analyticsContent').innerHTML=`
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:12px">Revenue potential — ${city}, ${type}, ${beds||'Studio'} bed</div>
       <div class="analytics-kpis" style="margin-bottom:12px">
         <div class="analytics-kpi"><div class="analytics-kpi-label">Avg daily rate</div><div class="analytics-kpi-value">€${m.ADR}</div></div>
@@ -9529,201 +9489,11 @@ function runRentalizer() {
           <div style="height:3px;border-radius:99px;background:${CYPRUS_SEASONALITY[i]>=0.9?'#15803d':CYPRUS_SEASONALITY[i]>=0.7?'#b8860b':'#6b7280'};margin-top:4px"></div>
         </div>`).join('')}
       </div>
-      <div style="font-size:10px;color:var(--mu);margin-top:12px;line-height:1.6">⚠ Estimates based on Cyprus market averages using AirDNA methodology (ADR × Occupancy × 365). Actual performance varies with management quality, amenities, reviews, and local competition.</div>
-    </div>`;
+      <div style="font-size:10px;color:var(--mu);margin-top:12px;line-height:1.6">⚠ Estimates based on Cyprus market averages (AirDNA methodology). Actual performance varies with management quality, amenities, reviews, and local competition.</div>`;
+  } catch(e) {
+    document.getElementById('analyticsContent').innerHTML=`<div class="empty">Could not compute rentalizer estimate. ${e.message}</div>`;
+  }
 }
-
-function renderAnalyticsComparison() {
-  const MB    = window.MARKET_BENCHMARKS;
-  const cities = Object.keys(CITY_ADR);
-  const beds   = [1, 2, 3];
-
-  // Build full scored data: one row per city × bed combo
-  const tableData = cities.map(city => {
-    return beds.map(b => {
-      const mockListing = { city, type:'Apartment', bedrooms:b, seaDist:2, price:null };
-      const m         = calcPropertyMetrics(mockListing);
-      const realPrices = all.filter(d=>d.city===city&&d.bedrooms===b&&d.price).map(d=>d.price);
-      const avgPrice   = realPrices.length ? Math.round(realPrices.reduce((a,c)=>a+c,0)/realPrices.length) : null;
-      const ms         = computeCityMarketScore(city, b, 'Apartment', avgPrice || 300000, 'mixed');
-      return { city, beds:b, avgPrice, ...m, ms };
-    });
-  }).flat();
-
-  // Per-city 2-bed summary for score cards
-  let cityScores = cities.map(city => {
-    const realPrices = all.filter(d=>d.city===city&&d.bedrooms===2&&d.price).map(d=>d.price);
-    const avgPrice   = realPrices.length ? Math.round(realPrices.reduce((a,c)=>a+c,0)/realPrices.length) : 300000;
-    const ms         = computeCityMarketScore(city, 2, 'Apartment', avgPrice, 'mixed');
-    return { city, ms };
-  }).sort((a,b) => (b.ms?.blendedScore||0) - (a.ms?.blendedScore||0));
-
-  // Apply safety rules AFTER initial sort
-  applyRankingSafetyRules(cityScores);
-
-  // Score cards
-  const scoreCards = cityScores.map((c, i) => {
-    const ms = c.ms;
-    if (!ms) return '';
-    const rank      = i + 1;
-    const rankClr   = rank===1?'#b8860b':rank===2?'#6b7280':rank===3?'#92400e':'var(--mu)';
-    const bandClr   = ms.blendedScore>=70?'#15803d':ms.blendedScore>=60?'#b45309':'#991b1b';
-    const confStyle = _confStyle(ms.confTier);
-    const safety    = ms._safetyWarning;
-
-    const metricRows = [
-      { label:'Yield',      score:ms.yieldScore,  val:`${ms.yieldPct.toFixed(1)}%`,       cap:'cap 85', isEst:ms.isEstimate },
-      { label:'Growth',     score:ms.growthScore, val:`${ms.growthPct.toFixed(1)}% p.a.`, cap:'cap 95', isEst:false },
-      { label:'Liquidity',  score:ms.liqScore,    val:`${(ms.contracts||0).toLocaleString()} sales`, cap:'log-scale', isEst:false },
-      { label:'Confidence', score:ms.confScore,   val:ms.confLabel,  cap:'×conf mult',   isEst:ms.confIsProxy },
-    ];
-
-    return `<div class="portfolio-card" style="border-top:3px solid ${bandClr}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
-        <div>
-          <div style="font-size:9px;font-weight:700;color:${rankClr};margin-bottom:2px">#${rank}</div>
-          <div style="font-size:15px;font-weight:700;color:var(--tx)">${c.city}</div>
-          <span style="font-size:10px;padding:2px 7px;border-radius:4px;${confStyle}">${ms.confTier}</span>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:28px;font-weight:700;color:${bandClr};line-height:1">${ms.blendedScore}</div>
-          <div style="font-size:9px;color:var(--mu)">final score</div>
-          <div style="font-size:9px;font-weight:600;color:${bandClr}">${ms.band?.label||''}</div>
-        </div>
-      </div>
-      ${safety ? `<div style="font-size:9px;color:#991b1b;background:#fee2e2;padding:3px 7px;border-radius:4px;margin-bottom:7px">${safety}</div>` : ''}
-      ${metricRows.map(mt=>`
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
-          <div style="font-size:9px;color:var(--mu);width:68px;flex-shrink:0">${mt.label}</div>
-          <div style="flex:1;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
-            <div style="height:100%;width:${mt.score}%;background:${_mScore(mt.score)};border-radius:99px"></div>
-          </div>
-          <div style="font-size:10px;font-weight:600;color:${_mScore(mt.score)};min-width:58px;text-align:right">
-            ${mt.val}${mt.isEst?'<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>':''}
-          </div>
-        </div>`).join('')}
-      <div style="display:flex;gap:4px;margin-top:6px;font-size:9px;color:var(--mu)">
-        <span>×thin ${ms.thinMult}</span>
-        <span>×conf ${ms.confMult}</span>
-        <span>×proxy ${ms.proxyMult}</span>
-        <span style="margin-left:auto">base ${ms.baseScore}</span>
-      </div>
-      <div style="font-size:10px;color:var(--mu);margin-top:6px;padding-top:6px;border-top:1px solid var(--bd);line-height:1.5">
-        ${ms.demandNote ? `<div>👥 ${ms.demandNote}</div>` : ''}
-        ${ms.liqNote    ? `<div>🔄 ${ms.liqNote}</div>` : ''}
-        ${ms.liqTrend === 'growing' ? '<div style="color:#15803d">↑ Liquidity trend improving</div>' : ''}
-      </div>
-      <div style="font-size:9px;color:var(--mu);margin-top:4px;opacity:.7">${ms.growthSource}</div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('analyticsContent').innerHTML = `
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px">City market comparison</div>
-    <div style="font-size:11px;color:var(--mu);margin-bottom:6px">
-      Final Score = BaseScore × thin-market × confidence × proxy multipliers.
-      BaseScore = 25% yield + 25% growth + 25% liquidity + 10% demand + 10% supply + 5% confidence.
-      Sources: CBC RPPI Q4 2025 · RICS · DLS 2024. Directional guidance only — not a forecast.
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:11px">
-      <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-weight:500">80+ Strong market</span>
-      <span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-weight:500">70–79 Attractive</span>
-      <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:500">60–69 Selective</span>
-      <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-weight:500">50–59 Opportunistic</span>
-      <span style="background:#f3f4f6;color:#6b7280;padding:2px 8px;border-radius:4px;font-weight:500">&lt;50 Weak / caution</span>
-    </div>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px">
-      ${scoreCards}
-    </div>
-
-    <div class="analytics-charts">
-      <div class="analytics-chart-card" style="grid-column:1/-1">
-        <div class="analytics-chart-title">Score components by city <span>Absolute bands — not relative scaling</span></div>
-        <div class="analytics-chart-wrap" style="height:240px"><canvas id="chartCompare"></canvas></div>
-      </div>
-    </div>
-
-    <div class="analytics-table-card">
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px">City × bedroom detail</div>
-      <div style="overflow-x:auto">
-      <table>
-        <thead>
-          <tr>
-            <th>City</th><th>Beds</th><th>ADR</th><th>Occupancy</th>
-            <th>Annual revenue</th><th>Yield (abs band)</th><th>Growth</th>
-            <th>Liquidity</th><th>Final score</th><th>Interpretation</th>
-          </tr>
-        </thead>
-        <tbody>${tableData.map(r=>{
-          const ms = r.ms;
-          if (!ms) return '';
-          const estMark = ms.isEstimate ? '<span class="trust-proxy" style="margin-left:2px;font-size:8px">est</span>' : '';
-          const bandClr = ms.blendedScore>=70?'#15803d':ms.blendedScore>=60?'#b45309':'#991b1b';
-          const safetyTd = ms._safetyWarning ? `<span style="font-size:9px;color:#991b1b">${ms._safetyWarning}</span>` : `<span style="font-size:9px;color:${bandClr}">${ms.band?.label||''}</span>`;
-          return `<tr>
-            <td style="font-weight:500">${r.city}</td>
-            <td>${r.beds} bed</td>
-            <td>€${r.ADR}</td>
-            <td>${(r.occupancy*100).toFixed(1)}%</td>
-            <td>€${r.annualRevenue.toLocaleString()}</td>
-            <td><span style="font-weight:600;color:${_mScore(ms.yieldScore)}">${ms.yieldPct.toFixed(1)}%${estMark}</span>
-              <span style="font-size:9px;color:var(--mu);margin-left:3px">score ${ms.yieldScore}/85</span></td>
-            <td><span style="color:${_mScore(ms.growthScore)}">${ms.growthPct.toFixed(1)}%</span>
-              <span style="font-size:9px;color:var(--mu);margin-left:3px">/${ms.growthScore}</span></td>
-            <td>
-              <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${_mBg(ms.liqScore)};color:${_mScore(ms.liqScore)}">${ms.liqScore}</span>
-              <span style="font-size:9px;color:var(--mu);margin-left:3px">×${ms.thinMult}</span>
-            </td>
-            <td>
-              <div style="display:flex;align-items:center;gap:4px">
-                <div style="width:36px;height:4px;border-radius:99px;background:var(--bd);overflow:hidden">
-                  <div style="height:100%;width:${ms.blendedScore}%;background:${bandClr};border-radius:99px"></div>
-                </div>
-                <b style="color:${bandClr}">${ms.blendedScore}</b>
-              </div>
-            </td>
-            <td>${safetyTd}</td>
-          </tr>`;
-        }).join('')}
-        </tbody>
-      </table>
-      </div>
-      <div style="font-size:10px;color:var(--mu);margin-top:8px;line-height:1.6">
-        Yield bands: &lt;2%=20, 2–3%=35, 3–4%=50, 4–5%=62, 5–6%=74, 6–7%=82, ≥7%=85 (hard cap).
-        Liquidity: log-scale from DLS contract count — &lt;100 contracts scores ≤35; &lt;500 receives thin-market multiplier ≤0.95.
-        "est" = benchmark-based or proxy-assisted. Scores are directional, not forecasts.
-      </div>
-    </div>`;
-
-  setTimeout(() => {
-    const isDark    = window.matchMedia('(prefers-color-scheme:dark)').matches;
-    const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    const textColor = isDark ? '#888' : '#999';
-
-    anCharts.compare = new Chart(document.getElementById('chartCompare'), {
-      type: 'bar',
-      data: {
-        labels: cityScores.map(c=>c.city),
-        datasets: [
-          { label:'Final score',  data:cityScores.map(c=>c.ms?.blendedScore||0), backgroundColor:'#1a1a1a', borderRadius:4 },
-          { label:'Yield',        data:cityScores.map(c=>c.ms?.yieldScore||0),   backgroundColor:'rgba(184,134,11,.45)', borderRadius:4 },
-          { label:'Growth',       data:cityScores.map(c=>c.ms?.growthScore||0),  backgroundColor:'rgba(21,128,61,.4)',   borderRadius:4 },
-          { label:'Liquidity',    data:cityScores.map(c=>c.ms?.liqScore||0),     backgroundColor:'rgba(29,78,216,.3)',   borderRadius:4 },
-          { label:'Base (pre-mult)',data:cityScores.map(c=>c.ms?.baseScore||0),  backgroundColor:'rgba(107,114,128,.2)', borderRadius:4, type:'line', fill:false, pointRadius:4, borderColor:'rgba(107,114,128,.5)', borderWidth:1.5 },
-        ]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ position:'top', labels:{ font:{size:10}, color:textColor } } },
-        scales:{
-          x:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}} },
-          y:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}}, max:100, min:0 },
-        }
-      }
-    });
-  }, 50);
-}
-
 
 // ── On-demand property image search ─────────────────────────
 const imgCache = {};
