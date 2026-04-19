@@ -1684,6 +1684,8 @@ const GID = '248082817';
 const AGENTS_GID = '';
 const CLIENTS_GID = '1084166034';
 const COMMS_GID = '614194656';
+// ⚠ UPDATE THIS URL after deploying IntelProp_AppsScript.gs as a new Web App
+// Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz5lG9YAP3ZM9Mc1FDmCfJxf-FcsCP99c6CG73O_0vD3ZJS4sTqdhiYwJwkN3yX2E/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
@@ -6404,43 +6406,21 @@ async function readInvestorsFromSheets() {
   let loadMethod = '';
   let loadError  = null;
 
-  // ── PATH 1: gviz JSONP by GID — fastest, works for any public sheet ────
-  // Uses the tab's numeric GID — doesn't depend on tab name spelling.
-  // Browser JSONP bypasses the "Host not in allowlist" server-side block.
+  // ── Apps Script JSONP — the only reliable read path ─────────────────────
+  // gviz is NOT used: it returns error payloads that crash with
+  // "Cannot read properties of undefined (reading 'Query')" regardless
+  // of sheet sharing settings.
+  // The Apps Script doGet() read handler (deployed in IntelProp_AppsScript.gs)
+  // is the correct and only mechanism.
   try {
-    console.log('[investors] trying gviz by GID…');
-    const json = await gvizJsonp(SID, 'gid=' + CLIENTS_GID);
-    rows = gvizToRows(json);
-    loadMethod = 'gviz-gid';
+    console.log('[investors] reading via Apps Script JSONP…');
+    rows = await readSheetViaAppsScriptJSONP('Clients', 15000);
+    loadMethod = 'Apps Script';
     loadError  = null;
-    console.log('[investors] loaded via gviz (GID) —', rows.length, 'rows');
-  } catch(e0) {
-    console.warn('[investors] gviz GID failed:', e0.message);
-    loadError = e0;
-
-    // ── PATH 2: gviz JSONP by sheet name ─────────────────────────────────
-    try {
-      console.log('[investors] trying gviz by sheet name…');
-      const json2 = await gvizJsonp(SID, 'sheet=' + encodeURIComponent('Clients'));
-      rows = gvizToRows(json2);
-      loadMethod = 'gviz-name';
-      loadError  = null;
-      console.log('[investors] loaded via gviz (name) —', rows.length, 'rows');
-    } catch(e1) {
-      console.warn('[investors] gviz name failed:', e1.message);
-
-      // ── PATH 3: Apps Script JSONP (requires doGet read handler deployed) ──
-      try {
-        console.log('[investors] trying Apps Script JSONP…');
-        rows = await readSheetViaAppsScriptJSONP('Clients', 10000);
-        loadMethod = 'Apps Script';
-        loadError  = null;
-        console.log('[investors] loaded via Apps Script —', rows.length, 'rows');
-      } catch(e2) {
-        console.warn('[investors] Apps Script failed:', e2.message);
-        loadError = e2;
-      }
-    }
+    console.log('[investors] loaded —', rows.length, 'rows');
+  } catch(e) {
+    console.warn('[investors] Apps Script read failed:', e.message);
+    loadError = e;
   }
 
   // ── PARSE & MERGE ────────────────────────────────────────────────────────
@@ -6737,7 +6717,7 @@ function parseGvizDate(val) {
 
 async function readCommsFromSheets() {
   try {
-    const rows = await loadSheetCSV(COMMS_GID);
+    const rows = await readSheetViaAppsScriptJSONP('Client Communications', 12000);
     const existingIds = new Set(communicationLog.map(c => c.commId));
     let added = 0;
     rows.forEach(row => {
@@ -11946,9 +11926,9 @@ async function loadActivityLog(clientID) {
       };
     });
   }
-  // Fallback: try sheet directly via CSV
+  // Fallback: try sheet directly via Apps Script
   try {
-    var rows = await loadSheetCSV(COMMS_GID);
+    var rows = await readSheetViaAppsScriptJSONP('Client Communications', 10000);
     var entries = [];
     rows.forEach(function(row){
       var g = function(i){ return row[i] != null ? String(row[i]).trim() : ''; };
