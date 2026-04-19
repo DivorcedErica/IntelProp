@@ -129,85 +129,84 @@ function jsonpResponse(callback, data) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// doGet — handles READ requests (JSONP)
+// doGet — handles READ requests (JSONP) and ?data= write requests
 // Called by: readSheetViaAppsScriptJSONP() in index.html
 // URL format: ?action=read&sheet=Clients&callback=ipRead_xxx
+// Write format: ?data=<urlencoded JSON>  (from syncViaJsonp img.src)
 // ══════════════════════════════════════════════════════════════════
 
 function doGet(e) {
-  var params   = (e && e.parameter) ? e.parameter : {};
-  var action   = params.action   || '';
-  var callback = params.callback || 'cb';
+  var params = e && e.parameter ? e.parameter : {};
 
-  Logger.log('[IntelProp:doGet] action=' + action + ' sheet=' + params.sheet);
-
-  // ── Write request from syncViaJsonp (?data= GET param) ────────
+  // ── Write request from syncViaJsonp (?data= GET param) ──────────
+  // syncViaJsonp uses img.src = APPS_SCRIPT_URL + '?data=...' (a GET).
+  // Apps Script routes all GET requests here, so we handle writes inline.
   if (params.data) {
     try {
-      var data = JSON.parse(decodeURIComponent(params.data));
-      handleWrite(data);
+      var writeData = JSON.parse(decodeURIComponent(params.data));
+      handleWrite(writeData);
     } catch(err) {
       Logger.log('[IntelProp:write] Parse error: ' + err.message);
     }
+    // Return empty response — the img tag doesn't need content
     return ContentService
       .createTextOutput('')
       .setMimeType(ContentService.MimeType.TEXT);
   }
 
-  // ── Read request ──────────────────────────────────────────────
-  if (action === 'read') {
-    var sheetName = params.sheet || '';
-
-    if (!sheetName || READABLE_SHEETS.indexOf(sheetName) === -1) {
-      return jsonpResponse(callback, {
-        success: false,
-        error: 'Sheet "' + sheetName + '" is not in the readable list'
-      });
-    }
-
+  // ── Read request ─────────────────────────────────────────────────
+  if (params.action === 'read') {
+    var cb = params.callback || 'cb';
     try {
       var ss    = getSpreadsheet();
-      var sheet = getOrCreateSheet(ss, sheetName);
-      var vals  = sheet.getDataRange().getValues();
-
-      var sanitised = (vals.length > 1 ? vals.slice(1) : []).map(function(row) {
-        return row.map(function(cell) {
-          if (cell instanceof Date) return Utilities.formatDate(cell, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
-          if (cell === null || cell === undefined) return '';
-          return String(cell);
+      var sheet = ss.getSheetByName(params.sheet);
+      if (!sheet) {
+        return ContentService
+          .createTextOutput(cb + '({"error":"Sheet not found"})')
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      var vals = sheet.getDataRange().getValues();
+      var rows = vals.slice(1).map(function(r) {
+        return r.map(function(c) {
+          if (c instanceof Date) return Utilities.formatDate(c, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
+          return c === null || c === undefined ? '' : String(c);
         });
-      }).filter(function(row) {
-        return row.some(function(cell) { return cell !== ''; });
+      }).filter(function(r) {
+        return r.some(function(c) { return c !== ''; });
       });
-
-      Logger.log('[IntelProp:read] ' + sheetName + ' → ' + sanitised.length + ' rows');
-
-      return jsonpResponse(callback, {
-        success: true,
-        sheet:   sheetName,
-        rows:    sanitised,
-        count:   sanitised.length,
-      });
-
+      Logger.log('[IntelProp:read] ' + params.sheet + ' → ' + rows.length + ' rows');
+      return ContentService
+        .createTextOutput(cb + '(' + JSON.stringify({rows: rows}) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
     } catch(err) {
       Logger.log('[IntelProp:read] ERROR: ' + err.message);
-      return jsonpResponse(callback, { success: false, error: err.message });
+      return ContentService
+        .createTextOutput((params.callback || 'cb') + '({"error":"' + err.message + '"})')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
     }
   }
 
-  // ── Health check ──────────────────────────────────────────────
+  // ── Health check ─────────────────────────────────────────────────
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'ok', version: '2.0', actions: ['read'] }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ══════════════════════════════════════════════════════════════════
-// doPost — handles WRITE requests
+// doPost — handles WRITE requests (JSON body)
+// Kept for forward compatibility alongside the ?data= GET mechanism
 // ══════════════════════════════════════════════════════════════════
 
 function doPost(e) {
-  return handleWrite(e && e.postData ? JSON.parse(e.postData.contents) : {});
+  handleWrite(e && e.postData ? JSON.parse(e.postData.contents) : {});
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
+
+// ══════════════════════════════════════════════════════════════════
+// handleWrite — core upsert/append logic
+// ══════════════════════════════════════════════════════════════════
 
 function handleWrite(data) {
   if (!data || !data.sheet || !data.row) {
@@ -225,20 +224,24 @@ function handleWrite(data) {
     var ss    = getSpreadsheet();
     var sheet = getOrCreateSheet(ss, sheetName);
 
+    // Upsert: update existing row if key matches; otherwise append
     var keyCol   = -1;
     var keyValue = null;
 
-    if (type === 'investor'      && data.investorId)  { keyCol = 0; keyValue = String(data.investorId); }
-    else if (type === 'communication' && data.commId)  { keyCol = 0; keyValue = String(data.commId); }
-    else if (type === 'agent'    && data.agentId)      { keyCol = 0; keyValue = String(data.agentId); }
-    else if (type === 'property' && data.propertyId)   { keyCol = 0; keyValue = String(data.propertyId); }
-    // listings and benchmarks always append
+    if      (type === 'investor'      && data.investorId)  { keyCol = 0; keyValue = String(data.investorId); }
+    else if (type === 'communication' && data.commId)       { keyCol = 0; keyValue = String(data.commId); }
+    else if (type === 'agent'         && data.agentId)      { keyCol = 0; keyValue = String(data.agentId); }
+    else if (type === 'property'      && data.propertyId)   { keyCol = 0; keyValue = String(data.propertyId); }
+    // listings and benchmarks always append (no upsert key)
 
     if (keyCol >= 0 && keyValue) {
       var allData  = sheet.getDataRange().getValues();
       var foundRow = -1;
-      for (var i = 1; i < allData.length; i++) {
-        if (String(allData[i][keyCol]) === keyValue) { foundRow = i + 1; break; }
+      for (var i = 1; i < allData.length; i++) {  // skip header row (index 0)
+        if (String(allData[i][keyCol]) === keyValue) {
+          foundRow = i + 1;  // 1-based for Sheets API
+          break;
+        }
       }
       if (foundRow > 0) {
         sheet.getRange(foundRow, 1, 1, row.length).setValues([row]);
@@ -256,7 +259,7 @@ function handleWrite(data) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// TEST FUNCTION — run this manually to verify everything works
+// testSetup — run manually to verify everything works
 // In Apps Script editor: select testSetup → Run
 // ══════════════════════════════════════════════════════════════════
 
@@ -279,4 +282,7 @@ function testSetup() {
   }
 
   Logger.log('=== Test complete — check Execution Log above ===');
+  Logger.log('To test the read endpoint, open this URL in a browser:');
+  Logger.log('(replace DEPLOYMENT_ID with your /exec URL ID)');
+  Logger.log('https://script.google.com/macros/s/DEPLOYMENT_ID/exec?action=read&sheet=Clients&callback=test');
 }
