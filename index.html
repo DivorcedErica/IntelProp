@@ -6541,53 +6541,95 @@ async function readInvestorsFromSheets() {
     return;
   }
 
-  // No data at all — show one clear actionable error
-  const errMsg  = loadError?.message || 'Unknown error';
+  // No data at all — show definitive fix instructions
+  const errMsg   = loadError?.message || 'Unknown error';
   const sheetUrl = 'https://docs.google.com/spreadsheets/d/' + SID;
+  const asUrl    = APPS_SCRIPT_URL || '';
+  const asEditorUrl = asUrl
+    ? 'https://script.google.com/home'
+    : 'https://script.google.com';
 
-  // All paths failed — determine most likely cause
-  const isNotPublic = errMsg.includes('script load failed') || errMsg.includes('gviz timeout') || errMsg.includes('gviz script');
-  const isAppsScript = errMsg.includes('Apps Script') || errMsg.includes('timed out') || errMsg.includes('failed to load');
+  // The doGet read handler code to add to the Apps Script
+  const doGetCode = `function doGet(e) {
+  var params = e && e.parameter ? e.parameter : {};
+  
+  // ── READ handler (add this block) ──────────────────
+  if (params.action === 'read') {
+    var cb = params.callback || 'cb';
+    try {
+      var ss    = SpreadsheetApp.openById('${SID}');
+      var sheet = ss.getSheetByName(params.sheet);
+      if (!sheet) {
+        return ContentService
+          .createTextOutput(cb + '({"error":"Sheet not found"})')
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      var vals = sheet.getDataRange().getValues();
+      var rows = vals.slice(1).map(function(r) {
+        return r.map(function(c) {
+          if (c instanceof Date) return c.toISOString();
+          return c === null || c === undefined ? '' : String(c);
+        });
+      }).filter(function(r) {
+        return r.some(function(c) { return c !== ''; });
+      });
+      return ContentService
+        .createTextOutput(cb + '(' + JSON.stringify({rows: rows}) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    } catch(err) {
+      return ContentService
+        .createTextOutput(cb + '({"error":"' + err.message + '"})')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+  }
+  
+  // ── Keep your existing doGet/doPost write logic below ──
+  // (your existing code here)
+}`;
 
   listEl.innerHTML = `<div style="padding:16px 18px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;font-size:12px">
-    <div style="font-weight:700;color:#92400e;margin-bottom:8px;font-size:13px">⚠ Investors could not load from Google Sheets</div>
+    <div style="font-weight:700;color:#92400e;margin-bottom:6px;font-size:13px">⚠ Investors need the Apps Script read handler</div>
 
     <div style="color:#78350f;margin-bottom:12px;line-height:1.7">
-      IntelProp reads investor data directly in the browser using Google's public data API.
-      This requires the sheet to be shared as <b>"Anyone with the link → Viewer"</b>.
+      Investor data is written to Google Sheets via your Apps Script — but the Apps Script doesn't yet have a <b>read handler</b>.
+      Add the code below and deploy a new version. This takes about 2 minutes.
     </div>
 
-    <div style="background:#fff8e1;border:1px solid #fbbf24;border-radius:8px;padding:12px 14px;margin-bottom:12px">
-      <div style="font-weight:600;color:#92400e;margin-bottom:8px">How to fix — takes 30 seconds:</div>
-      <ol style="margin:0 0 0 18px;color:#78350f;line-height:2.2;font-size:12px">
-        <li>Click → <a href="${sheetUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open your Google Sheet ↗</a></li>
-        <li>Click <b>Share</b> (top-right corner)</li>
-        <li>Under <b>"General access"</b> → click the dropdown → select <b>"Anyone with the link"</b></li>
-        <li>Set role to <b>Viewer</b> → click <b>Done</b></li>
-        <li>Come back and click <b>↺ Retry</b> below</li>
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:600;color:#15803d;margin-bottom:8px;font-size:12px">Step 1 — Add this to your Apps Script</div>
+      <div style="position:relative">
+        <pre id="doGetCodeBlock" style="background:#1e1e2e;color:#cdd6f4;padding:10px 12px;border-radius:6px;font-size:10px;line-height:1.7;overflow-x:auto;margin:0;white-space:pre-wrap">${safeHTML(doGetCode)}</pre>
+        <button onclick="(function(){var t=document.getElementById('doGetCodeBlock');navigator.clipboard.writeText(t.innerText).then(function(){var b=event.target;b.textContent='✓ Copied';setTimeout(function(){b.textContent='Copy';},2000);});})()" style="position:absolute;top:6px;right:6px;font-size:10px;padding:2px 10px;border:1px solid #585b70;border-radius:4px;background:#313244;color:#cdd6f4;cursor:pointer">Copy</button>
+      </div>
+    </div>
+
+    <div style="background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:600;color:#1e40af;margin-bottom:6px;font-size:12px">Step 2 — Deploy a new version</div>
+      <ol style="margin:0 0 0 18px;color:#1e3a8a;line-height:2.2;font-size:11px">
+        <li><a href="${asEditorUrl}" target="_blank" style="color:#1d4ed8;font-weight:600">Open Apps Script ↗</a> → open your IntelProp script</li>
+        <li>Paste the <code>doGet</code> code above (replace or merge with any existing doGet)</li>
+        <li>Click <b>Deploy</b> → <b>Manage deployments</b></li>
+        <li>Click the pencil ✏ → set Version to <b>"New version"</b> → <b>Deploy</b></li>
+        <li>Confirm <b>"Who has access"</b> is <b>Anyone</b></li>
+        <li>Come back and click <b>↺ Retry</b></li>
       </ol>
-    </div>
-
-    <div style="margin-bottom:12px;padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:11px;color:#166534;line-height:1.6">
-      🔒 <b>Your data stays private.</b> "Viewer" access means anyone with the exact link can read — but the link is not published anywhere.
-      All writes (new investors, activity logs) still go through your private Apps Script and require no sharing changes.
     </div>
 
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <button onclick="readInvestorsFromSheets()" style="font-size:12px;padding:7px 20px;border:1px solid #b45309;border-radius:6px;background:#fff7ed;color:#b45309;cursor:pointer;font-weight:600">↺ Retry</button>
-      <button onclick="apShowManualInvestorImport()" style="font-size:11px;padding:5px 14px;border:1px solid #6b7280;border-radius:6px;background:#fff;color:#374151;cursor:pointer">📋 Import from CSV paste</button>
+      <button onclick="apShowManualInvestorImport()" style="font-size:11px;padding:5px 14px;border:1px solid #6b7280;border-radius:6px;background:#fff;color:#374151;cursor:pointer">📋 Import now via CSV paste</button>
     </div>
 
     <div id="manualInvestorImport" style="display:none;padding:12px;background:#f9fafb;border:1px solid #d1d5db;border-radius:8px;margin-bottom:8px">
       <div style="font-size:11px;color:#374151;margin-bottom:6px;line-height:1.6">
-        <b>Bypass option:</b> In Google Sheets → <b>File → Download → CSV</b>.
-        Open the file, select all text, paste below:
+        <b>Immediate workaround:</b> In Google Sheets → <b>File → Download → Comma Separated Values (.csv)</b>.
+        Open the file, select all, copy, paste below:
       </div>
-      <textarea id="manualInvestorCSV" placeholder="Paste CSV rows here…" style="width:100%;height:90px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:11px;font-family:monospace;resize:vertical;box-sizing:border-box"></textarea>
+      <textarea id="manualInvestorCSV" placeholder="Paste CSV content here…" style="width:100%;height:90px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:11px;font-family:monospace;resize:vertical;box-sizing:border-box"></textarea>
       <button onclick="apImportManualInvestorCSV()" style="margin-top:6px;font-size:11px;padding:5px 16px;border:1px solid #15803d;border-radius:6px;background:#f0fdf4;color:#15803d;cursor:pointer;font-weight:600">✓ Import investors</button>
     </div>
 
-    <div style="font-size:10px;color:#a16207;font-family:monospace;opacity:.8">
+    <div style="font-size:10px;color:#a16207;font-family:monospace;opacity:.7">
       Error: ${safeHTML(errMsg)} · GID: ${CLIENTS_GID}
     </div>
   </div>`;
