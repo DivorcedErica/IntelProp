@@ -5063,6 +5063,11 @@ function exportXLSX(){
   XLSX.writeFile(wb,`intelprop_shortlist_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
+function doExportProps(invId, forClient) {
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; });
+  var name = inv ? inv.name : '';
+  exportClientProperties(invId, name, forClient);
+}
 function exportClientProperties(invId, invName, forClient) {
   var props = clientProperties.filter(function(p){ return +p.investorId === +invId; });
   if (!props.length) { alert('No properties to export for this client.'); return; }
@@ -5982,7 +5987,7 @@ function renderInvestorCard(inv) {
         + '</div>' : '')
     + '<div class="inv-section-title" style="display:flex;align-items:center;justify-content:space-between"><span>Properties (' + assignedProps.length + ')</span>'
       + '<div style="display:flex;gap:6px">'
-        + (assignedProps.length ? '<button onclick="exportClientProperties(' + invId + ','' + inv.name.replace(/'/g,"\'") + '',false)" class="btn" style="font-size:11px;padding:0 12px;height:28px">\u2193 Internal</button><button onclick="exportClientProperties(' + invId + ','' + inv.name.replace(/'/g,"\'") + '',true)" class="btn" style="font-size:11px;padding:0 12px;height:28px">\u2193 For Client</button>' : '')
+        + (assignedProps.length ? '<button onclick="doExportProps(' + invId + ',false)" class="btn" style="font-size:11px;padding:0 12px;height:28px">↓ Internal</button><button onclick="doExportProps(' + invId + ',true)" class="btn" style="font-size:11px;padding:0 12px;height:28px">↓ For Client</button>' : '')
         + '<button onclick="showAddPropModal(' + invId + ')" class="btn primary" style="font-size:11px;padding:0 12px;height:28px">+ Add Property</button>'
       + '</div></div>'
     + assignedPropsHtml
@@ -10751,7 +10756,6 @@ function renderAgentDetail(ag) {
     ? '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="'+thS+'">ID</th><th style="'+thS+'">Name</th><th style="'+thS+'">Phone</th><th style="'+thS+'">Source</th><th style="'+thS+'">Status</th><th style="'+thS+'">Budget</th><th style="'+thS+'">Cities</th><th style="'+thS+'">Added</th></tr></thead><tbody>'+clientRows+'</tbody></table>'
     : '<div style="font-size:12px;color:var(--mu);padding:8px 0">No clients referred yet.</div>';
   return '<div style="padding:14px;background:var(--bg2);border-top:1px solid var(--bd)">'
-  return '<div style="padding:14px;background:var(--bg2);border-top:1px solid var(--bd)">'
     + '<div id="agview-'+ag.agentId+'">'
     + '<div style="font-size:12px"><span style="color:var(--mu)">Phone: </span>'+(ag.phone||'—')+'</div>'
     + '<div style="font-size:12px"><span style="color:var(--mu)">Email: </span>'+(ag.email?'<a href="mailto:'+ag.email+'" style="color:inherit">'+ag.email+'</a>':'—')+'</div>'
@@ -12281,8 +12285,8 @@ function showPipelineNoteBar(invId, targetStageKey, actionLabel) {
   bar.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;display:flex;gap:8px;align-items:center;animation:fadeIn .15s ease';
   bar.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap;flex-shrink:0">' + actionLabel + '</span>'
     + '<input id="pipelineNoteInput" type="text" placeholder="Add a note (optional)…" style="flex:1;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--tx);font-size:12px;min-width:0">'
-    + '<button onclick="confirmPipelineNoteBar(' + invId + ','' + targetStageKey + '')" style="height:30px;padding:0 14px;border:none;border-radius:6px;background:#111;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Confirm</button>'
-    + '<button onclick="document.getElementById('pipelineNoteBar').remove()" style="height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--mu);font-size:12px;cursor:pointer;flex-shrink:0">✕</button>';
+    + '<button onclick="confirmPipelineNoteBar(' + invId + ', \'' + targetStageKey + '\')" style="height:30px;padding:0 14px;border:none;border-radius:6px;background:#111;color:#fff;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">Confirm</button>'
+    + '<button onclick="document.getElementById(\'pipelineNoteBar\').remove()" style="height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--mu);font-size:12px;cursor:pointer;flex-shrink:0">✕</button>';
 
   // Append to pipeline-wrap inside invCardView
   const wrap = document.querySelector('.pipeline-wrap');
