@@ -957,10 +957,10 @@ tr:hover td{background:var(--bg2)}
           <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu)" id="activityLogTitle">Activity Log</span>
           <span style="display:flex;align-items:center;gap:8px">
             <button onclick="event.stopPropagation();refreshActivityLog()" class="btn" style="font-size:10px;padding:2px 8px;height:24px">↻</button>
-            <span id="activityLogChevron" style="font-size:11px;color:var(--mu);transition:transform .2s">▼</span>
+            <span id="activityLogChevron" style="font-size:11px;color:var(--mu);transition:transform .2s;transform:rotate(180deg)">▼</span>
           </span>
         </button>
-        <div id="activityLogList" style="display:none;overflow-y:auto;max-height:360px;padding-bottom:4px"></div>
+        <div id="activityLogList" style="overflow-y:auto;max-height:480px;padding-bottom:4px"></div>
       </div>
     </div>
 
@@ -5897,11 +5897,26 @@ function renderInvestorCard(inv) {
   const assignedProps = clientProperties.filter(function(p){ return +p.investorId === +invId; });
   const thStyle = 'text-align:left;padding:6px 8px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--mu);white-space:nowrap;border-bottom:1px solid var(--bd)';
   const tdStyle = 'padding:6px 8px;font-size:12px;white-space:nowrap;border-bottom:1px solid var(--bd)';
-  let assignedPropsHtml = assignedProps.length
-    ? '<div style="overflow-x:auto;margin-bottom:4px"><table style="width:100%;border-collapse:collapse">'
-      + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'">Date</th><th style="'+thStyle+'"></th></tr>'
-      + assignedProps.map(function(p){
-          var dateStr = p.addedAt ? new Date(p.addedAt).toLocaleDateString() : '—';
+  // Group properties by date for accordion
+  var propGroups = {}, propGroupOrder = [];
+  assignedProps.forEach(function(p) {
+    var d = p.addedAt ? new Date(p.addedAt) : null;
+    var dayKey = (d && !isNaN(d))
+      ? d.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })
+      : 'Unknown date';
+    if (!propGroups[dayKey]) { propGroups[dayKey] = []; propGroupOrder.push(dayKey); }
+    propGroups[dayKey].push(p);
+  });
+
+  var assignedPropsHtml = assignedProps.length
+    ? propGroupOrder.map(function(dayKey, gi) {
+        var dayProps = propGroups[dayKey];
+        var isOpen = gi === 0;
+        var dayId = 'propDay_' + invId + '_' + gi;
+        var citySet = {};
+        dayProps.forEach(function(p){ if(p.city) citySet[p.city]=1; });
+        var cityList = Object.keys(citySet).join(', ');
+        var rows = dayProps.map(function(p) {
           var fromListing = p.listingId ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:99px;margin-left:4px">♥</span>' : '';
           var resolvedId = p.listingId;
           if (!resolvedId && p.developer && p.city) {
@@ -5913,9 +5928,7 @@ function renderInvestorCard(inv) {
             });
             if (match) resolvedId = match.id;
           }
-          var rowClick = resolvedId
-            ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+resolvedId+')"'
-            : '';
+          var rowClick = resolvedId ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+resolvedId+')"' : '';
           return '<tr '+rowClick+'>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
@@ -5923,11 +5936,28 @@ function renderInvestorCard(inv) {
             +'<td style="'+tdStyle+'">'+(p.city||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.district||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.price?'€'+Number(p.price).toLocaleString():'—')+'</td>'
-            +'<td style="'+tdStyle+'">'+dateStr+'</td>'
             +'<td style="'+tdStyle+'"><button onclick="deleteClientProperty('+p.propertyId+')" style="font-size:11px;background:none;border:1px solid var(--red);border-radius:var(--r);color:var(--red);cursor:pointer;padding:2px 8px">✕</button></td>'
             +'</tr>';
-        }).join('')
-      + '</table></div>'
+        }).join('');
+        return '<div style="margin-bottom:4px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">'
+          + '<div class="prop-acc-hdr" data-target="'+dayId+'" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);cursor:pointer;user-select:none">'
+            + '<div style="display:flex;align-items:center;gap:10px">'
+              + '<span style="font-size:11px;font-weight:700;color:var(--tx)">'+dayKey+'</span>'
+              + (cityList ? '<span style="font-size:10px;color:var(--mu)">'+cityList+'</span>' : '')
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px">'
+              + '<span style="font-size:10px;color:var(--mu)">'+dayProps.length+' propert'+(dayProps.length!==1?'ies':'y')+'</span>'
+              + '<span class="prop-acc-arr" style="font-size:11px;color:var(--mu);transition:transform .2s;display:inline-block;transform:'+(isOpen?'rotate(180deg)':'rotate(0deg)')+'">&#9660;</span>'
+            + '</div>'
+          + '</div>'
+          + '<div id="'+dayId+'" style="display:'+(isOpen?'':'none')+';border-top:1px solid var(--bd)">'
+            + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+              + '<tr><th style="'+thStyle+'">Developer</th><th style="'+thStyle+'">Complex</th><th style="'+thStyle+'">Type</th><th style="'+thStyle+'">City</th><th style="'+thStyle+'">District</th><th style="'+thStyle+'">Price (€)</th><th style="'+thStyle+'"></th></tr>'
+              + rows
+            + '</table></div>'
+          + '</div>'
+        + '</div>';
+      }).join('')
     : '<div style="font-size:12px;color:var(--mu);padding:4px 0 8px">No properties added yet.</div>';
 
   const pipelineHtml = renderPipelineStepper(inv);
@@ -6027,6 +6057,19 @@ function renderInvestorCard(inv) {
     + '<div style="display:flex;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--bd)">'
       + '<button onclick="deleteInvestorProfile(' + (inv.investorId||inv.id) + ')" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">Hide Client</button>'
     + '</div>';
+  // Wire property accordion toggles
+  document.querySelectorAll('.prop-acc-hdr').forEach(function(hdr) {
+    hdr.addEventListener('click', function() {
+      var body = document.getElementById(hdr.dataset.target);
+      var arr  = hdr.querySelector('.prop-acc-arr');
+      if (!body) return;
+      var open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : '';
+      if (arr) arr.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+      hdr.style.background = open ? 'var(--bg)' : 'var(--bg2)';
+    });
+  });
+
   // Async-load activity log from Google Sheets
   (async function(){
     try {
@@ -12808,7 +12851,7 @@ async function loadActivityLog(clientID) {
 }
 
 // ── Activity Log state ───────────────────────────────────────────
-var _actLogOpen = false;       // persists across rerenders within a session
+var _actLogOpen = true;       // persists across rerenders within a session
 var _actLogEntries = [];       // cached for toggle without re-fetch
 var _actLogClientID = null;
 
