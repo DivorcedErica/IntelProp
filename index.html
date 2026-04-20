@@ -497,6 +497,7 @@ tr:hover td{background:var(--bg2)}
     </div>
     <div class="top-btns">
       <button class="btn" onclick="exportCSV()">↓ CSV</button>
+      <button class="btn primary" onclick="toggleAddPropertyForm()" id="addPropBtn" style="font-size:12px">+ Add Property</button>
     </div>
   </div>
 
@@ -517,6 +518,127 @@ tr:hover td{background:var(--bg2)}
     </div>
 
     <!-- LISTINGS -->
+    <!-- Add Property Form -->
+    <div id="addPropertyFormWrap" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:18px 20px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--tx)">Add Property Manually</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Adds to Final List sheet and optional client shortlists</div>
+        </div>
+        <button onclick="toggleAddPropertyForm()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--mu)">&#x2715;</button>
+      </div>
+
+      <!-- Row 1: Developer, City, District, Type -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="form-label">Developer *</div>
+          <input id="apDeveloper" placeholder="e.g. Cybarco" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">City *</div>
+          <select id="apCity" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">— Select —</option>
+            <option>Limassol</option><option>Nicosia</option><option>Larnaca</option><option>Paphos</option><option>Famagusta</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">District / Area *</div>
+          <input id="apDistrict" placeholder="e.g. Germasogeia" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">Type *</div>
+          <select id="apType" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">— Select —</option>
+            <option>Apartment</option><option>Villa</option><option>House</option><option>Penthouse</option><option>Office</option><option>Hotel</option><option>Residential</option><option>Commercial</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Row 2: Bedrooms, Area, Price, Sea Distance -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="form-label">Bedrooms</div>
+          <select id="apBeds" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">—</option>
+            <option>Studio</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">Area m²</div>
+          <input id="apArea" type="number" placeholder="e.g. 120" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">Price (€) *</div>
+          <input id="apPrice" type="number" placeholder="e.g. 450000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">Distance to Sea (km)</div>
+          <input id="apSeaDist" type="number" step="0.1" placeholder="e.g. 0.8" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+      </div>
+
+      <!-- Row 3: Stage, Delivery, New, Complex -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div class="form-label">Stage</div>
+          <select id="apStage" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="">— Select —</option>
+            <option>Pre-Sale</option><option>Under Construction</option><option>Delivered</option><option>Ready Now</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">Delivery Date</div>
+          <input id="apDelivery" placeholder="e.g. Q4 2026" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">New Listing?</div>
+          <select id="apIsNew" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <option value="Y">Yes — New</option>
+            <option value="N">No — Resale</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+            Complex / Project
+            <span style="display:flex;gap:0;border:1px solid var(--bd);border-radius:6px;overflow:hidden;font-size:10px">
+              <button id="apTypeComplex" onclick="setProjectType('complex')" style="padding:1px 8px;background:#1a1a1a;color:#fff;border:none;cursor:pointer;font-size:10px">Complex</button>
+              <button id="apTypeStandalone" onclick="setProjectType('standalone')" style="padding:1px 8px;background:var(--bg);color:var(--mu);border:none;cursor:pointer;font-size:10px">Standalone</button>
+            </span>
+          </div>
+          <input id="apComplex" placeholder="e.g. Limassol Marina" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+          <input type="hidden" id="apProjectType" value="complex">
+        </div>
+      </div>
+
+      <!-- Row 4: URL, Notes -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <div class="form-label">Listing URL</div>
+          <input id="apUrl" type="url" placeholder="https://..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+        <div>
+          <div class="form-label">Notes</div>
+          <input id="apNotes" placeholder="e.g. Corner unit, panoramic view, motivated seller..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        </div>
+      </div>
+
+      <!-- Row 5: Shortlist for clients -->
+      <div style="margin-bottom:14px">
+        <div class="form-label" style="margin-bottom:6px">Shortlist for clients <span style="font-weight:400;text-transform:none">(optional — select one or more)</span></div>
+        <div id="apClientMultiSelect" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);min-height:36px;max-height:100px;overflow-y:auto">
+          <span style="font-size:11px;color:var(--mu);padding:3px 0">Loading clients...</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="saveManualProperty('close')" class="btn primary" style="font-size:12px;height:36px;padding:0 20px">&#x2713; Save &amp; Close</button>
+        <button onclick="saveManualProperty('another')" class="btn" style="font-size:12px;height:36px;padding:0 16px" title="Save and start a fresh form">+ Save &amp; Add Another</button>
+        <button onclick="saveManualProperty('sameproject')" class="btn" style="font-size:12px;height:36px;padding:0 16px;background:#f0fdf4;border-color:#86efac;color:#15803d" title="Save and keep project details for next unit">&#x267B; Same Project — Next Unit</button>
+        <button onclick="toggleAddPropertyForm()" class="btn" style="font-size:12px;height:36px;padding:0 14px;color:var(--mu)">Cancel</button>
+        <div id="apSaveStatus" style="font-size:11px;color:var(--mu);margin-left:4px"></div>
+      </div>
+    </div>
+
     <div id="pListings">
 
       <!-- ── Smart Filters ── -->
@@ -4636,6 +4758,25 @@ function openModal(id, e) {
   e&&e.stopPropagation();
   const d=all.find(x=>x.id===id);
   if(!d)return;
+
+  // ── Log property view if a client is active ──────────────────
+  if (currentClientCallId) {
+    var _viewInv = investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; });
+    if (_viewInv) {
+      var _viewLabel = [d.title, d.developer, d.city, d.district].filter(Boolean).join(' / ');
+      var _priceStr  = d.price ? ' €' + d.price.toLocaleString() : '';
+      logCommunication(
+        _viewInv.investorId||_viewInv.id,
+        _viewInv.name,
+        'viewed',
+        'Viewed: ' + _viewLabel + _priceStr,
+        d.id,
+        d.title || null,
+        (d.bedrooms != null ? d.bedrooms + ' bed' : '') + (d.type ? ' · ' + d.type : '') + (d.city ? ' · ' + d.city : '')
+      );
+    }
+  }
+
   const on=sl.has(d.id);
   const img=d.imageUrl;
   document.getElementById('modalContent').innerHTML=`
@@ -6362,7 +6503,7 @@ function saveLogActivity(invId) {
         if (!groups[dayKey]) { groups[dayKey]=[]; groupOrder.push(dayKey); }
         groups[dayKey].push(e);
       });
-      var TYPE_COLORS = {session:'#3b82f6',shortlist:'#22c55e',note:'#f59e0b',general:'#8b5cf6',call:'#10b981',meeting:'#6366f1',viewing:'#f59e0b',email:'#3b82f6',whatsapp:'#22c55e',offer:'#ef4444',followup:'#f59e0b',document:'#64748b'};
+      var TYPE_COLORS = {session:'#3b82f6',shortlist:'#22c55e',note:'#f59e0b',general:'#8b5cf6',call:'#10b981',meeting:'#6366f1',viewing:'#f59e0b',email:'#3b82f6',whatsapp:'#22c55e',offer:'#ef4444',followup:'#f59e0b',document:'#64748b',viewed:'#94a3b8'};
       tlEl.innerHTML = groupOrder.map(function(dayKey, gi) {
         var dayEntries = groups[dayKey];
         var isOpen = gi === 0;
@@ -13267,8 +13408,12 @@ async function renderActivityLog(clientID) {
       var isOpen = gi === 0;
       var dayId = 'actDay_' + gi;
       var rows = dayEntries.map(function(e) {
-        var icon = e.type === 'session'   ? '<span style="color:var(--blue)">&#9679;</span>'
-                 : e.type === 'shortlist' ? '<span style="color:#ef4444">&#9829;</span>'
+        var icon = e.type === 'session'   ? '<span style="color:#3b82f6">&#9679;</span>'
+                 : e.type === 'shortlist' ? '<span style="color:#22c55e">&#9829;</span>'
+                 : e.type === 'viewed'    ? '<span style="color:#94a3b8">&#128065;</span>'
+                 : e.type === 'call'      ? '<span style="color:#10b981">&#128222;</span>'
+                 : e.type === 'meeting'   ? '<span style="color:#6366f1">&#129309;</span>'
+                 : e.type === 'viewing'   ? '<span style="color:#f59e0b">&#127968;</span>'
                  : '<span style="color:var(--gold)">&#128221;</span>';
         var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
         var time = e.date ? new Date(e.date).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }) : '';
@@ -14074,6 +14219,220 @@ function updateTempSlider(sliderId, labelId) {
 function checkFollowUpReminders(){var today=new Date();today.setHours(0,0,0,0);var due=(investorProfiles||[]).filter(function(inv){if(!inv.followUpDate||inv.status==='Archived')return false;var fd=new Date(inv.followUpDate);fd.setHours(0,0,0,0);return Math.ceil((fd-today)/86400000)<=7;});var banner=document.getElementById('followUpNotifBanner');if(!banner)return;if(!due.length){banner.style.display='none';return;}banner.style.display='';banner.innerHTML='<div style="cursor:pointer;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:4px 10px;font-size:11px" onclick="showFollowUpList()">'+due.length+' follow-up reminder'+(due.length>1?'s':'')+'</div>';}
 
 function showFollowUpList(){var today=new Date();today.setHours(0,0,0,0);var due=(investorProfiles||[]).filter(function(inv){if(!inv.followUpDate||inv.status==='Archived')return false;var fd=new Date(inv.followUpDate);fd.setHours(0,0,0,0);return Math.ceil((fd-today)/86400000)<=7;}).sort(function(a,b){return new Date(a.followUpDate)-new Date(b.followUpDate);});if(!due.length)return;var html=due.map(function(inv){var fd=new Date(inv.followUpDate);var diff=Math.ceil((fd-today)/86400000);var label=diff<0?'Overdue':diff===0?'Today':'In '+diff+'d';return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)"><div><b>'+safeHTML(inv.name)+'</b>'+(inv.followUpNote?'<br><small>'+safeHTML(inv.followUpNote)+'</small>':'')+'</div><div><span style="font-weight:600">'+label+'</span><br><button onclick="document.querySelector(\'.fu-overlay\').remove();openInvestorCard('+(inv.investorId||inv.id)+')" class="btn" style="font-size:10px;height:22px;padding:0 6px;margin-top:2px">Open</button></div></div>';}).join('');var ex=document.querySelector('.fu-overlay');if(ex)ex.remove();var o=document.createElement('div');o.className='fu-overlay';o.style.cssText='position:fixed;top:58px;right:12px;z-index:9999;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;width:280px;max-height:360px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15)';o.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><b>Follow-up Reminders</b><span onclick="this.parentElement.parentElement.remove()" style="cursor:pointer;font-size:16px">x</span></div>'+html;document.body.appendChild(o);}
+
+// ══════════════════════════════════════════════════════════════════
+// ADD PROPERTY MANUALLY
+// ══════════════════════════════════════════════════════════════════
+
+function toggleAddPropertyForm() {
+  var wrap = document.getElementById('addPropertyFormWrap');
+  if (!wrap) return;
+  var isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : '';
+  var btn = document.getElementById('addPropBtn');
+  if (btn) btn.textContent = isOpen ? '+ Add Property' : '✕ Close';
+  if (!isOpen) {
+    populateApClientSelect();
+    resetAddPropertyForm(false);
+    // Pre-fill agent's linked client if one is selected in Client Call
+    if (currentClientCallId) {
+      var sel = document.querySelector('#apClientMultiSelect input[value="'+currentClientCallId+'"]');
+      if (sel) sel.checked = true;
+    }
+  }
+}
+
+function populateApClientSelect() {
+  var container = document.getElementById('apClientMultiSelect');
+  if (!container) return;
+  if (!investorProfiles || !investorProfiles.length) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--mu)">No clients found</span>';
+    return;
+  }
+  var active = investorProfiles.filter(function(i){ return i.status !== 'Archived'; });
+  container.innerHTML = active.map(function(inv) {
+    var id = inv.investorId || inv.id;
+    return '<label style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--bd);border-radius:99px;cursor:pointer;font-size:11px;background:var(--bg2)">'
+      + '<input type="checkbox" value="' + id + '" data-name="' + safeHTML(inv.name) + '" style="cursor:pointer;accent-color:var(--tx)">'
+      + safeHTML(inv.name)
+      + (inv.budget ? ' <span style="color:var(--mu)">· ' + inv.budget + '</span>' : '')
+      + '</label>';
+  }).join('');
+}
+
+function saveManualProperty(mode) {
+  mode = mode || 'close'; // 'close' | 'another' | 'sameproject'
+  var status = document.getElementById('apSaveStatus');
+  if (status) status.textContent = '';
+
+  // Validate required fields
+  var developer = (document.getElementById('apDeveloper')||{}).value.trim();
+  var city      = (document.getElementById('apCity')||{}).value.trim();
+  var district  = (document.getElementById('apDistrict')||{}).value.trim();
+  var type      = (document.getElementById('apType')||{}).value.trim();
+  var price     = +((document.getElementById('apPrice')||{}).value||0);
+
+  var missing = [];
+  if (!developer) missing.push('Developer');
+  if (!city)      missing.push('City');
+  if (!district)  missing.push('District');
+  if (!type)      missing.push('Type');
+  if (!price)     missing.push('Price');
+  if (missing.length) { alert('Please fill in: ' + missing.join(', ')); return; }
+
+  var area     = +((document.getElementById('apArea')||{}).value||0) || null;
+  var beds     = (document.getElementById('apBeds')||{}).value || '';
+  var seaDist  = +((document.getElementById('apSeaDist')||{}).value||0) || null;
+  var stage    = (document.getElementById('apStage')||{}).value || '';
+  var delivery = (document.getElementById('apDelivery')||{}).value.trim() || '';
+  var isNew    = (document.getElementById('apIsNew')||{}).value || 'Y';
+  var complex  = (document.getElementById('apComplex')||{}).value.trim() || '';
+  var url      = (document.getElementById('apUrl')||{}).value.trim() || '';
+  var notes    = (document.getElementById('apNotes')||{}).value.trim() || '';
+  var ppm      = (area && price) ? Math.round(price / area) : null;
+
+  var title    = 'New ' + type.toLowerCase() + ' in ' + city + (district ? ' / ' + district : '');
+  var newId    = all.length > 0 ? Math.max.apply(null, all.map(function(d){ return d.id||0; })) + 1 : 90000;
+  var now      = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+
+  // Build listing object
+  var listing = {
+    id:           newId,
+    developer:    developer,
+    title:        title,
+    type:         type,
+    city:         city,
+    district:     district,
+    bedrooms:     beds ? (isNaN(+beds) ? null : +beds) : null,
+    area:         area,
+    plot:         null,
+    price:        price,
+    ppm:          ppm,
+    priceText:    price ? '€' + price.toLocaleString() : '',
+    addedOn:      now,
+    complex:      complex || null,
+    propertyStatus: 'Available',
+    delivery:     delivery || stage || null,
+    listingUrl:   url || null,
+    seaDist:      seaDist,
+    imageUrl:     null,
+    lat:          null,
+    lng:          null,
+    _manualEntry: true
+  };
+
+  // Add to in-memory all[] array
+  all.push(listing);
+  buildNormalizedDataset && buildNormalizedDataset();
+  populate();
+  doFilter();
+
+  // Sync to Google Sheets Final List
+  if (APPS_SCRIPT_URL) {
+    var row = [
+      developer, title, type, city, district,
+      listing.bedrooms != null ? listing.bedrooms : '',
+      area || '', '', price, ppm || '',
+      listing.priceText, now, complex || '', 'Manual', 'Available',
+      '', newId, url || '',
+      '', '',  // lat/lng
+      '', '',  // drive times
+      '', '', '', '', '', '', '', '',  // enrichment cols
+      isNew, stage, notes
+    ];
+    syncViaJsonp({ type:'listing', sheet:'Final List', listingId: newId, row: row });
+  }
+
+  // Shortlist for selected clients
+  var checked = document.querySelectorAll('#apClientMultiSelect input[type=checkbox]:checked');
+  var linkedClients = [];
+  checked.forEach(function(cb) {
+    var invId = +cb.value;
+    var invName = cb.dataset.name || '';
+    var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; });
+    if (!inv) return;
+    // Add to clientProperties
+    var propId = nextPropertyId ? nextPropertyId() : Date.now();
+    var prop = {
+      propertyId:  propId,
+      investorId:  invId,
+      listingId:   newId,
+      developer:   developer,
+      title:       title,
+      type:        type,
+      city:        city,
+      district:    district,
+      complex:     complex || '',
+      bedrooms:    listing.bedrooms || '',
+      totalArea:   area || '',
+      plotSize:    '',
+      price:       price,
+      pricePerM2:  ppm || '',
+      addedAt:     new Date().toISOString()
+    };
+    clientProperties.push(prop);
+    syncPropertyToSheets(prop);
+    logCommunication(invId, invName, 'shortlist', 'Property added: ' + title, newId, title, notes || '');
+    linkedClients.push(invName);
+  });
+
+  saveClientProperties && saveClientProperties();
+
+
+  // Show success message
+  var msg = '\u2713 Saved: ' + title;
+  if (linkedClients.length) msg += ' \u2014 shortlisted for: ' + linkedClients.join(', ');
+  if (status) { status.textContent = msg; status.style.color = '#15803d'; }
+  showToast(msg);
+
+  if (mode === 'close') {
+    setTimeout(function() { toggleAddPropertyForm(); if(status)status.textContent=''; }, 1500);
+  } else if (mode === 'another') {
+    resetAddPropertyForm(false);
+    if (status) { status.textContent = '\u2713 Saved! Form cleared for next property.'; status.style.color = '#15803d'; }
+    setTimeout(function(){ if(status)status.textContent=''; }, 3000);
+  } else if (mode === 'sameproject') {
+    resetAddPropertyForm(true);
+    if (status) { status.textContent = '\u2713 Saved! Project details kept \u2014 enter next unit.'; status.style.color = '#15803d'; }
+    setTimeout(function(){ if(status)status.textContent=''; }, 3000);
+    var priceEl = document.getElementById('apPrice');
+    if (priceEl) { priceEl.focus(); priceEl.select(); }
+  }
+}
+
+var AP_PROJECT_FIELDS = ['apDeveloper','apCity','apDistrict','apType','apStage','apDelivery','apComplex','apSeaDist','apIsNew'];
+var AP_UNIT_FIELDS    = ['apBeds','apArea','apPrice','apUrl','apNotes'];
+
+function resetAddPropertyForm(keepProject) {
+  var clearFields = keepProject ? AP_UNIT_FIELDS : AP_PROJECT_FIELDS.concat(AP_UNIT_FIELDS);
+  clearFields.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'apIsNew') el.value = 'Y';
+    else el.value = '';
+  });
+  document.querySelectorAll('#apClientMultiSelect input[type=checkbox]').forEach(function(cb){ cb.checked = false; });
+  if (!keepProject) setProjectType('complex');
+}
+
+function setProjectType(type) {
+  var ptEl = document.getElementById('apProjectType');
+  if (ptEl) ptEl.value = type;
+  var cBtn = document.getElementById('apTypeComplex');
+  var sBtn = document.getElementById('apTypeStandalone');
+  var cInput = document.getElementById('apComplex');
+  if (type === 'standalone') {
+    if (cBtn) { cBtn.style.background='var(--bg)'; cBtn.style.color='var(--mu)'; }
+    if (sBtn) { sBtn.style.background='#1a1a1a'; sBtn.style.color='#fff'; }
+    if (cInput) { cInput.value='Standalone'; cInput.disabled=true; cInput.style.opacity='.5'; }
+  } else {
+    if (cBtn) { cBtn.style.background='#1a1a1a'; cBtn.style.color='#fff'; }
+    if (sBtn) { sBtn.style.background='var(--bg)'; sBtn.style.color='var(--mu)'; }
+    if (cInput) { cInput.disabled=false; cInput.style.opacity='1'; if(cInput.value==='Standalone')cInput.value=''; }
+  }
+}
+
+
 </script>
 </body>
 </html>
