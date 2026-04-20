@@ -1357,7 +1357,7 @@ tr:hover td{background:var(--bg2)}
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Nationality</div><input type="text" id="newInvNationality" placeholder="e.g. Israeli" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Agent">Agent</button></div></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Temperature</div><div style="display:flex;gap:6px" id="newInvTempGroup"><button class="crit-btn" onclick="niToggle(this,'temp')" data-val="Hot" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">🔥 Hot</button><button class="crit-btn" onclick="niToggle(this,'temp')" data-val="Warm" style="background:#fef3c7;color:#92400e;border-color:#fde68a">☀ Warm</button><button class="crit-btn" onclick="niToggle(this,'temp')" data-val="Cold" style="background:#dbeafe;color:#1e40af;border-color:#bfdbfe">❄ Cold</button></div></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Temperature</div><div style="display:flex;align-items:center;gap:10px"><span>Cold</span><input type="range" id="newInvTempSlider" min="0" max="2" step="1" value="1" oninput="updateTempSlider('newInvTempSlider','newInvTempLabel')" style="flex:1;accent-color:var(--tx);cursor:pointer"><span>Hot</span></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:2px"><span>Cold</span><span>Warm</span><span>Hot</span></div><div id="newInvTempLabel" style="text-align:center;font-size:11px;font-weight:600;margin-top:4px;color:#92400e">Warm</div></div>
         </div>
         <!-- Row 1b: source -->
         <div style="margin-bottom:10px">
@@ -1368,14 +1368,7 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Network">Network</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Referrals">Referrals</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="SEO">SEO</button>
-            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Agent Referral" onclick="niToggle(this,'source')">Agent Referral</button>
-          </div>
-          <!-- Agent selector — shown only when Agent Referral is selected -->
-          <div id="newInvAgentRow" style="display:none;margin-top:8px">
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Referring Agent</div>
-            <select id="newInvAgentSelect" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-              <option value="">— Select agent —</option>
-            </select>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Agent Referral">Agent Referral</button>
           </div>
         </div>
         <!-- Row 2: budget -->
@@ -1415,22 +1408,8 @@ tr:hover td{background:var(--bg2)}
             </div>
           </div>
         </div>
-        <!-- Client notes + follow-up + next action -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px">
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client Notes <span style="font-weight:400;text-transform:none">(helps identify client later)</span></div>
-            <textarea id="newInvNotes" placeholder="e.g. Referred by David, looking for holiday home, cash buyer, prefers sea view..." style="width:100%;height:64px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Follow-up Reminder <span style="font-weight:400;text-transform:none">(optional)</span></div>
-            <input type="date" id="newInvFollowUp" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:6px">
-            <input id="newInvFollowUpNote" placeholder="Reason: e.g. Call back after summer" style="width:100%;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:11px">
-          </div>
-        </div>
-        <div style="margin-bottom:12px">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Next Action</div>
-          <input id="newInvNextAction" placeholder="e.g. Send shortlist, arrange viewing, await finance approval..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px"><div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client Notes</div><textarea id="newInvNotes" placeholder="e.g. Cash buyer, sea view, referred by David..." style="width:100%;height:64px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea></div><div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Follow-up Reminder (optional)</div><input type="date" id="newInvFollowUp" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:6px"><input id="newInvFollowUpNote" placeholder="Reason: e.g. Call back after summer" style="width:100%;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:11px"></div></div>
+        <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Next Action</div><input id="newInvNextAction" placeholder="e.g. Send shortlist, arrange viewing..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
         <div style="display:flex;justify-content:flex-end">
           <button onclick="createNewInvestor()" class="btn primary" style="font-size:11px">Create profile</button>
         </div>
@@ -6095,7 +6074,6 @@ function renderInvestorCard(inv) {
           + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Email</div><input id="eiEmail" value="' + (inv.email||'').replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
           + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Nationality</div><input id="eiNationality" value="' + (inv.nationality||'').replace(/"/g,'&quot;') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
           + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Client type</div><select id="eiType" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">\u2014 Select \u2014</option><option value="Investor"' + (inv.clientType==='Investor'?' selected':'') + '>Investor</option><option value="One-off Buyer"' + (inv.clientType==='One-off Buyer'?' selected':'') + '>One-off Buyer</option><option value="Agent"' + (inv.clientType==='Agent'?' selected':'') + '>Agent</option></select></div>'
-          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Temperature</div><select id="eiTemperature" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">\u2014 Select \u2014</option><option value="Hot"' + (inv.temperature==='Hot'?' selected':'') + '>\uD83D\uDD25 Hot</option><option value="Warm"' + (inv.temperature==='Warm'?' selected':'') + '>\u2600 Warm</option><option value="Cold"' + (inv.temperature==='Cold'?' selected':'') + '>\u2744 Cold</option></select></div>'
         + '</div>'
         + '<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Source</div>'
           + '<select id="eiSource" style="height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">'
@@ -6109,7 +6087,10 @@ function renderInvestorCard(inv) {
           + '</select>'
         + '</div>'
         + '<div style="display:flex;gap:6px">'
-          + '<div style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Follow-up Date</div><input type="date" id="eiFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Reminder Note</div><input id="eiFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="e.g. Call back after holiday" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '</div>'          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Next Action</div><input id="eiNextAction" value="' + safeHTML(inv.nextAction||'') + '" placeholder="e.g. Send shortlist, arrange viewing..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
+          + '<div style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px"><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Follow-up Date</div><input type="date" id="eiFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Reminder Note</div><input id="eiFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="Call back after..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div></div>'
+          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Next Action</div><input id="eiNextAction" value="' + safeHTML(inv.nextAction||'') + '" placeholder="e.g. Send shortlist..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Temperature</div><div style="display:flex;align-items:center;gap:8px"><span>Cold</span><input type="range" id="eiTemperature" min="0" max="2" step="1" value="' + (inv.temperature==='Hot'?2:inv.temperature==='Cold'?0:1) + '" oninput="updateTempSlider(\'eiTemperature\',\'eiTempLabel\')" style="flex:1;accent-color:var(--tx);cursor:pointer"><span>Hot</span></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:2px"><span>Cold</span><span>Warm</span><span>Hot</span></div><div id="eiTempLabel" style="text-align:center;font-size:11px;font-weight:600;margin-top:4px">' + (inv.temperature||'Warm') + '</div></div>'
+          + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
           + '<button onclick="var e=document.getElementById(\'invContactEdit\');if(e)e.style.display=\'none\'" class="btn" style="font-size:11px">Cancel</button>'
         + '</div>'
       + '</div>'
@@ -6311,10 +6292,10 @@ function saveEditContact(id) {
   const eiNat = document.getElementById('eiNationality'); if(eiNat) inv.nationality = eiNat.value.trim();
   const eiSrc = document.getElementById('eiSource'); if(eiSrc) inv.source = eiSrc.value;
   inv.clientType = document.getElementById('eiType').value;
-  const eiFollowUp = document.getElementById('eiFollowUpDate'); if(eiFollowUp) inv.followUpDate = eiFollowUp.value || null;
-  const eiFollowUpNote = document.getElementById('eiFollowUpNote'); if(eiFollowUpNote) inv.followUpNote = eiFollowUpNote.value.trim();
-  const eiTemp = document.getElementById('eiTemperature'); if(eiTemp) inv.temperature = eiTemp.value;
-  const eiNextAction = document.getElementById('eiNextAction'); if(eiNextAction) inv.nextAction = eiNextAction.value.trim();
+  var eiFollowUp=document.getElementById('eiFollowUpDate');if(eiFollowUp)inv.followUpDate=eiFollowUp.value||null;
+  var eiFollowUpNote=document.getElementById('eiFollowUpNote');if(eiFollowUpNote)inv.followUpNote=eiFollowUpNote.value.trim();
+  var eiTemp=document.getElementById('eiTemperature');if(eiTemp)inv.temperature=['Cold','Warm','Hot'][+eiTemp.value]||'Warm';
+  var eiNA=document.getElementById('eiNextAction');if(eiNA)inv.nextAction=eiNA.value.trim();
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
   renderInvestorCard(inv);
@@ -11298,12 +11279,9 @@ function renderInvestorProfilesPanel(){
       +'</div>'
       +'<div style="font-size:11px;color:var(--mu)">'+safeHTML(inv.phone||'No phone')+(inv.email?' \u00b7 '+safeHTML(inv.email):'')+'</div>'
       +(inv.referringAgentName?'<div style="font-size:10px;color:var(--gold);margin-top:1px">\u2197 Referred by '+safeHTML(inv.referringAgentName)+'</div>':'')
-      +(function(){
-          var TEMP={'Hot':'#fee2e2;color:#991b1b','Warm':'#fef3c7;color:#92400e','Cold':'#dbeafe;color:#1e40af'};
-          var ts=inv.temperature&&TEMP[inv.temperature]?'<span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;background:'+TEMP[inv.temperature]+'">'+(inv.temperature==='Hot'?'\uD83D\uDD25':inv.temperature==='Warm'?'\u2600':'\u2744')+' '+inv.temperature+'</span>':'';
-          var na=inv.nextAction?'<span style="font-size:10px;color:var(--mu)">\u279C '+safeHTML(inv.nextAction.slice(0,50))+(inv.nextAction.length>50?'\u2026':'')+'</span>':'';
-          return(ts||na)?'<div style="margin-top:3px;display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+ts+na+'</div>':'';
-        }())
+      +(inv.generalNotes?'<div style="font-size:11px;color:var(--mu);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;font-style:italic">'+safeHTML(inv.generalNotes.slice(0,80))+(inv.generalNotes.length>80?'...':'')+'</div>':'')
+      +(inv.temperature&&inv.temperature!=='Warm'?'<div style="margin-top:3px"><span style="font-size:10px;font-weight:600;padding:1px 7px;border-radius:99px;background:'+(inv.temperature==='Hot'?'#fee2e2;color:#991b1b':'#dbeafe;color:#1e40af')+'">'+inv.temperature+'</span>'+(inv.nextAction?' <span style="font-size:10px;color:var(--mu)">- '+safeHTML(inv.nextAction.slice(0,40))+'</span>':'')+'</div>':(inv.nextAction?'<div style="margin-top:2px;font-size:10px;color:var(--mu)">- '+safeHTML(inv.nextAction.slice(0,50))+'</div>':''))
+      +(inv.followUpDate?(function(){var fd=new Date(inv.followUpDate);var now=new Date();var diff=Math.ceil((fd-now)/86400000);var overdue=diff<0;return '<div style="font-size:10px;margin-top:2px;display:inline-block;padding:1px 7px;border-radius:99px;background:'+(overdue?'#fee2e2':'#dbeafe')+';color:'+(overdue?'#991b1b':'#1e40af')+'">'+(overdue?'Overdue: ':'Follow up: ')+fd.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+(inv.followUpNote?' - '+safeHTML(inv.followUpNote.slice(0,30)):'')+'</div>';})():'')
       +(function(){
           var cr=inv.criteria||{};
           var budget=inv.budget||cr.budget||'';
@@ -11316,8 +11294,6 @@ function renderInvestorProfilesPanel(){
           if(types.length)line+='<span style="font-size:11px">\ud83c\udfe0 <b>'+types.map(pluralT).join(', ')+'</b></span>';
           return line?'<div style="margin-top:3px">'+line+'</div>':'';
         }())
-      +(inv.generalNotes?'<div style="font-size:11px;color:var(--mu);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;font-style:italic">'+safeHTML(inv.generalNotes.slice(0,80))+(inv.generalNotes.length>80?'…':'')+'</div>':'')
-      +(inv.followUpDate?(function(){var fd=new Date(inv.followUpDate);var now=new Date();var diff=Math.ceil((fd-now)/86400000);var overdue=diff<0;var today=diff===0;return '<div style="font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:99px;background:'+(overdue?'#fee2e2':today?'#fef3c7':'#dbeafe')+';color:'+(overdue?'#991b1b':today?'#92400e':'#1e40af')+'">'+(overdue?'⚠ Overdue: ':today?'📅 Today: ':'🔔 Follow up: ')+fd.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+(inv.followUpNote?' — '+safeHTML(inv.followUpNote.slice(0,40)):'')+'</div>';})():'')
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
       +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
       +(myCommsCount?' \u00b7 '+myCommsCount+' activities':'')
@@ -11590,25 +11566,8 @@ function deleteClientProperty(propertyId){
   if(inv)renderInvestorCard(inv);
 }
 
-function populateNewInvAgentSelect(){
-  var sel=document.getElementById('newInvAgentSelect');
-  if(!sel)return;
-  sel.innerHTML='<option value="">— Select agent —</option>'
-    +(agents||[]).filter(function(a){return a.active!==false;}).map(function(a){
-      return '<option value="'+a.agentId+'">'+safeHTML(a.name)+(a.firm?' · '+safeHTML(a.firm):'')+'</option>';
-    }).join('');
-}
-
 function niToggle(btn,group){
-  // Show/hide agent selector when Agent Referral source is selected
-  if(group==='source'){
-    var agRow=document.getElementById('newInvAgentRow');
-    if(agRow){
-      var isAgent=btn.dataset.val==='Agent Referral'&&!btn.classList.contains('on');
-      agRow.style.display=isAgent?'':'none';
-      if(isAgent) populateNewInvAgentSelect();
-    }
-  }
+  if(group==='source'){var agRow=document.getElementById('newInvAgentRow');if(agRow){var willBeOn=!btn.classList.contains('on');agRow.style.display=(btn.dataset.val==='Agent Referral'&&willBeOn)?'':'none';if(btn.dataset.val==='Agent Referral'&&willBeOn)populateNewInvAgentSelect();}}
   var wasOn=btn.classList.contains('on');
   // Always capitalize first char and append 'Group' only if not already in name
   var containerId='#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+(group.toLowerCase().includes('group')?'':'Group');
@@ -11702,8 +11661,6 @@ function createNewInvestor(){
   var source=sourceBtn?sourceBtn.dataset.val:'';
   var clientTypeBtn=document.querySelector('#newInvTypeGroup2 .crit-btn.on');
   var clientType=clientTypeBtn?clientTypeBtn.dataset.val:'';
-  var tempBtn=document.querySelector('#newInvTempGroup .crit-btn.on');
-  var temperature=tempBtn?tempBtn.dataset.val:'';
   var budgetBtn=document.querySelector('#newInvBudgetGroup .crit-btn.on');
   var budgetLabel=budgetBtn?budgetBtn.textContent.trim():'';
   var locations=[],types=[];
@@ -11730,18 +11687,7 @@ function createNewInvestor(){
     return;
   }
   var newId=nextInvestorId();
-  var newInvNotes=(document.getElementById('newInvNotes')||{}).value||'';
-  var newInvFollowUp=(document.getElementById('newInvFollowUp')||{}).value||'';
-  var newInvFollowUpNote=(document.getElementById('newInvFollowUpNote')||{}).value||'';
-  var newInvNextAction=(document.getElementById('newInvNextAction')||{}).value||'';
-  var agentRefSel=document.getElementById('newInvAgentSelect');
-  var referringAgentId='', referringAgentName='';
-  if(agentRefSel&&agentRefSel.value){
-    referringAgentId=agentRefSel.value;
-    var refAg=agents.find(function(a){return a.agentId===agentRefSel.value;});
-    if(refAg)referringAgentName=refAg.name;
-  }
-  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes,followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:newInvNotes}};
+  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'Warm',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes||'',followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
   logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
@@ -11751,13 +11697,10 @@ function createNewInvestor(){
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
   document.getElementById('newInvNationality').value='';
-  var nin=document.getElementById('newInvNotes');if(nin)nin.value='';
-  var nifu=document.getElementById('newInvFollowUp');if(nifu)nifu.value='';
-  var nifun=document.getElementById('newInvFollowUpNote');if(nifun)nifun.value='';
+  ['newInvNotes','newInvFollowUp','newInvFollowUpNote','newInvNextAction'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var nias=document.getElementById('newInvAgentSelect');if(nias)nias.value='';
   var niar=document.getElementById('newInvAgentRow');if(niar)niar.style.display='none';
-  document.querySelectorAll('#newInvTempGroup .crit-btn.on').forEach(function(b){b.classList.remove('on');});
-  var nina=document.getElementById('newInvNextAction');if(nina)nina.value='';
+  var nits=document.getElementById('newInvTempSlider');if(nits){nits.value=1;updateTempSlider('newInvTempSlider','newInvTempLabel');}
   document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
@@ -13351,7 +13294,6 @@ init();
     readInvestorsFromSheets();
     readAgentsFromSheets();
     readCommsFromSheets();
-    setTimeout(checkFollowUpReminders, 1500); // check after data loads
   }, 200);
 })();
 
@@ -13944,89 +13886,14 @@ function saveCurrentSessionV2(moduleOverride) {
 console.log('[IntelProp] Session system v2 loaded — immutable versioning active');
 
 
-// ══════════════════════════════════════════════════════════════════
-// FOLLOW-UP NOTIFICATION SYSTEM
-// ══════════════════════════════════════════════════════════════════
+function populateNewInvAgentSelect(){var sel=document.getElementById('newInvAgentSelect');if(!sel)return;sel.innerHTML='<option value="">- Select agent -</option>'+(agents||[]).filter(function(a){return a.active!==false;}).map(function(a){return '<option value="'+a.agentId+'">'+safeHTML(a.name)+'</option>';}).join('');}
 
-function checkFollowUpReminders() {
-  var today = new Date();
-  today.setHours(0,0,0,0);
-  var due = [];
-  (investorProfiles||[]).forEach(function(inv) {
-    if (!inv.followUpDate || inv.status === 'Archived') return;
-    var fd = new Date(inv.followUpDate);
-    fd.setHours(0,0,0,0);
-    var diff = Math.ceil((fd - today) / 86400000);
-    if (diff <= 7) { // due today or within 7 days or overdue
-      due.push({ inv: inv, diff: diff, date: fd });
-    }
-  });
+function updateTempSlider(sliderId,labelId){var s=document.getElementById(sliderId);var l=document.getElementById(labelId);if(!s||!l)return;var map=['Cold','Warm','Hot'];l.textContent=map[+s.value]||'Warm';}
 
-  var banner = document.getElementById('followUpNotifBanner');
-  if (!banner) return;
 
-  if (!due.length) { banner.style.display = 'none'; return; }
+function checkFollowUpReminders(){var today=new Date();today.setHours(0,0,0,0);var due=(investorProfiles||[]).filter(function(inv){if(!inv.followUpDate||inv.status==='Archived')return false;var fd=new Date(inv.followUpDate);fd.setHours(0,0,0,0);return Math.ceil((fd-today)/86400000)<=7;});var banner=document.getElementById('followUpNotifBanner');if(!banner)return;if(!due.length){banner.style.display='none';return;}banner.style.display='';banner.innerHTML='<div style="cursor:pointer;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:4px 10px;font-size:11px" onclick="showFollowUpList()">'+due.length+' follow-up reminder'+(due.length>1?'s':'')+'</div>';}
 
-  // Sort: overdue first, then soonest
-  due.sort(function(a,b){ return a.diff - b.diff; });
-
-  var overdue  = due.filter(function(d){ return d.diff < 0; });
-  var dueToday = due.filter(function(d){ return d.diff === 0; });
-  var upcoming = due.filter(function(d){ return d.diff > 0; });
-
-  var parts = [];
-  if (overdue.length)  parts.push('<span style="color:#991b1b;font-weight:600">⚠ ' + overdue.length + ' overdue</span>');
-  if (dueToday.length) parts.push('<span style="color:#92400e;font-weight:600">📅 ' + dueToday.length + ' due today</span>');
-  if (upcoming.length) parts.push('<span style="color:#1e40af">🔔 ' + upcoming.length + ' this week</span>');
-
-  banner.style.display = '';
-  banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:4px 10px;cursor:pointer" onclick="showFollowUpList()" title="Click to view follow-up reminders">'
-    + '<span style="font-size:11px">' + parts.join(' \u00b7 ') + '</span>'
-    + '<span style="font-size:10px;color:var(--mu)">Follow-ups</span>'
-    + '</div>';
-}
-
-function showFollowUpList() {
-  var today = new Date();
-  today.setHours(0,0,0,0);
-  var due = (investorProfiles||[]).filter(function(inv){
-    if (!inv.followUpDate || inv.status === 'Archived') return false;
-    var fd = new Date(inv.followUpDate); fd.setHours(0,0,0,0);
-    return Math.ceil((fd - today) / 86400000) <= 7;
-  }).sort(function(a,b){ return new Date(a.followUpDate) - new Date(b.followUpDate); });
-
-  if (!due.length) return;
-
-  var html = due.map(function(inv){
-    var fd = new Date(inv.followUpDate);
-    var diff = Math.ceil((fd - today) / 86400000);
-    var label = diff < 0 ? ('Overdue by ' + Math.abs(diff) + 'd') : diff === 0 ? 'Today' : 'In ' + diff + 'd';
-    var color = diff < 0 ? '#991b1b' : diff === 0 ? '#92400e' : '#1e40af';
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)">'
-      + '<div>'
-        + '<div style="font-size:12px;font-weight:600;color:var(--tx)">' + safeHTML(inv.name) + '</div>'
-        + (inv.followUpNote ? '<div style="font-size:11px;color:var(--mu)">' + safeHTML(inv.followUpNote) + '</div>' : '')
-      + '</div>'
-      + '<div style="text-align:right;flex-shrink:0;margin-left:12px">'
-        + '<div style="font-size:11px;font-weight:600;color:' + color + '">' + label + '</div>'
-        + '<div style="font-size:10px;color:var(--mu)">' + fd.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + '</div>'
-        + '<button onclick="openInvestorCard(' + (inv.investorId||inv.id) + ')" class="btn" style="font-size:10px;padding:0 8px;height:24px;margin-top:3px">Open</button>'
-      + '</div>'
-    + '</div>';
-  }).join('');
-
-  // Show as a toast-style overlay
-  var overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:60px;right:16px;z-index:9999;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;width:320px;max-height:400px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)';
-  overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--tx)">🔔 Follow-up Reminders</div>'
-    + '<button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--mu)">✕</button>'
-    + '</div>' + html;
-  document.body.appendChild(overlay);
-  // Auto-close after 30s
-  setTimeout(function(){ if(overlay.parentElement) overlay.remove(); }, 30000);
-}
-
+function showFollowUpList(){var today=new Date();today.setHours(0,0,0,0);var due=(investorProfiles||[]).filter(function(inv){if(!inv.followUpDate||inv.status==='Archived')return false;var fd=new Date(inv.followUpDate);fd.setHours(0,0,0,0);return Math.ceil((fd-today)/86400000)<=7;}).sort(function(a,b){return new Date(a.followUpDate)-new Date(b.followUpDate);});if(!due.length)return;var html=due.map(function(inv){var fd=new Date(inv.followUpDate);var diff=Math.ceil((fd-today)/86400000);var label=diff<0?'Overdue':diff===0?'Today':'In '+diff+'d';return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)"><div><b>'+safeHTML(inv.name)+'</b>'+(inv.followUpNote?'<br><small>'+safeHTML(inv.followUpNote)+'</small>':'')+'</div><div><span style="font-weight:600">'+label+'</span><br><button onclick="document.querySelector(\'.fu-overlay\').remove();openInvestorCard('+(inv.investorId||inv.id)+')" class="btn" style="font-size:10px;height:22px;padding:0 6px;margin-top:2px">Open</button></div></div>';}).join('');var ex=document.querySelector('.fu-overlay');if(ex)ex.remove();var o=document.createElement('div');o.className='fu-overlay';o.style.cssText='position:fixed;top:58px;right:12px;z-index:9999;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;width:280px;max-height:360px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15)';o.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><b>Follow-up Reminders</b><span onclick="this.parentElement.parentElement.remove()" style="cursor:pointer;font-size:16px">x</span></div>'+html;document.body.appendChild(o);}
 </script>
 </body>
 </html>
