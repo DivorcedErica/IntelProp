@@ -6461,22 +6461,22 @@ async function syncInvestorToSheets(inv) {
   // and the + sign is not lost or misinterpreted
   const phone = inv.phone ? (inv.phone.startsWith('+') ? "'" + inv.phone : inv.phone) : '';
   const row = [
-    inv.investorId || inv.id,
-    inv.name,
-    phone,
-    inv.email || '',
-    inv.status || 'Active',
-    inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',
-    inv.lastContact ? new Date(inv.lastContact).toLocaleDateString('en-GB') : '',
-    inv.clientType || '',
-    inv.budget || cr.budget || '',
-    (inv.locations && inv.locations.length ? inv.locations : (cr.cities || [])).join(', '),
-    (cr.types || []).join(', '),
-    cr.notes || inv.generalNotes || '',
-    inv.nationality || '',
-    inv.source || '',
+    inv.investorId || inv.id,                                                    // A: InvestorID
+    inv.name,                                                                    // B: Name
+    phone,                                                                       // C: Phone
+    inv.email || '',                                                             // D: Email
+    inv.status || 'Active',                                                      // E: Status
+    inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : '',   // F: Created On
+    inv.lastContact ? new Date(inv.lastContact).toLocaleDateString('en-GB') : '', // G: Last Contact
+    inv.clientType || '',                                                        // H: Client Type
+    inv.budget || cr.budget || '',                                               // I: Budget
+    (inv.locations && inv.locations.length ? inv.locations : (cr.cities || [])).join(', '), // J: Locations
+    (cr.types || []).join(', '),                                                 // K: Property Types
+    cr.notes || inv.generalNotes || '',                                          // L: Notes
+    inv.nationality || '',                                                       // M: Nationality
+    inv.source || '',                                                            // N: Source
   ];
-  // Append pipeline fields at end of row
+  // Pipeline fields
   row.push(inv.pipelineStage || 'new_lead');
   row.push(inv.pipelineDropReason || '');
   row.push(inv.closedOutcome || '');
@@ -6484,6 +6484,15 @@ async function syncInvestorToSheets(inv) {
   row.push(inv.closedPrice ? String(inv.closedPrice) : '');
   row.push(inv.closedCommissionPct ? String(inv.closedCommissionPct) : '');
   row.push(inv.closedCommissionAmt ? String(inv.closedCommissionAmt) : '');
+  // Extended fields (new columns — added to end of Clients sheet)
+  row.push((cr.beds || []).join(', '));                                          // Bedrooms preference
+  row.push(inv.temperature || '');                                               // Temperature
+  row.push(inv.nextAction || '');                                                // Next Action
+  row.push(inv.followUpDate || '');                                              // Follow-up Date
+  row.push(inv.followUpNote || '');                                              // Follow-up Note
+  row.push(inv.referringAgentId || '');                                          // Referring Agent ID
+  row.push(inv.referringAgentName || '');                                        // Referring Agent Name
+  row.push(inv.specialInstructions || '');                                       // Special Instructions
   syncViaJsonp({ type:'investor', sheet:'Clients', investorId: inv.investorId||inv.id, row });
 }
 
