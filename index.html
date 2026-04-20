@@ -3860,7 +3860,7 @@ async function init() {
     doFilter(); renderDev();
     buildCityBenchmarks();
     buildNormalizedDataset();
-    runBulkEnrichment();
+    // runBulkEnrichment(); // disabled - requires configured proxy
     runBulkGeocode();
 
   } catch (e) {
@@ -10292,7 +10292,7 @@ async function fetchAndExtract(url, hint) {
     })
   });
   if (res.status === 401 || res.status === 403) return null; // proxy not configured — skip silently
-  if (!res.ok) throw new Error('proxy ' + res.status);
+  if (!res.ok) return null; // proxy not configured or error — skip silently
   const data = await res.json();
   const txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
   const m = txt.match(/\{[\s\S]*?\}/);
@@ -10357,6 +10357,8 @@ async function runBulkGeocode() {
 }
 
 async function runBulkEnrichment() {
+  // Only run if proxy is available and returning 200
+  if (!await proxyAvailable()) return;
   const queue = all.filter(d => d.listingUrl && !(d.img1 && d.developer && d.delivery));
   if (!queue.length) return;
 
