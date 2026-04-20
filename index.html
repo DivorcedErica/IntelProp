@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://archive.org https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com https://vercel.live 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://archive.org https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none';">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -4411,7 +4411,7 @@ async function getRentalData(id) {
   const prompt=`Search Bazaraki.com, Spitogatos.cy, and Rightmove Cyprus for current rental listings of ${d.bedrooms!=null?d.bedrooms+' bedroom':''} ${(d.type||'property').toLowerCase()}${d.complex?' in '+d.complex+' complex,':''} in ${d.district}, ${d.city}, Cyprus${d.area?` around ${d.area}m²`:''}.
 Respond ONLY with valid JSON, no markdown:
 {"short_term_low":int|null,"short_term_high":int|null,"short_term_occupancy_low":int|null,"short_term_occupancy_high":int|null,"long_term_low":int|null,"long_term_high":int|null,"long_term_occupancy":int|null,"sources_found":["bazaraki"|"spitogatos"|"rightmove"],"comparables_count":int,"note":"string max 140 chars"}`;
-  const res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
+  const res=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:500,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})});
   if(res.status===401||res.status===403){throw new Error('Rental data service not available in this environment');}
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error((e.error&&e.error.message)||'API '+res.status);}
   const data=await res.json();
@@ -6887,7 +6887,7 @@ You MUST respond with ONLY a valid JSON object. No text before or after. No mark
     const res = await fetch('/api/proxy', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
+      body: JSON.stringify({model:'claude-sonnet-4-5',max_tokens:2000,tools:[{type:'web_search_20250305',name:'web_search'}],messages:[{role:'user',content:prompt}]})
     });
     if (res.status === 401 || res.status === 403) throw new Error('Intelligence service not configured for this deployment');
     const data = await res.json();
@@ -8172,7 +8172,7 @@ async function apFetchUrlContent(url) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 3000,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         messages: [{
@@ -8255,7 +8255,7 @@ async function apCallClaude(systemPrompt, userContent, maxTokens) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: maxTokens || 4000,
       system: systemPrompt,
       messages,
@@ -10271,9 +10271,7 @@ async function getArchivedUrl(url) {
   const wb = await getWaybackUrl(url);
   if (wb) return { url: wb, source: 'Wayback' };
 
-  const mt = await getMementoUrl(url);
-  if (mt) return { url: mt, source: 'Memento' };
-
+  // Memento (timetravel.mementoweb.org) disabled — DNS unreachable in deployment environment
   return { url: `https://cc.bingj.com/cache.aspx?url=${encodeURIComponent(url)}&q=${encodeURIComponent(url)}`, source: 'Bing' };
 }
 
@@ -10282,7 +10280,7 @@ async function fetchAndExtract(url, hint) {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 600,
       tools: [{type:'web_search_20250305', name:'web_search'}],
       messages: [{role:'user', content:
@@ -10485,7 +10483,7 @@ async function loadModalImage(d) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 400,
         tools: [{type: 'web_search_20250305', name: 'web_search'}],
         messages: [{
