@@ -1357,7 +1357,13 @@ tr:hover td{background:var(--bg2)}
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Email</div><input type="email" id="newInvEmail" placeholder="client@email.com" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Nationality</div><input type="text" id="newInvNationality" placeholder="e.g. Israeli" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
           <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Client type</div><div style="display:flex;gap:6px" id="newInvTypeGroup2"><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Investor">Investor</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="One-off Buyer">One-off Buyer</button><button class="crit-btn" onclick="niToggle(this,'typeGroup2')" data-val="Agent">Agent</button></div></div>
-          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Temperature</div><div style="display:flex;align-items:center;gap:10px"><span>Cold</span><input type="range" id="newInvTempSlider" min="0" max="2" step="1" value="1" oninput="updateTempSlider('newInvTempSlider','newInvTempLabel')" style="flex:1;accent-color:var(--tx);cursor:pointer"><span>Hot</span></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:2px"><span>Cold</span><span>Warm</span><span>Hot</span></div><div id="newInvTempLabel" style="text-align:center;font-size:11px;font-weight:600;margin-top:4px;color:#92400e">Warm</div></div>
+          <div><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:6px">Temperature</div><div style="position:relative;padding:4px 0">
+              <input type="range" id="newInvTempSlider" min="0" max="8" step="1" value="4"
+                oninput="updateTempSlider('newInvTempSlider','newInvTempLabel','newInvTempTrack')"
+                style="width:100%;cursor:pointer;height:6px;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,#bfdbfe,#93c5fd,#67e8f9,#9ca3af,#fcd34d,#fb923c,#fca5a5,#ef4444);transition:background .3s" id="newInvTempTrack">
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mu);margin-top:2px"><span>Ice Cold</span><span>Cool</span><span>Neutral</span><span>Warm</span><span>Burning</span></div>
+            <div id="newInvTempLabel" style="text-align:center;font-size:11px;font-weight:700;margin-top:6px;padding:2px 14px;border-radius:99px;display:inline-block;transition:background .3s,color .3s;background:#f3f4f6;color:#374151">Neutral</div></div>
         </div>
         <!-- Row 1b: source -->
         <div style="margin-bottom:10px">
@@ -6089,7 +6095,7 @@ function renderInvestorCard(inv) {
         + '<div style="display:flex;gap:6px">'
           + '<div style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px"><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Follow-up Date</div><input type="date" id="eiFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Reminder Note</div><input id="eiFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="Call back after..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div></div>'
           + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Next Action</div><input id="eiNextAction" value="' + safeHTML(inv.nextAction||'') + '" placeholder="e.g. Send shortlist..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
-          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Temperature</div><div style="display:flex;align-items:center;gap:8px"><span>Cold</span><input type="range" id="eiTemperature" min="0" max="2" step="1" value="' + (inv.temperature==='Hot'?2:inv.temperature==='Cold'?0:1) + '" oninput="updateTempSlider(\'eiTemperature\',\'eiTempLabel\')" style="flex:1;accent-color:var(--tx);cursor:pointer"><span>Hot</span></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);margin-top:2px"><span>Cold</span><span>Warm</span><span>Hot</span></div><div id="eiTempLabel" style="text-align:center;font-size:11px;font-weight:600;margin-top:4px">' + (inv.temperature||'Warm') + '</div></div>'
+          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Temperature</div><div style="position:relative;padding:4px 0"><input type="range" id="eiTemperature" min="0" max="8" step="1" value="' + (function(t){var m={'Ice Cold':0,'Very Cold':1,'Cold':2,'Cool':3,'Neutral':4,'Warm':5,'Hot':6,'Very Hot':7,'Burning':8};return m[t]!=null?m[t]:4;})(inv.temperature||'Neutral') + '" oninput="updateTempSlider(\'eiTemperature\',\'eiTempLabel\')" style="width:100%;cursor:pointer;height:6px;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,#bfdbfe,#93c5fd,#67e8f9,#9ca3af,#fcd34d,#fb923c,#fca5a5,#ef4444);transition:background .3s"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mu);margin-top:2px"><span>Ice Cold</span><span>Neutral</span><span>Burning</span></div><div id="eiTempLabel" style="text-align:center;font-size:11px;font-weight:700;margin-top:6px;padding:2px 14px;border-radius:99px;display:inline-block;transition:background .3s,color .3s">' + (inv.temperature||'Neutral') + '</div></div>'
           + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
           + '<button onclick="var e=document.getElementById(\'invContactEdit\');if(e)e.style.display=\'none\'" class="btn" style="font-size:11px">Cancel</button>'
         + '</div>'
@@ -6308,7 +6314,7 @@ function saveEditContact(id) {
   inv.clientType = document.getElementById('eiType').value;
   var eiFollowUp=document.getElementById('eiFollowUpDate');if(eiFollowUp)inv.followUpDate=eiFollowUp.value||null;
   var eiFollowUpNote=document.getElementById('eiFollowUpNote');if(eiFollowUpNote)inv.followUpNote=eiFollowUpNote.value.trim();
-  var eiTemp=document.getElementById('eiTemperature');if(eiTemp)inv.temperature=['Cold','Warm','Hot'][+eiTemp.value]||'Warm';
+  var eiTemp=document.getElementById('eiTemperature');if(eiTemp)inv.temperature=['Ice Cold','Very Cold','Cold','Cool','Neutral','Warm','Hot','Very Hot','Burning'][+eiTemp.value]||'Neutral';
   var eiNA=document.getElementById('eiNextAction');if(eiNA)inv.nextAction=eiNA.value.trim();
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
@@ -11701,6 +11707,8 @@ function createNewInvestor(){
     return;
   }
   var newId=nextInvestorId();
+  var tempSlider=document.getElementById('newInvTempSlider');
+  var temperature=tempSlider?(['Ice Cold','Very Cold','Cold','Cool','Neutral','Warm','Hot','Very Hot','Burning'][+tempSlider.value]||'Neutral'):'Neutral';
   var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'Warm',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes||'',followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
@@ -11714,7 +11722,7 @@ function createNewInvestor(){
   ['newInvNotes','newInvFollowUp','newInvFollowUpNote','newInvNextAction'].forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
   var nias=document.getElementById('newInvAgentSelect');if(nias)nias.value='';
   var niar=document.getElementById('newInvAgentRow');if(niar)niar.style.display='none';
-  var nits=document.getElementById('newInvTempSlider');if(nits){nits.value=1;updateTempSlider('newInvTempSlider','newInvTempLabel');}
+  var nits=document.getElementById('newInvTempSlider');if(nits){nits.value=4;updateTempSlider('newInvTempSlider','newInvTempLabel');}
   document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
@@ -13902,22 +13910,33 @@ console.log('[IntelProp] Session system v2 loaded — immutable versioning activ
 
 function populateNewInvAgentSelect(){var sel=document.getElementById('newInvAgentSelect');if(!sel)return;sel.innerHTML='<option value="">- Select agent -</option>'+(agents||[]).filter(function(a){return a.active!==false;}).map(function(a){return '<option value="'+a.agentId+'">'+safeHTML(a.name)+'</option>';}).join('');}
 
-function updateTempSlider(sliderId,labelId){
-  var s=document.getElementById(sliderId);
-  var l=document.getElementById(labelId);
-  if(!s||!l)return;
-  var map=[
-    {text:'Cold', color:'#1e40af', bg:'#dbeafe'},
-    {text:'Warm', color:'#92400e', bg:'#fef3c7'},
-    {text:'Hot',  color:'#991b1b', bg:'#fee2e2'}
+function updateTempSlider(sliderId, labelId) {
+  var s = document.getElementById(sliderId);
+  var l = document.getElementById(labelId);
+  if (!s || !l) return;
+  var map = [
+    { text:'Ice Cold', color:'#1e3a8a', bg:'#bfdbfe' },
+    { text:'Very Cold', color:'#1d4ed8', bg:'#dbeafe' },
+    { text:'Cold',      color:'#2563eb', bg:'#eff6ff' },
+    { text:'Cool',      color:'#0891b2', bg:'#cffafe' },
+    { text:'Neutral',   color:'#374151', bg:'#f3f4f6' },
+    { text:'Warm',      color:'#b45309', bg:'#fef3c7' },
+    { text:'Hot',       color:'#c2410c', bg:'#fed7aa' },
+    { text:'Very Hot',  color:'#b91c1c', bg:'#fee2e2' },
+    { text:'Burning',   color:'#7f1d1d', bg:'#fecaca' }
   ];
-  var v=map[+s.value]||map[1];
-  l.textContent=v.text;
-  l.style.color=v.color;
-  l.style.background=v.bg;
-  l.style.padding='1px 10px';
-  l.style.borderRadius='99px';
-  l.style.display='inline-block';
+  var v = map[+s.value] || map[4];
+  l.textContent = v.text;
+  l.style.color      = v.color;
+  l.style.background = v.bg;
+  l.style.padding    = '2px 12px';
+  l.style.borderRadius = '99px';
+  l.style.display    = 'inline-block';
+  l.style.transition = 'background .25s, color .25s';
+  // Update track fill color
+  var pct = (+s.value / 8) * 100;
+  s.style.background = 'linear-gradient(to right, #bfdbfe 0%, #93c5fd 12.5%, #67e8f9 25%, #9ca3af 37.5%, #fcd34d 50%, #fb923c 62.5%, #fca5a5 75%, #ef4444 87.5%, #dc2626 100%)';
+  s.style.transition = 'background .25s';
 }
 
 
