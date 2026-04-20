@@ -6747,42 +6747,102 @@ function apImportManualInvestorCSV() {
 }
 
 async function readPropertiesFromSheets() {
-  const PROPERTIES_GID = ''; // set if you have a Properties sheet GID
+  if (!APPS_SCRIPT_URL) return;
+  let added = 0;
+
+  // ── Primary: read from Properties sheet ──────────────────────
   try {
-    if (!PROPERTIES_GID) return;
-    const rows = await loadSheetCSV(PROPERTIES_GID);
-    let added = 0;
+    const rows = await readSheetViaAppsScriptJSONP('Properties', 12000);
     rows.forEach(row => {
       const g = i => row[i] != null ? String(row[i]).trim() : '';
       const propId = +g(0); const invId = +g(1);
       if (!propId || isNaN(propId) || !invId || isNaN(invId)) return;
       if (!clientProperties.find(p => p.propertyId === propId)) {
-        clientProperties.push({ propertyId:propId, investorId:invId, developer:g(2), title:g(3), type:g(4), city:g(5), district:g(6), bedrooms:g(7), totalArea:g(8), plotSize:g(9), price:g(10), pricePerM2:g(11), complex:g(12), addedAt:g(13)||new Date().toISOString() });
+        clientProperties.push({
+          propertyId: propId, investorId: invId,
+          developer: g(2), title: g(3), type: g(4), city: g(5),
+          district: g(6), bedrooms: g(7), totalArea: g(8),
+          plotSize: g(9), price: g(10), pricePerM2: g(11),
+          complex: g(12), addedAt: g(13) || new Date().toISOString()
+        });
         added++;
       }
     });
-    if (added > 0) {
-      saveClientProperties();
-      if (currentInvestorCard) { const inv = investorProfiles.find(i=>(i.investorId||i.id)===currentInvestorCard); if(inv)renderInvestorCard(inv); }
+    console.log('[properties] loaded', added, 'from Properties sheet');
+  } catch(e) {
+    console.warn('[properties] Properties sheet load failed:', e.message);
+  }
+
+  // ── Fallback: rebuild from Client Communications shortlist entries ──
+  // Catches historical shortlists that were logged but never written to Properties sheet
+  try {
+    const commRows = await readSheetViaAppsScriptJSONP('Client Communications', 12000);
+    commRows.forEach(row => {
+      const g = i => row[i] != null ? String(row[i]).trim() : '';
+      const type = g(4); // column E = Type
+      if (type !== 'shortlist') return;
+      const invId   = +g(1);  // column B = InvestorID
+      const listId  = +g(6);  // column G = Property ID
+      const title   = g(7);   // column H = Property Title
+      const date    = g(2);   // column C = Date
+      if (!invId || !listId) return;
+      // Already in clientProperties? skip
+      if (clientProperties.find(p => +p.investorId === invId && p.listingId === listId)) return;
+      // Look up full listing details from all[]
+      const listing = all.find(d => d.id === listId);
+      const propId  = Date.now() + Math.floor(Math.random() * 10000);
+      clientProperties.push({
+        propertyId:  propId,
+        investorId:  invId,
+        listingId:   listId,
+        developer:   listing ? (listing.developer || '') : '',
+        title:       listing ? (listing.title || title) : title,
+        type:        listing ? (listing.type    || '') : '',
+        city:        listing ? (listing.city    || '') : '',
+        district:    listing ? (listing.district|| '') : '',
+        complex:     listing ? (listing.complex || '') : '',
+        bedrooms:    listing ? (listing.bedrooms|| '') : '',
+        totalArea:   listing ? (listing.area    || '') : '',
+        plotSize:    listing ? (listing.plot    || '') : '',
+        price:       listing ? (listing.price   || '') : '',
+        pricePerM2:  listing ? (listing.ppm     || '') : '',
+        addedAt:     date || new Date().toISOString(),
+        _fromComms:  true
+      });
+      added++;
+    });
+    if (added > 0) console.log('[properties] rebuilt', added, 'from Client Communications');
+  } catch(e) {
+    console.warn('[properties] comms fallback failed:', e.message);
+  }
+
+  if (added > 0) {
+    saveClientProperties();
+    if (currentInvestorCard) {
+      const inv = investorProfiles.find(i => (i.investorId||i.id) === currentInvestorCard);
+      if (inv) renderInvestorCard(inv);
     }
-  } catch(e) { /* properties sheet unavailable */ }
+  }
 }
 
 async function readAgentsFromSheets() {
-  if (!AGENTS_GID) return;
+  if (!APPS_SCRIPT_URL) return;
   try {
-    const rows = await loadSheetCSV(AGENTS_GID);
+    const rows = await readSheetViaAppsScriptJSONP('Agents', 12000);
+    let added = 0;
     rows.forEach(row => {
       const g = i => row[i] != null ? String(row[i]).trim() : '';
       const agentId = g(0); const name = g(1);
       if (!agentId || !name) return;
       if (!agents.find(a => a.agentId === agentId)) {
         agents.push({ agentId, name, firm:g(2), phone:g(3), email:g(4), commissionPct:g(5), active:g(6)!=='FALSE', notes:g(7), addedOn:g(8) });
+        added++;
       }
     });
-    saveAgents(); populateAgentSelector();
+    if (added > 0) { saveAgents(); populateAgentSelector(); }
     if (document.getElementById('agentTableWrap')) renderAgentsTab();
-  } catch(e) { /* agents sheet unavailable */ }
+    console.log('[agents] loaded', added, 'agents');
+  } catch(e) { console.warn('[agents] sheet load failed:', e.message); }
 }
 
 async function readClientsFromSheets() {
