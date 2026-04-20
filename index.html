@@ -13562,10 +13562,12 @@ function openSession(sessionId, clientId) {
   }
   var module = session.module || 'ClientCall';
   if (module === 'PortfolioBuilder') {
-    gotoTab('portfoliobuilder', document.querySelector('.tab[onclick*="portfoliobuilder"]'));
+    var pbTab = document.querySelector('.tab[onclick*="portfolio"]');
+    gotoTab('portfolio', pbTab);
     setTimeout(function(){ restorePortfolioBuilderState(session.state, session); }, 200);
   } else {
-    gotoTab('clientcall', document.querySelector('.tab[onclick*="clientcall"]'));
+    var ccTab = document.querySelector('.tab[onclick*="clients"]');
+    gotoTab('clients', ccTab);
     setTimeout(function(){ restoreClientCallState(session.state, session); }, 200);
   }
   showToast('↺ Opened: ' + session.sessionName);
