@@ -492,6 +492,7 @@ tr:hover td{background:var(--bg2)}
   <div class="topbar">
     <div>
       <div class="logo" onclick="gotoTab('listings',document.querySelector('.tab[onclick*=listings]'))" style="cursor:pointer" title="Go to Listings">Intel<span>Prop</span></div>
+      <div id="followUpNotifBanner" style="display:none;margin-left:12px;flex:1"></div>
       <div class="sub" id="sub">Loading data…</div>
     </div>
     <div class="top-btns">
@@ -1366,7 +1367,14 @@ tr:hover td{background:var(--bg2)}
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Network">Network</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Referrals">Referrals</button>
             <button class="crit-btn" onclick="niToggle(this,'source')" data-val="SEO">SEO</button>
-            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Agents">Agents</button>
+            <button class="crit-btn" onclick="niToggle(this,'source')" data-val="Agent Referral" onclick="niToggle(this,'source')">Agent Referral</button>
+          </div>
+          <!-- Agent selector — shown only when Agent Referral is selected -->
+          <div id="newInvAgentRow" style="display:none;margin-top:8px">
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Referring Agent</div>
+            <select id="newInvAgentSelect" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+              <option value="">— Select agent —</option>
+            </select>
           </div>
         </div>
         <!-- Row 2: budget -->
@@ -1404,6 +1412,18 @@ tr:hover td{background:var(--bg2)}
               <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Residential" style="--pt-bg:#fef9c3;--pt-co:#854d0e">Residential Buildings</button>
               <button class="crit-btn" onclick="niMulti(this,'proptype')" data-val="Commercial" style="--pt-bg:#f1f5f9;--pt-co:#334155">Commercial Buildings</button>
             </div>
+          </div>
+        </div>
+        <!-- Client notes + follow-up -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Client Notes <span style="font-weight:400;text-transform:none">(helps identify client later)</span></div>
+            <textarea id="newInvNotes" placeholder="e.g. Referred by David, looking for holiday home, cash buyer, prefers sea view..." style="width:100%;height:64px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical"></textarea>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:4px">Follow-up Reminder <span style="font-weight:400;text-transform:none">(optional)</span></div>
+            <input type="date" id="newInvFollowUp" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;margin-bottom:6px">
+            <input id="newInvFollowUpNote" placeholder="Reason: e.g. Call back after summer" style="width:100%;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:11px">
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end">
@@ -5448,10 +5468,7 @@ function saveCurrentSession() {
 function renderSessionLog() {
   var wrap = document.getElementById('sessionLogWrap');
   if (!wrap) return;
-  // Double-check: also verify the client selector has a value
-  var selEl = document.getElementById('cClientSelector');
-  var selVal = selEl ? selEl.value : '';
-  var cid = (currentClientCallId && selVal) ? String(currentClientCallId) : null;
+  var cid = currentClientCallId ? String(currentClientCallId) : null;
   if (!cid) { wrap.style.display = 'none'; return; }
 
   // Use new versioned sessions if available, fall back to old
@@ -6086,7 +6103,7 @@ function renderInvestorCard(inv) {
           + '</select>'
         + '</div>'
         + '<div style="display:flex;gap:6px">'
-          + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
+          + '<div style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">'          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Follow-up Date</div><input type="date" id="eiFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Reminder Note</div><input id="eiFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="e.g. Call back after holiday" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '</div>'          + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
           + '<button onclick="var e=document.getElementById(\'invContactEdit\');if(e)e.style.display=\'none\'" class="btn" style="font-size:11px">Cancel</button>'
         + '</div>'
       + '</div>'
@@ -6288,6 +6305,8 @@ function saveEditContact(id) {
   const eiNat = document.getElementById('eiNationality'); if(eiNat) inv.nationality = eiNat.value.trim();
   const eiSrc = document.getElementById('eiSource'); if(eiSrc) inv.source = eiSrc.value;
   inv.clientType = document.getElementById('eiType').value;
+  const eiFollowUp = document.getElementById('eiFollowUpDate'); if(eiFollowUp) inv.followUpDate = eiFollowUp.value || null;
+  const eiFollowUpNote = document.getElementById('eiFollowUpNote'); if(eiFollowUpNote) inv.followUpNote = eiFollowUpNote.value.trim();
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
   renderInvestorCard(inv);
@@ -11283,6 +11302,8 @@ function renderInvestorProfilesPanel(){
           if(types.length)line+='<span style="font-size:11px">\ud83c\udfe0 <b>'+types.map(pluralT).join(', ')+'</b></span>';
           return line?'<div style="margin-top:3px">'+line+'</div>':'';
         }())
+      +(inv.generalNotes?'<div style="font-size:11px;color:var(--mu);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;font-style:italic">'+safeHTML(inv.generalNotes.slice(0,80))+(inv.generalNotes.length>80?'…':'')+'</div>':'')
+      +(inv.followUpDate?(function(){var fd=new Date(inv.followUpDate);var now=new Date();var diff=Math.ceil((fd-now)/86400000);var overdue=diff<0;var today=diff===0;return '<div style="font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:99px;background:'+(overdue?'#fee2e2':today?'#fef3c7':'#dbeafe')+';color:'+(overdue?'#991b1b':today?'#92400e':'#1e40af')+'">'+(overdue?'⚠ Overdue: ':today?'📅 Today: ':'🔔 Follow up: ')+fd.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+(inv.followUpNote?' — '+safeHTML(inv.followUpNote.slice(0,40)):'')+'</div>';})():'')
       +'<div style="font-size:10px;color:var(--mu);margin-top:2px">'+lastC
       +(nc?' \u00b7 \ud83d\udcdd '+nc+' properties':'')
       +(myCommsCount?' \u00b7 '+myCommsCount+' activities':'')
@@ -11555,7 +11576,25 @@ function deleteClientProperty(propertyId){
   if(inv)renderInvestorCard(inv);
 }
 
+function populateNewInvAgentSelect(){
+  var sel=document.getElementById('newInvAgentSelect');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Select agent —</option>'
+    +(agents||[]).filter(function(a){return a.active!==false;}).map(function(a){
+      return '<option value="'+a.agentId+'">'+safeHTML(a.name)+(a.firm?' · '+safeHTML(a.firm):'')+'</option>';
+    }).join('');
+}
+
 function niToggle(btn,group){
+  // Show/hide agent selector when Agent Referral source is selected
+  if(group==='source'){
+    var agRow=document.getElementById('newInvAgentRow');
+    if(agRow){
+      var isAgent=btn.dataset.val==='Agent Referral'&&!btn.classList.contains('on');
+      agRow.style.display=isAgent?'':'none';
+      if(isAgent) populateNewInvAgentSelect();
+    }
+  }
   var wasOn=btn.classList.contains('on');
   // Always capitalize first char and append 'Group' only if not already in name
   var containerId='#newInv'+group.charAt(0).toUpperCase()+group.slice(1)+(group.toLowerCase().includes('group')?'':'Group');
@@ -11675,7 +11714,17 @@ function createNewInvestor(){
     return;
   }
   var newId=nextInvestorId();
-  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
+  var newInvNotes=(document.getElementById('newInvNotes')||{}).value||'';
+  var newInvFollowUp=(document.getElementById('newInvFollowUp')||{}).value||'';
+  var newInvFollowUpNote=(document.getElementById('newInvFollowUpNote')||{}).value||'';
+  var agentRefSel=document.getElementById('newInvAgentSelect');
+  var referringAgentId='', referringAgentName='';
+  if(agentRefSel&&agentRefSel.value){
+    referringAgentId=agentRefSel.value;
+    var refAg=agents.find(function(a){return a.agentId===agentRefSel.value;});
+    if(refAg)referringAgentName=refAg.name;
+  }
+  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes,followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:newInvNotes}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
   logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
@@ -11685,6 +11734,11 @@ function createNewInvestor(){
   document.getElementById('newInvPhone').value='';
   document.getElementById('newInvEmail').value='';
   document.getElementById('newInvNationality').value='';
+  var nin=document.getElementById('newInvNotes');if(nin)nin.value='';
+  var nifu=document.getElementById('newInvFollowUp');if(nifu)nifu.value='';
+  var nifun=document.getElementById('newInvFollowUpNote');if(nifun)nifun.value='';
+  var nias=document.getElementById('newInvAgentSelect');if(nias)nias.value='';
+  var niar=document.getElementById('newInvAgentRow');if(niar)niar.style.display='none';
   document.querySelectorAll('#newInvForm .crit-btn.on').forEach(function(b){b.classList.remove('on');});
   document.getElementById('newInvForm').style.display='none';
   document.getElementById('investorProfilesList').innerHTML=renderInvestorProfilesPanel();
@@ -13232,9 +13286,6 @@ try { loadCachedProfiles(); } catch(e) { console.warn('[IntelProp] Cache pre-loa
 
 init();
 
-// Ensure session panel is hidden until a client is selected
-(function(){ var w=document.getElementById('sessionLogWrap'); if(w) w.style.display='none'; })();
-
 // Load from cache instantly (sync-like feel), then refresh from sheet in background
 (function() {
   // Immediately populate from localStorage cache
@@ -13281,6 +13332,7 @@ init();
     readInvestorsFromSheets();
     readAgentsFromSheets();
     readCommsFromSheets();
+    setTimeout(checkFollowUpReminders, 1500); // check after data loads
   }, 200);
 })();
 
@@ -13871,6 +13923,90 @@ function saveCurrentSessionV2(moduleOverride) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 console.log('[IntelProp] Session system v2 loaded — immutable versioning active');
+
+
+// ══════════════════════════════════════════════════════════════════
+// FOLLOW-UP NOTIFICATION SYSTEM
+// ══════════════════════════════════════════════════════════════════
+
+function checkFollowUpReminders() {
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var due = [];
+  (investorProfiles||[]).forEach(function(inv) {
+    if (!inv.followUpDate || inv.status === 'Archived') return;
+    var fd = new Date(inv.followUpDate);
+    fd.setHours(0,0,0,0);
+    var diff = Math.ceil((fd - today) / 86400000);
+    if (diff <= 7) { // due today or within 7 days or overdue
+      due.push({ inv: inv, diff: diff, date: fd });
+    }
+  });
+
+  var banner = document.getElementById('followUpNotifBanner');
+  if (!banner) return;
+
+  if (!due.length) { banner.style.display = 'none'; return; }
+
+  // Sort: overdue first, then soonest
+  due.sort(function(a,b){ return a.diff - b.diff; });
+
+  var overdue  = due.filter(function(d){ return d.diff < 0; });
+  var dueToday = due.filter(function(d){ return d.diff === 0; });
+  var upcoming = due.filter(function(d){ return d.diff > 0; });
+
+  var parts = [];
+  if (overdue.length)  parts.push('<span style="color:#991b1b;font-weight:600">⚠ ' + overdue.length + ' overdue</span>');
+  if (dueToday.length) parts.push('<span style="color:#92400e;font-weight:600">📅 ' + dueToday.length + ' due today</span>');
+  if (upcoming.length) parts.push('<span style="color:#1e40af">🔔 ' + upcoming.length + ' this week</span>');
+
+  banner.style.display = '';
+  banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:4px 10px;cursor:pointer" onclick="showFollowUpList()" title="Click to view follow-up reminders">'
+    + '<span style="font-size:11px">' + parts.join(' \u00b7 ') + '</span>'
+    + '<span style="font-size:10px;color:var(--mu)">Follow-ups</span>'
+    + '</div>';
+}
+
+function showFollowUpList() {
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var due = (investorProfiles||[]).filter(function(inv){
+    if (!inv.followUpDate || inv.status === 'Archived') return false;
+    var fd = new Date(inv.followUpDate); fd.setHours(0,0,0,0);
+    return Math.ceil((fd - today) / 86400000) <= 7;
+  }).sort(function(a,b){ return new Date(a.followUpDate) - new Date(b.followUpDate); });
+
+  if (!due.length) return;
+
+  var html = due.map(function(inv){
+    var fd = new Date(inv.followUpDate);
+    var diff = Math.ceil((fd - today) / 86400000);
+    var label = diff < 0 ? ('Overdue by ' + Math.abs(diff) + 'd') : diff === 0 ? 'Today' : 'In ' + diff + 'd';
+    var color = diff < 0 ? '#991b1b' : diff === 0 ? '#92400e' : '#1e40af';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd)">'
+      + '<div>'
+        + '<div style="font-size:12px;font-weight:600;color:var(--tx)">' + safeHTML(inv.name) + '</div>'
+        + (inv.followUpNote ? '<div style="font-size:11px;color:var(--mu)">' + safeHTML(inv.followUpNote) + '</div>' : '')
+      + '</div>'
+      + '<div style="text-align:right;flex-shrink:0;margin-left:12px">'
+        + '<div style="font-size:11px;font-weight:600;color:' + color + '">' + label + '</div>'
+        + '<div style="font-size:10px;color:var(--mu)">' + fd.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + '</div>'
+        + '<button onclick="openInvestorCard(' + (inv.investorId||inv.id) + ')" class="btn" style="font-size:10px;padding:0 8px;height:24px;margin-top:3px">Open</button>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+
+  // Show as a toast-style overlay
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:60px;right:16px;z-index:9999;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;width:320px;max-height:400px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)';
+  overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--tx)">🔔 Follow-up Reminders</div>'
+    + '<button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--mu)">✕</button>'
+    + '</div>' + html;
+  document.body.appendChild(overlay);
+  // Auto-close after 30s
+  setTimeout(function(){ if(overlay.parentElement) overlay.remove(); }, 30000);
+}
 
 </script>
 </body>
