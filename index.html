@@ -686,7 +686,7 @@ tr:hover td{background:var(--bg2)}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--mu)">A · Client Profile</div>
           <div style="display:flex;gap:6px">
-            <button onclick="saveCurrentSession()" class="btn primary" style="font-size:11px;height:30px;padding:0 14px">💾 Save Session</button>
+            <button onclick="resumeLatestSession('ClientCall')" class="btn" style="font-size:11px;height:30px;padding:0 12px" id="btnResumeLatest" title="Reload your last saved session for this client">↺ Resume Latest</button><button onclick="saveCurrentSessionV2('ClientCall')" class="btn primary" style="font-size:11px;height:30px;padding:0 14px">💾 Save New Version</button>
             <button onclick="resetClient()" class="btn" style="font-size:11px;height:30px;padding:0 12px">✕ Reset</button>
           </div>
         </div>
@@ -912,7 +912,7 @@ tr:hover td{background:var(--bg2)}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="runClientRecommendations()" class="btn primary" style="font-size:12px;height:36px;padding:0 18px">✦ Generate Recommendations</button>
           <button onclick="compareSelected()" class="btn" style="font-size:11px;height:36px;padding:0 14px" id="cCompareBtn">⊞ Compare Selected (<span id="cCompareCount">0</span>)</button>
-          <button onclick="saveCurrentSession()" class="btn" style="font-size:11px;height:36px;padding:0 14px">💾 Save Session</button>
+          <button onclick="saveCurrentSessionV2('ClientCall')" class="btn" style="font-size:11px;height:36px;padding:0 14px">💾 Save New Version</button>
           <button onclick="resetClient()" class="btn" style="font-size:11px;height:36px;padding:0 12px">✕ Reset</button>
         </div>
       </div>
@@ -944,8 +944,14 @@ tr:hover td{background:var(--bg2)}
       <!-- Save status -->
       <div id="cSaveStatus" style="font-size:11px;color:var(--mu);text-align:right;margin-top:8px"></div>
 
-      <!-- Session Log -->
-      <div id="sessionLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
+      <!-- Session History Panel -->
+      <div id="sessionLogWrap" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--mu)">Session History</div>
+          <span id="sessionHistoryCount" style="font-size:10px;color:var(--mu)"></span>
+        </div>
+        <div id="sessionHistoryList"></div>
+      </div>
 
       <!-- Comm log -->
       <div id="cCommLog" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--bd)"></div>
@@ -1219,6 +1225,8 @@ tr:hover td{background:var(--bg2)}
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <button onclick="buildPortfolio()" class="btn primary" style="height:38px;font-size:13px;padding:0 20px">✦ Build Portfolio</button>
         <button onclick="toggleAdvancedTuning()" class="btn" id="pbAdvancedBtn">⚙ Advanced weights</button>
+        <button onclick="resumeLatestSession('PortfolioBuilder')" class="btn" style="font-size:11px;height:36px;padding:0 12px" title="Reload last saved portfolio session">↺ Resume Latest</button>
+        <button onclick="saveCurrentSessionV2('PortfolioBuilder')" class="btn" style="font-size:11px;height:36px;padding:0 14px">💾 Save New Version</button>
         <div style="font-size:11px;color:var(--mu)" id="pbStatus"></div>
       </div>
 
@@ -5440,33 +5448,97 @@ function saveCurrentSession() {
 function renderSessionLog() {
   var wrap = document.getElementById('sessionLogWrap');
   if (!wrap) return;
-  if (!currentClientCallId) { wrap.style.display = 'none'; return; }
-  var cid = String(currentClientCallId);
-  var sessions = clientSessions[cid] || [];
+  var cid = currentClientCallId ? String(currentClientCallId) : null;
+  if (!cid) { wrap.style.display = 'none'; return; }
+
+  // Use new versioned sessions if available, fall back to old
+  var sessions = getClientSessions(cid);
   if (!sessions.length) { wrap.style.display = 'none'; return; }
+
   wrap.style.display = '';
-  wrap.innerHTML = '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:8px">Session Log</div>'
-    + sessions.map(function(s){
-      var d = new Date(s.savedAt);
-      var ds = d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-      var crit = [];
-      if(s.criteria.purpose) crit.push(s.criteria.purpose);
-      if(s.criteria.budget) crit.push(s.criteria.budget);
-      if(s.criteria.cities && s.criteria.cities.length) crit.push(s.criteria.cities.join(', '));
-      if(s.criteria.types && s.criteria.types.length) crit.push(s.criteria.types.join(', '));
-      if(s.criteria.sea) crit.push(s.criteria.sea);
-      var critStr = crit.join(' · ');
-      return '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
-        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+
+  // Update count badge
+  var countEl = document.getElementById('sessionHistoryCount');
+  if (countEl) countEl.textContent = sessions.length + ' version' + (sessions.length !== 1 ? 's' : '');
+
+  var MODULE_COLORS = {
+    'ClientCall':       { bg:'#dbeafe', color:'#1e40af', label:'Client Call' },
+    'PortfolioBuilder': { bg:'#ede9fe', color:'#6d28d9', label:'Portfolio'   }
+  };
+
+  var listEl = document.getElementById('sessionHistoryList');
+  if (!listEl) { wrap.innerHTML += '<div id="sessionHistoryList"></div>'; listEl = document.getElementById('sessionHistoryList'); }
+
+  listEl.innerHTML = sessions.map(function(s, idx) {
+    var d   = new Date(s.savedAt || s.sessionDate);
+    var ds  = d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})
+            + ' ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    var mc  = MODULE_COLORS[s.module] || MODULE_COLORS['ClientCall'];
+    var ver = s.sessionNumber ? 'v' + s.sessionNumber : (idx === 0 ? 'latest' : '#' + (sessions.length - idx));
+    var isLatest = idx === 0;
+
+    // Summary line
+    var cr = (s.state && s.state.criteria) ? s.state.criteria : (s.criteria || {});
+    var summaryParts = [];
+    if (s.summary) { summaryParts.push(s.summary); }
+    else {
+      if (cr.purpose)                          summaryParts.push(cr.purpose.replace(/^[^\w]/,'').trim());
+      if (cr.cities  && cr.cities.length)      summaryParts.push(cr.cities.join(', '));
+      if (cr.types   && cr.types.length)       summaryParts.push(cr.types.join(', '));
+      if (cr.budgetMin != null)                summaryParts.push('€' + (+cr.budgetMin/1000).toFixed(0) + 'k–€' + (+cr.budgetMax/1000).toFixed(0) + 'k');
+    }
+    var summaryStr = summaryParts.join(' · ').slice(0, 80);
+    var shortlistCount = s.shortlistedIds ? s.shortlistedIds.length
+                       : (s.state && s.state.shortlistedIds ? s.state.shortlistedIds.length : 0);
+
+    return '<div style="background:var(--bg' + (isLatest?'':'2') + ');border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:8px' + (isLatest?';border-left:3px solid var(--tx)':'') + '">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
         + '<div style="flex:1;min-width:0">'
-        + '<div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:2px">' + s.name + '</div>'
-        + '<div style="font-size:10px;color:var(--mu);margin-bottom:4px">' + ds + '</div>'
-        + (critStr ? '<div style="font-size:11px;color:var(--mu);margin-bottom:4px">' + critStr + '</div>' : '')
-        + '<div style="font-size:11px;color:#ef4444">♥ ' + (s.shortlistedIds||[]).length + ' unit(s) shortlisted</div>'
+          + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">'
+            + '<span style="font-size:12px;font-weight:600;color:var(--tx)">' + safeHTML(s.sessionName || s.name || 'Session') + '</span>'
+            + '<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:' + mc.bg + ';color:' + mc.color + ';font-weight:600">' + mc.label + '</span>'
+            + '<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:var(--bg2);color:var(--mu)">' + ver + '</span>'
+            + (isLatest ? '<span style="font-size:9px;padding:1px 6px;border-radius:99px;background:#dcfce7;color:#15803d;font-weight:600">latest</span>' : '')
+          + '</div>'
+          + '<div style="font-size:10px;color:var(--mu);margin-bottom:3px">' + ds + (s.savedBy ? ' · ' + s.savedBy : '') + '</div>'
+          + (summaryStr ? '<div style="font-size:11px;color:var(--mu);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + safeHTML(summaryStr) + '</div>' : '')
+          + (shortlistCount ? '<div style="font-size:11px;color:#ef4444">♥ ' + shortlistCount + ' unit(s) shortlisted</div>' : '')
         + '</div>'
-        + '<button onclick="reloadSession(\'' + s.sessionId + '\')" class="btn" style="font-size:11px;padding:0 10px;height:28px;white-space:nowrap;flex-shrink:0">↺ Reload</button>'
-        + '</div></div>';
-    }).join('');
+        + '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+          + '<button class="btn" style="font-size:11px;padding:0 10px;height:28px;white-space:nowrap" onclick="openSessionFromHistory(this)" data-sid="' + s.sessionId + '" data-cid="' + cid + '">&#8599; Open</button>'
+          + (s.basedOnSessionId ? '<div style="font-size:9px;color:var(--mu);text-align:center">based on v' + (s.sessionNumber-1) + '</div>' : '')
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+
+
+function openSessionFromHistory(btn) {
+  var sid = btn.getAttribute('data-sid');
+  var cid = btn.getAttribute('data-cid');
+  if (sid && cid) openSession(sid, cid);
+}
+
+function resumeLatestSession(module) {
+  var clientId = module === 'PortfolioBuilder'
+    ? (function(){ var el=document.getElementById('pbClientSelector'); return el?el.value:null; })()
+    : currentClientCallId;
+
+  if (!clientId) {
+    showToast('Select a client first to resume their latest session.');
+    return;
+  }
+
+  var latest = getLatestSession(String(clientId));
+  if (!latest) {
+    showToast('No saved sessions found for this client.');
+    return;
+  }
+
+  if (!confirm('Resume "' + (latest.sessionName||latest.name||'latest session') + '"?\nThis will restore all saved criteria and shortlists.')) return;
+  openSession(latest.sessionId, String(clientId));
 }
 
 function reloadSession(sessionId) {
@@ -13205,6 +13277,593 @@ init();
     readCommsFromSheets();
   }, 200);
 })();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INTELPROP SESSION SYSTEM — Phase 1: Data Layer
+// ══════════════════════════════════════════════════════════════════════════════
+// Architecture:
+//   Sessions sheet  = immutable history (one row per save, never overwritten)
+//   Clients sheet   = live pointers to latest session
+//   localStorage    = short-term cache/fallback
+//
+// Session schema:
+//   { sessionId, clientId, sessionNumber, basedOnSessionId, module,
+//     sessionName, sessionDate, savedAt, savedBy, stage, summary, state }
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Session ID generator ─────────────────────────────────────────────────────
+function generateSessionId() {
+  var ts = Date.now().toString(36).toUpperCase();
+  var rand = Math.random().toString(36).substring(2,6).toUpperCase();
+  return 'SES-' + ts + '-' + rand;
+}
+
+// ── Sessions cache (clientId -> array of session objects, newest first) ──────
+var _sessionsCache = {};
+try {
+  var _sc = localStorage.getItem('ip_sessions_v2');
+  if (_sc) _sessionsCache = JSON.parse(_sc);
+} catch(e) {}
+
+function _saveSessionsCache() {
+  try { localStorage.setItem('ip_sessions_v2', JSON.stringify(_sessionsCache)); } catch(e) {}
+}
+
+// ── Migrate old sessions from clientSessions into new format ─────────────────
+// Old format: clientSessions[cid] = [{sessionId, name, savedAt, criteria, shortlistedIds}]
+// New format: _sessionsCache[cid] = [{sessionId, clientId, module, sessionName, ...}]
+function _migrateOldSessions() {
+  if (!clientSessions || typeof clientSessions !== 'object') return;
+  Object.keys(clientSessions).forEach(function(cid) {
+    var old = clientSessions[cid] || [];
+    if (!old.length) return;
+    if (!_sessionsCache[cid]) _sessionsCache[cid] = [];
+    old.forEach(function(s) {
+      // Skip if already migrated
+      if (_sessionsCache[cid].find(function(x){ return x.sessionId === s.sessionId; })) return;
+      _sessionsCache[cid].push({
+        sessionId:        s.sessionId,
+        clientId:         cid,
+        sessionNumber:    null,
+        basedOnSessionId: null,
+        module:           'ClientCall',
+        sessionName:      s.name || s.sessionId,
+        sessionDate:      (s.savedAt||'').slice(0,10),
+        savedAt:          s.savedAt || new Date().toISOString(),
+        savedBy:          '',
+        stage:            '',
+        summary:          '',
+        state: {
+          criteria:      s.criteria || {},
+          shortlistedIds: s.shortlistedIds || [],
+          _legacy:       true
+        }
+      });
+    });
+  });
+  _saveSessionsCache();
+}
+_migrateOldSessions();
+
+// ── getLatestSession(clientId) ───────────────────────────────────────────────
+// Returns the most recent session for a client, or null
+function getLatestSession(clientId) {
+  var cid = String(clientId);
+  var sessions = _sessionsCache[cid] || [];
+  return sessions.length ? sessions[0] : null;
+}
+
+// ── getClientSessions(clientId) ──────────────────────────────────────────────
+// Returns all sessions for a client, newest first
+function getClientSessions(clientId) {
+  var cid = String(clientId);
+  return (_sessionsCache[cid] || []).slice();
+}
+
+// ── buildClientCallState() ───────────────────────────────────────────────────
+// Captures full Client Call working state for serialization
+function buildClientCallState() {
+  var state = {
+    // Client
+    clientId:          currentClientCallId,
+    // All criteria
+    criteria: {
+      purpose:         cCriteria.purpose   || null,
+      budgetMin:       cCriteria.budgetMin || null,
+      budgetMax:       cCriteria.budgetMax || null,
+      types:           (cCriteria.types    || []).slice(),
+      beds:            (cCriteria.beds     || []).slice(),
+      cities:          (cCriteria.cities   || []).slice(),
+      maxSea:          cCriteria.maxSea    || null,
+      delivery:        cCriteria.delivery  || null,
+      risk:            cCriteria.risk      || null,
+      hold:            cCriteria.hold      || null,
+      objective:       cCriteria.objective || null,
+      priorities:      (cCriteria.priorities || []).slice()
+    },
+    // Notes
+    notes: (function(){
+      var el = document.getElementById('cNotes'); return el ? el.value : '';
+    })(),
+    additionalContext: (function(){
+      var el = document.getElementById('cAdditionalContext'); return el ? el.value : '';
+    })(),
+    // Shortlisted property IDs belonging to this client
+    shortlistedIds: (function(){
+      var ids = [];
+      if (currentClientCallId) {
+        var allClientPropIds = clientProperties
+          .filter(function(p){ return p.investorId === currentClientCallId; })
+          .map(function(p){ return p.listingId; }).filter(Boolean);
+        sl.forEach(function(id){
+          if (allClientPropIds.includes(id)) ids.push(id);
+        });
+      }
+      return ids;
+    })(),
+    // Compare panel selections
+    compareIds: Array.from(cSelectedForCompare || []),
+    // Sort state
+    sortKey:  cSortKey  || null,
+    sortAsc:  cSortAsc,
+    // UI button label snapshots for exact restore
+    _budgetLabel:   (function(){ var b=document.querySelector('#cBudgetGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _purposeLabel:  (function(){ var b=document.querySelector('#cPurposeGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _seaLabel:      (function(){ var b=document.querySelector('#cSeaGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _seaVal:        (function(){ var b=document.querySelector('#cSeaGroup .crit-btn.on'); return b?b.dataset.val:''; })(),
+    _deliveryLabel: (function(){ var b=document.querySelector('#cDeliveryGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _riskLabel:     (function(){ var b=document.querySelector('#cRiskGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _holdVal:       (function(){ var b=document.querySelector('#cHoldGroup .crit-btn.on'); return b?b.dataset.val:''; })()
+  };
+  return state;
+}
+
+// ── buildPortfolioBuilderState() ─────────────────────────────────────────────
+// Captures full Portfolio Builder working state for serialization
+function buildPortfolioBuilderState() {
+  var state = {
+    // Client
+    clientId:    (function(){ var el=document.getElementById('pbClientSelector'); return el?el.value:''; })(),
+    clientType:  (function(){ var el=document.getElementById('pbClientType'); return el?el.value:''; })(),
+    // Criteria
+    criteria: {
+      budget:    pbCriteria.budget    || null,
+      rental:    pbCriteria.rental    || null,
+      objective: pbCriteria.objective || null,
+      assets:    pbCriteria.assets    || 2,
+      cities:    (pbCriteria.cities   || []).slice(),
+      types:     (pbCriteria.types    || []).slice(),
+      risk:      pbCriteria.risk      || null,
+      sea:       pbCriteria.sea       || 999
+    },
+    // Portfolio selections
+    selectedIds:  (pbPortfolio.selected  || []).map(function(d){ return d.id; }),
+    rejectedIds:  (pbPortfolio.rejected  || []).map(function(d){ return d.id; }),
+    altIds:       pbPortfolio.alt ? [pbPortfolio.alt.id] : [],
+    altLabel:     pbPortfolio.altLabel   || '',
+    strategy:     pbPortfolio.strategy   || null,
+    risk:         pbPortfolio.risk       || null,
+    // Notes/summary
+    notes: (function(){ var el=document.getElementById('pbNotes'); return el?el.value:''; })(),
+    // UI snapshots
+    _budgetVal:    (function(){ var b=document.querySelector('#pbBudgetGroup .crit-btn.on'); return b?b.dataset.val:''; })(),
+    _rentalLabel:  (function(){ var b=document.querySelector('#pbRentalGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _objectiveLabel:(function(){ var b=document.querySelector('#pbObjectiveGroup .crit-btn.on'); return b?b.textContent.trim():''; })(),
+    _riskLabel:    (function(){ var b=document.querySelector('#pbRiskGroup .crit-btn.on'); return b?b.textContent.trim():''; })()
+  };
+  return state;
+}
+
+// ── saveSession({ clientId, module, sessionName, state, stage, summary }) ────
+// ALWAYS creates a new immutable session — never overwrites old ones
+function saveSession(opts) {
+  var clientId    = String(opts.clientId);
+  var module      = opts.module      || 'ClientCall';
+  var sessionName = opts.sessionName || ('Session ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}));
+  var state       = opts.state       || {};
+  var stage       = opts.stage       || '';
+  var summary     = opts.summary     || '';
+  var savedBy     = agentName        || '';
+
+  // Get current latest to chain versioning
+  var cid         = clientId;
+  if (!_sessionsCache[cid]) _sessionsCache[cid] = [];
+  var existing    = _sessionsCache[cid];
+  var latest      = existing.length ? existing[0] : null;
+  var nextNumber  = latest && latest.sessionNumber ? latest.sessionNumber + 1 : existing.length + 1;
+  var newId       = generateSessionId();
+
+  var session = {
+    sessionId:        newId,
+    clientId:         clientId,
+    sessionNumber:    nextNumber,
+    basedOnSessionId: latest ? latest.sessionId : null,
+    module:           module,
+    sessionName:      sessionName,
+    sessionDate:      new Date().toISOString().slice(0,10),
+    savedAt:          new Date().toISOString(),
+    savedBy:          savedBy,
+    stage:            stage,
+    summary:          summary,
+    state:            state
+  };
+
+  // Prepend (newest first)
+  _sessionsCache[cid].unshift(session);
+  _saveSessionsCache();
+
+  // Persist to Google Sheets Sessions sheet
+  _syncSessionToSheets(session);
+
+  // Update Clients sheet latest pointers
+  _updateClientLatestSession(clientId, session);
+
+  console.log('[sessions] saved:', newId, 'for client', clientId, '— version', nextNumber);
+  return session;
+}
+
+// ── _syncSessionToSheets(session) ────────────────────────────────────────────
+// Writes session row to Sessions sheet via Apps Script
+function _syncSessionToSheets(session) {
+  if (!APPS_SCRIPT_URL) return;
+  var row = [
+    session.sessionId,
+    session.clientId,
+    session.sessionNumber,
+    session.basedOnSessionId || '',
+    session.module,
+    session.sessionName,
+    session.sessionDate,
+    session.savedAt,
+    session.savedBy,
+    session.stage,
+    session.summary,
+    JSON.stringify(session)   // full payload in SessionDataJSON column
+  ];
+  syncViaJsonp({
+    type:      'session',
+    sheet:     'Sessions',
+    sessionId: session.sessionId,
+    row:       row
+  });
+}
+
+// ── _updateClientLatestSession(clientId, session) ─────────────────────────────
+// Updates LatestSessionID, LastSessionDate, CurrentModule, UpdatedAt on Clients sheet
+function _updateClientLatestSession(clientId, session) {
+  if (!APPS_SCRIPT_URL) return;
+  var inv = investorProfiles.find(function(i){
+    return String(i.investorId||i.id) === String(clientId);
+  });
+  if (!inv) return;
+  // We piggyback on the existing investor sync — Apps Script upserts by InvestorID
+  // Extra fields appended at end of row (columns added to Clients sheet)
+  syncViaJsonp({
+    type:               'investorSessionUpdate',
+    sheet:              'Clients',
+    investorId:         String(clientId),
+    latestSessionId:    session.sessionId,
+    lastSessionDate:    session.sessionDate,
+    currentModule:      session.module,
+    updatedAt:          session.savedAt,
+    row:                []   // Apps Script will update by investorId key
+  });
+}
+
+// ── openSession(sessionId, clientId) ─────────────────────────────────────────
+// Loads a session and routes to the correct module
+function openSession(sessionId, clientId) {
+  var cid = String(clientId);
+  var sessions = _sessionsCache[cid] || [];
+  var session = sessions.find(function(s){ return s.sessionId === sessionId; });
+  if (!session) {
+    console.warn('[sessions] session not found in cache:', sessionId);
+    return;
+  }
+  var module = session.module || 'ClientCall';
+  if (module === 'PortfolioBuilder') {
+    gotoTab('portfoliobuilder', document.querySelector('.tab[onclick*="portfoliobuilder"]'));
+    setTimeout(function(){ restorePortfolioBuilderState(session.state, session); }, 200);
+  } else {
+    gotoTab('clientcall', document.querySelector('.tab[onclick*="clientcall"]'));
+    setTimeout(function(){ restoreClientCallState(session.state, session); }, 200);
+  }
+  showToast('↺ Opened: ' + session.sessionName);
+}
+
+// ── restoreClientCallState(state, session) ───────────────────────────────────
+// Restores Client Call UI from saved state
+function restoreClientCallState(state, session) {
+  if (!state) return;
+
+  // 1. Select client
+  if (state.clientId) {
+    var inv = investorProfiles.find(function(i){
+      return (i.investorId||i.id) === state.clientId ||
+             String(i.investorId||i.id) === String(state.clientId);
+    });
+    if (inv) {
+      currentClientCallId = inv.investorId||inv.id;
+      var sel = document.getElementById('clientSelector');
+      if (sel) sel.value = String(currentClientCallId);
+      updateClientSummary();
+    }
+  }
+
+  // 2. Handle legacy format
+  if (state._legacy && state.criteria) {
+    // Old format — use existing reloadSession logic
+    var cr = state.criteria;
+    Object.assign(cCriteria, {purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null,risk:null,hold:null,priorities:[]});
+    document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){ b.classList.remove('on'); });
+    if(cr.purpose) document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){ if(b.textContent.trim().replace(/^[^\w]/,'').trim()===cr.purpose.replace(/^[^\w]/,'').trim()){b.classList.add('on');cCriteria.purpose=cr.purpose;} });
+    if(cr.budget) document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.budget){b.classList.add('on');cCriteria.budgetMin=+b.dataset.min;cCriteria.budgetMax=+b.dataset.max;} });
+    if(cr.types&&cr.types.length){cCriteria.types=cr.types.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(cr.types.includes(b.dataset.val))b.classList.add('on');});}
+    if(cr.beds&&cr.beds.length){cCriteria.beds=cr.beds.slice();document.querySelectorAll('#pClients .crit-multi').forEach(function(b){var v=b.dataset.val||b.textContent.trim();if(cr.beds.includes(v))b.classList.add('on');});}
+    if(cr.cities&&cr.cities.length){cCriteria.cities=cr.cities.slice();document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){if(cr.cities.includes(b.dataset.val))b.classList.add('on');});}
+    if(cr.seaVal) document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){ if(b.dataset.val===cr.seaVal){b.classList.add('on');cCriteria.maxSea=+cr.seaVal||null;} });
+    if(cr.delivery) document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.delivery){b.classList.add('on');cCriteria.delivery=cr.delivery;} });
+    if(cr.risk) document.querySelectorAll('#cRiskGroup .crit-btn').forEach(function(b){ if(b.textContent.trim()===cr.risk){b.classList.add('on');cCriteria.risk=cr.risk;} });
+    if(cr.hold) document.querySelectorAll('#cHoldGroup .crit-btn').forEach(function(b){ if(b.dataset.val===cr.hold){b.classList.add('on');cCriteria.hold=cr.hold;} });
+    if(cr.priorities&&cr.priorities.length){cCriteria.priorities=cr.priorities.slice();document.querySelectorAll('#cPrioritiesGroup .crit-multi').forEach(function(b){if(cr.priorities.includes(b.dataset.val))b.classList.add('on');});}
+    var cn=document.getElementById('cNotes'); if(cn) cn.value=cr.notes||'';
+    cUpdateBudgetLabel(); cUpdateDistanceLabel(); cToggleObjective(); applyClientFilter(); updateClientSummary();
+    return;
+  }
+
+  // 3. Full state restore
+  var cr = state.criteria || {};
+  document.querySelectorAll('#pClients .crit-btn.on, #pClients .crit-multi.on').forEach(function(b){ b.classList.remove('on'); });
+  Object.assign(cCriteria, {purpose:null,budgetMin:null,budgetMax:null,types:[],beds:[],cities:[],maxSea:null,delivery:null,risk:null,hold:null,objective:null,priorities:[]});
+
+  // Purpose
+  if (cr.purpose) {
+    document.querySelectorAll('#cPurposeGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim().replace(/^[^\w]/,'').trim() === cr.purpose.replace(/^[^\w]/,'').trim()) {
+        b.classList.add('on'); cCriteria.purpose = cr.purpose;
+      }
+    });
+  }
+  // Budget
+  if (cr.budgetMin != null || cr.budgetMax != null) {
+    cCriteria.budgetMin = cr.budgetMin; cCriteria.budgetMax = cr.budgetMax;
+    document.querySelectorAll('#cBudgetGroup .crit-btn').forEach(function(b){
+      if (+b.dataset.min === cr.budgetMin && +b.dataset.max === cr.budgetMax) b.classList.add('on');
+    });
+  }
+  // Types
+  if (cr.types && cr.types.length) {
+    cCriteria.types = cr.types.slice();
+    document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){ if(cr.types.includes(b.dataset.val)) b.classList.add('on'); });
+  }
+  // Beds
+  if (cr.beds && cr.beds.length) {
+    cCriteria.beds = cr.beds.slice();
+    document.querySelectorAll('#pClients .crit-multi').forEach(function(b){ var v=b.dataset.val||b.textContent.trim(); if(cr.beds.includes(v)) b.classList.add('on'); });
+  }
+  // Cities
+  if (cr.cities && cr.cities.length) {
+    cCriteria.cities = cr.cities.slice();
+    document.querySelectorAll('#pClients .crit-multi[data-val]').forEach(function(b){ if(cr.cities.includes(b.dataset.val)) b.classList.add('on'); });
+  }
+  // Sea
+  if (cr.maxSea != null || state._seaVal) {
+    var seaV = state._seaVal || String(cr.maxSea);
+    document.querySelectorAll('#cSeaGroup .crit-btn').forEach(function(b){
+      if (b.dataset.val === seaV) { b.classList.add('on'); cCriteria.maxSea = +seaV || null; }
+    });
+  }
+  // Delivery
+  if (cr.delivery) {
+    document.querySelectorAll('#cDeliveryGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === cr.delivery) { b.classList.add('on'); cCriteria.delivery = cr.delivery; }
+    });
+  }
+  // Risk
+  if (cr.risk) {
+    document.querySelectorAll('#cRiskGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === cr.risk) { b.classList.add('on'); cCriteria.risk = cr.risk; }
+    });
+  }
+  // Hold
+  if (cr.hold || state._holdVal) {
+    var holdV = state._holdVal || cr.hold;
+    document.querySelectorAll('#cHoldGroup .crit-btn').forEach(function(b){
+      if (b.dataset.val === holdV) { b.classList.add('on'); cCriteria.hold = holdV; }
+    });
+  }
+  // Objective
+  if (cr.objective) {
+    document.querySelectorAll('#cObjectiveGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === cr.objective) { b.classList.add('on'); cCriteria.objective = cr.objective; }
+    });
+  }
+  // Priorities
+  if (cr.priorities && cr.priorities.length) {
+    cCriteria.priorities = cr.priorities.slice();
+    document.querySelectorAll('#cPrioritiesGroup .crit-multi').forEach(function(b){
+      if (cr.priorities.includes(b.dataset.val)) b.classList.add('on');
+    });
+  }
+  // Notes
+  var cn = document.getElementById('cNotes'); if (cn) cn.value = state.notes || '';
+  var ca = document.getElementById('cAdditionalContext'); if (ca) ca.value = state.additionalContext || '';
+
+  // Restore shortlisted properties
+  if (state.shortlistedIds && state.shortlistedIds.length) {
+    state.shortlistedIds.forEach(function(id){ sl.add(id); });
+  }
+  // Restore compare selections
+  if (state.compareIds && state.compareIds.length) {
+    if (typeof cSelectedForCompare !== 'undefined') {
+      state.compareIds.forEach(function(id){ cSelectedForCompare.add(id); });
+    }
+  }
+  // Sort state
+  if (state.sortKey) { cSortKey = state.sortKey; cSortAsc = state.sortAsc; }
+
+  cUpdateBudgetLabel(); cUpdateDistanceLabel(); cToggleObjective();
+  applyClientFilter(); updateClientSummary();
+}
+
+// ── restorePortfolioBuilderState(state, session) ──────────────────────────────
+// Restores Portfolio Builder UI from saved state
+function restorePortfolioBuilderState(state, session) {
+  if (!state) return;
+  var cr = state.criteria || {};
+
+  // Select client
+  if (state.clientId) {
+    var sel = document.getElementById('pbClientSelector');
+    if (sel) { sel.value = String(state.clientId); selectClientForPortfolio(String(state.clientId)); }
+  }
+  if (state.clientType) {
+    var ct = document.getElementById('pbClientType'); if (ct) ct.value = state.clientType;
+  }
+
+  // Reset criteria buttons
+  document.querySelectorAll('#pbBudgetGroup .crit-btn, #pbRentalGroup .crit-btn, #pbObjectiveGroup .crit-btn, #pbRiskGroup .crit-btn').forEach(function(b){ b.classList.remove('on'); });
+  Object.assign(pbCriteria, {budget:null,rental:null,objective:null,assets:2,cities:[],types:[],risk:null,sea:999});
+
+  // Budget
+  if (state._budgetVal || cr.budget) {
+    var bv = state._budgetVal || String(cr.budget);
+    document.querySelectorAll('#pbBudgetGroup .crit-btn').forEach(function(b){
+      if (b.dataset.val === bv) { b.classList.add('on'); pbCriteria.budget = +bv; }
+    });
+  }
+  // Rental
+  if (state._rentalLabel || cr.rental) {
+    var rl = state._rentalLabel || cr.rental;
+    document.querySelectorAll('#pbRentalGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === rl) { b.classList.add('on'); pbCriteria.rental = cr.rental; }
+    });
+  }
+  // Objective
+  if (state._objectiveLabel || cr.objective) {
+    var ol = state._objectiveLabel || cr.objective;
+    document.querySelectorAll('#pbObjectiveGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === ol) { b.classList.add('on'); pbCriteria.objective = cr.objective; }
+    });
+  }
+  // Risk
+  if (state._riskLabel || cr.risk) {
+    var rl2 = state._riskLabel || cr.risk;
+    document.querySelectorAll('#pbRiskGroup .crit-btn').forEach(function(b){
+      if (b.textContent.trim() === rl2) { b.classList.add('on'); pbCriteria.risk = cr.risk; }
+    });
+  }
+  // Cities/Types
+  if (cr.cities && cr.cities.length) {
+    pbCriteria.cities = cr.cities.slice();
+    document.querySelectorAll('#pbCityGroup .crit-multi[data-val]').forEach(function(b){ if(cr.cities.includes(b.dataset.val)) b.classList.add('on'); });
+  }
+  if (cr.types && cr.types.length) {
+    pbCriteria.types = cr.types.slice();
+    document.querySelectorAll('#pbTypeGroup .crit-multi[data-val]').forEach(function(b){ if(cr.types.includes(b.dataset.val)) b.classList.add('on'); });
+  }
+  pbCriteria.assets = cr.assets || 2;
+  pbCriteria.sea    = cr.sea    || 999;
+
+  // Notes
+  var pbn = document.getElementById('pbNotes'); if (pbn) pbn.value = state.notes || '';
+
+  // Restore selected portfolio properties
+  if (state.selectedIds && state.selectedIds.length) {
+    pbPortfolio.selected = state.selectedIds.map(function(id){ return all.find(function(d){ return d.id === id; }); }).filter(Boolean);
+  }
+  if (state.rejectedIds && state.rejectedIds.length) {
+    pbPortfolio.rejected = state.rejectedIds.map(function(id){ return all.find(function(d){ return d.id === id; }); }).filter(Boolean);
+  }
+  if (state.altIds && state.altIds.length) {
+    pbPortfolio.alt = all.find(function(d){ return d.id === state.altIds[0]; }) || null;
+    pbPortfolio.altLabel = state.altLabel || '';
+  }
+  if (state.strategy) pbPortfolio.strategy = state.strategy;
+  if (state.risk)     pbPortfolio.risk     = state.risk;
+
+  // Re-render if function exists
+  if (typeof pbRebuildOutput === 'function') pbRebuildOutput();
+}
+
+// ── Upgraded saveCurrentSession() ────────────────────────────────────────────
+// Replaces old save — now creates immutable versioned sessions
+// Preserves backward compat: still updates clientSessions for existing UI
+function saveCurrentSessionV2(moduleOverride) {
+  var module = moduleOverride || 'ClientCall';
+  var clientId = currentClientCallId;
+  if (module === 'PortfolioBuilder') {
+    var pbSel = document.getElementById('pbClientSelector');
+    if (pbSel && pbSel.value) clientId = +pbSel.value || pbSel.value;
+  }
+  if (!clientId) { alert('Please select a client first.'); return; }
+
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === clientId || String(i.investorId||i.id) === String(clientId); });
+  var defaultName = 'Session ' + new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  var name = prompt('Session name (will be saved as a new version):', defaultName);
+  if (name === null) return;
+  if (!name.trim()) name = defaultName;
+
+  var state   = module === 'PortfolioBuilder' ? buildPortfolioBuilderState() : buildClientCallState();
+  var stage   = inv ? (inv.status || '') : '';
+  var summary = module === 'ClientCall'
+    ? (state.criteria.purpose ? state.criteria.purpose + ' · ' : '') + (state.criteria.cities||[]).join(', ')
+    : (state.criteria.objective || '');
+
+  var session = saveSession({
+    clientId:    String(clientId),
+    module:      module,
+    sessionName: name.trim(),
+    state:       state,
+    stage:       stage,
+    summary:     summary
+  });
+
+  // Also update old clientSessions for backward compat with existing session log UI
+  var cid = String(clientId);
+  if (!clientSessions[cid]) clientSessions[cid] = [];
+  clientSessions[cid].unshift({
+    sessionId:      session.sessionId,
+    name:           session.sessionName,
+    savedAt:        session.savedAt,
+    criteria:       state.criteria || {},
+    shortlistedIds: state.shortlistedIds || []
+  });
+  saveClientSessions();
+
+  if (inv) logCommunication(inv.investorId||inv.id, inv.name, 'session', 'Session saved: ' + name.trim(), null, null, (state.shortlistedIds||[]).length + ' units shortlisted');
+  showToast('✓ Session v' + session.sessionNumber + ' saved — "' + name.trim() + '"');
+  renderSessionLog();
+}
+
+// ── Apps Script code.gs snippet (add to handleWrite) ─────────────────────────
+// REMINDER: Add this case to your handleWrite() in code.gs:
+//
+//  else if (type === 'session' && data.sessionId) {
+//    keyCol = 0; keyValue = String(data.sessionId);
+//  }
+//  else if (type === 'investorSessionUpdate' && data.investorId) {
+//    // Update columns N-Q (LatestSessionID, LastSessionDate, CurrentModule, UpdatedAt)
+//    // on the Clients sheet row matching investorId
+//    var sheet = getOrCreateSheet(ss, 'Clients');
+//    var allData = sheet.getDataRange().getValues();
+//    for (var i = 1; i < allData.length; i++) {
+//      if (String(allData[i][0]) === String(data.investorId)) {
+//        var lastCol = sheet.getLastColumn();
+//        // Find or create the 4 columns
+//        ['LatestSessionID','LastSessionDate','CurrentModule','UpdatedAt'].forEach(function(h, hi) {
+//          var colIdx = allData[0].indexOf(h);
+//          if (colIdx < 0) { sheet.getRange(1, lastCol+hi+1).setValue(h); colIdx = lastCol+hi; }
+//          sheet.getRange(i+1, colIdx+1).setValue([data.latestSessionId, data.lastSessionDate, data.currentModule, data.updatedAt][hi]);
+//        });
+//        break;
+//      }
+//    }
+//  }
+// ─────────────────────────────────────────────────────────────────────────────
+
+console.log('[IntelProp] Session system v2 loaded — immutable versioning active');
+
 </script>
 </body>
 </html>
