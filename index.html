@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com https://cdnjs.cloudflare.com; font-src 'self' data:; frame-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://unpkg.com https://api.anthropic.com https://docs.google.com https://script.google.com https://script.googleusercontent.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://maps.googleapis.com https://script.google.com https://api.anthropic.com https://docs.google.com https://sheets.googleapis.com https://unpkg.com https://archive.org https://web.archive.org https://timetravel.mementoweb.org https://cc.bingj.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; frame-src 'none';">
 <title>IntelProp — Cyprus Listings</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -1728,6 +1728,8 @@ const COMMS_GID = '614194656';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzphqn8ruTH_rY3w7nqNLNy26BZlzkgq8vDu_PbIlSc6e0L-c7033u1i0Q4XdpyFH9G/exec';
 let PS = 25;
 let all = [], filt = [], sl = new Set(), page = 1, sc = null, sa = true, view = 'table', tab = 'listings';
+try { const _slRaw = localStorage.getItem('ip_shortlist'); if (_slRaw) sl = new Set(JSON.parse(_slRaw)); } catch(e) {}
+function saveSL() { try { localStorage.setItem('ip_shortlist', JSON.stringify([...sl])); } catch(e) {} }
 let CITY_BENCHMARKS = {};
 const rentalCache = {};
 const geocodeCache = {};
@@ -3852,6 +3854,9 @@ async function init() {
     document.getElementById('mPrice').step = 50000;
     populate();
     document.getElementById('sub').textContent = `${all.length.toLocaleString()} listings · ${new Date().toLocaleDateString('en-GB')}`;
+    // Restore shortlist badge after data loads
+    const _slBadge = document.getElementById('slBadge'); if(_slBadge) _slBadge.textContent = sl.size;
+    const _slInfo = document.getElementById('slInfo'); if(_slInfo) _slInfo.textContent = `${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
     doFilter(); renderDev();
     buildCityBenchmarks();
     buildNormalizedDataset();
@@ -4755,6 +4760,7 @@ async function triggerModalRental(id) {
 
 function heartFromModal(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  saveSL();
   const on = sl.has(id);
   const badge = document.getElementById('slBadge'); if(badge) badge.textContent=sl.size;
   const info = document.getElementById('slInfo'); if(info) info.textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
@@ -4876,6 +4882,7 @@ function renderCard(d) {
 
 function heart(id) {
   sl.has(id)?sl.delete(id):sl.add(id);
+  saveSL();
   const on = sl.has(id);
   const badge = document.getElementById('slBadge'); if(badge) badge.textContent=sl.size;
   const info = document.getElementById('slInfo'); if(info) info.textContent=`${sl.size} listing${sl.size!==1?'s':''} shortlisted`;
@@ -10952,14 +10959,19 @@ function renderInvestorProfilesPanel(){
   var showArchived = (document.getElementById('invShowArchived')||{}).checked;
   // Filter out archived unless checkbox is on
   var active = investorProfiles.filter(function(i){ return showArchived || i.status !== 'Archived'; });
-  var filtered=q?active.filter(function(i){var s=q.toLowerCase()
+  var filtered = q ? active.filter(function(i){
+    var s = q.toLowerCase();
+    return (i.name||'').toLowerCase().includes(s) ||
+           (i.phone||'').includes(s) ||
+           (i.email||'').toLowerCase().includes(s);
+  }) : active;
   // Filter by pipeline stage if active
   if (_pipelineStageFilter) {
     filtered = filtered.filter(function(i){ return getPipelineStage(i) === _pipelineStageFilter; });
   }
   // Render pipeline summary bar
   var summaryEl = document.getElementById('pipelineSummaryBar');
-  if (summaryEl) summaryEl.innerHTML = renderPipelineSummaryBar();return(i.name||'').toLowerCase().includes(s)||(i.phone||'').includes(s)||(i.email||'').toLowerCase().includes(s);}):active;
+  if (summaryEl) summaryEl.innerHTML = renderPipelineSummaryBar();
   if(!filtered.length)return'<div class="empty" style="padding:1rem">No profiles match "'+safeHTML(q)+'".</div>';
   var invTot=Math.ceil(filtered.length/invPS)||1;
   invPage=Math.max(1,Math.min(invPage,invTot));
