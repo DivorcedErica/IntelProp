@@ -6081,21 +6081,80 @@ function renderInvestorCard(inv) {
       if (countEl) countEl.textContent = entries.length;
       if (titleEl) titleEl.textContent = 'Activity log (' + entries.length + ')';
       if (!entries.length) { tlEl.innerHTML = '<div class="empty" style="padding:8px 0;font-size:12px">No activity yet.</div>'; return; }
-      entries.slice().reverse();
-      tlEl.innerHTML = entries.map(function(e){
-        var icon = e.type === 'session'   ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-top:3px;flex-shrink:0"></span>'
-                 : e.type === 'shortlist' ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-top:3px;flex-shrink:0"></span>'
-                 : '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;margin-top:3px;flex-shrink:0"></span>';
-        var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' — ');
-        return '<div class="inv-tl-item">'
-          + icon
-          + '<div style="flex:1;min-width:0">'
-            + '<div style="font-size:12px;color:var(--tx)">' + (e.action||'Activity') + '</div>'
-            + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sub + '</div>' : '')
+      entries = entries.slice().reverse(); // newest first
+
+      // Group by date
+      var tlGroups = {}, tlGroupOrder = [];
+      entries.forEach(function(e) {
+        var d = e.date ? new Date(e.date) : null;
+        var dayKey = (d && !isNaN(d))
+          ? d.toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })
+          : (e.dateFormatted ? e.dateFormatted.split(' ')[0] : 'Unknown date');
+        if (!tlGroups[dayKey]) { tlGroups[dayKey] = []; tlGroupOrder.push(dayKey); }
+        tlGroups[dayKey].push(e);
+      });
+
+      var tlHtml = tlGroupOrder.map(function(dayKey, gi) {
+        var dayEntries = tlGroups[dayKey];
+        var isOpen = gi === 0;
+        var dayId = 'tlDay_' + gi + '_' + Date.now();
+
+        // Type pill counts
+        var typeCounts = {};
+        dayEntries.forEach(function(e){ var t=e.type||'general'; typeCounts[t]=(typeCounts[t]||0)+1; });
+        var TYPE_COLORS = { session:'#3b82f6', shortlist:'#22c55e', note:'#f59e0b', general:'#8b5cf6' };
+        var TYPE_BG = { session:'#dbeafe', shortlist:'#dcfce7', note:'#fef3c7', general:'#ede9fe' };
+        var pillsHtml = Object.keys(typeCounts).map(function(t) {
+          var c = TYPE_COLORS[t]||'#6b7280', bg = TYPE_BG[t]||'#f3f4f6';
+          return '<span style="font-size:9px;padding:1px 7px;border-radius:99px;background:'+bg+';color:'+c+';font-weight:600">'+typeCounts[t]+' '+t+'</span>';
+        }).join('');
+
+        var rowsHtml = dayEntries.map(function(e) {
+          var dotColor = TYPE_COLORS[e.type||'general']||'#94a3b8';
+          var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' · ');
+          var time = (e.date && !isNaN(new Date(e.date)))
+            ? new Date(e.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
+          return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;margin-bottom:4px;background:var(--bg2)">'
+            + '<div style="width:8px;height:8px;border-radius:50%;background:'+dotColor+';flex-shrink:0;margin-top:4px"></div>'
+            + '<div style="flex:1;min-width:0">'
+              + '<div style="font-size:12px;font-weight:500;color:var(--tx)">'+(e.action||'Activity')+'</div>'
+              + (sub ? '<div style="font-size:11px;color:var(--mu);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sub+'</div>' : '')
+            + '</div>'
+            + (time ? '<div style="font-size:10px;color:var(--mu);flex-shrink:0;white-space:nowrap;margin-top:2px">'+time+'</div>' : '')
+            + '</div>';
+        }).join('');
+
+        return '<div style="margin-bottom:4px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">'
+          + '<div class="tl-acc-hdr" data-target="'+dayId+'" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);cursor:pointer;user-select:none">'
+            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+              + '<span style="font-size:11px;font-weight:700;color:var(--tx)">'+dayKey+'</span>'
+              + pillsHtml
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'
+              + '<span style="font-size:10px;color:var(--mu)">'+dayEntries.length+' event'+(dayEntries.length!==1?'s':'')+'</span>'
+              + '<span class="tl-acc-arr" style="font-size:11px;color:var(--mu);transition:transform .2s;display:inline-block;transform:'+(isOpen?'rotate(180deg)':'rotate(0deg)')+'">&#9660;</span>'
+            + '</div>'
           + '</div>'
-          + '<div style="font-size:10px;color:var(--mu);flex-shrink:0;margin-left:8px;white-space:nowrap">' + e.dateFormatted + '</div>'
-          + '</div>';
+          + '<div id="'+dayId+'" style="display:'+(isOpen?'':'none')+';padding:8px 10px;background:var(--bg);border-top:1px solid var(--bd)">'
+            + rowsHtml
+          + '</div>'
+        + '</div>';
       }).join('');
+
+      tlEl.innerHTML = tlHtml;
+
+      // Wire accordion toggles
+      tlEl.querySelectorAll('.tl-acc-hdr').forEach(function(hdr) {
+        hdr.addEventListener('click', function() {
+          var body = document.getElementById(hdr.dataset.target);
+          var arr  = hdr.querySelector('.tl-acc-arr');
+          if (!body) return;
+          var open = body.style.display !== 'none';
+          body.style.display = open ? 'none' : '';
+          if (arr) arr.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+          hdr.style.background = open ? 'var(--bg)' : 'var(--bg2)';
+        });
+      });
     } catch(ex) {
       var tlEl = document.getElementById('invTimeline');
       if (tlEl) tlEl.innerHTML = '<div class="empty" style="padding:8px 0;font-size:12px">Could not load activity.</div>';
