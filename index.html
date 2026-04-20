@@ -6058,23 +6058,7 @@ function renderInvestorCard(inv) {
               + (function(){ var d=inv.lastContact?Math.floor((Date.now()-new Date(inv.lastContact))/86400000):null; if(!d)return ''; if(d>21)return ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-bottom:2px" title="Inactive '+d+'d"></span>'; if(d>7)return ' <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-bottom:2px" title="Inactive '+d+'d"></span>'; return ''; })()
             + '</div>'
             + (inv.clientType ? '<span style="font-size:11px;font-weight:600;padding:2px 10px;border-radius:99px;background:' + (inv.clientType==='Investor'?'#dbeafe;color:#1e40af':'#f3e8ff;color:#7c3aed') + '">' + safeHTML(inv.clientType) + '</span>' : '')
-            + (function(){
-                var TMAP = {
-                  'Ice Cold': {bg:'#bfdbfe',color:'#1e3a8a'},
-                  'Very Cold':{bg:'#dbeafe',color:'#1d4ed8'},
-                  'Cold':     {bg:'#eff6ff',color:'#2563eb'},
-                  'Cool':     {bg:'#cffafe',color:'#0891b2'},
-                  'Neutral':  {bg:'#f3f4f6',color:'#374151'},
-                  'Warm':     {bg:'#fef3c7',color:'#b45309'},
-                  'Hot':      {bg:'#fed7aa',color:'#c2410c'},
-                  'Very Hot': {bg:'#fee2e2',color:'#b91c1c'},
-                  'Burning':  {bg:'#fecaca',color:'#7f1d1d'}
-                };
-                var t = inv.temperature;
-                if (!t || t === 'Neutral') return '';
-                var cfg = TMAP[t] || {bg:'#f3f4f6',color:'#374151'};
-                return '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:' + cfg.bg + ';color:' + cfg.color + '">' + t + '</span>';
-              }())
+            + getTempBadgeHtml(inv.temperature)
             + '<button onclick="showEditContact(' + (inv.investorId||inv.id) + ')" style="font-size:11px;background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;color:var(--mu);padding:2px 8px;margin-left:auto">\u270f Edit</button>'
           + '</div>'
           + '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mu);margin-bottom:10px">'
@@ -6084,6 +6068,7 @@ function renderInvestorCard(inv) {
             + (inv.source ? '<span>\ud83d\udce5 ' + safeHTML(inv.source) + '</span>' : '')
           + '</div>'
           + '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' + inlineCriteriaHtml + '</div>'
+        + (inv.specialInstructions ? '<div style="margin-top:10px;padding:10px 14px;background:#fefce8;border:1px solid #fde68a;border-radius:8px;border-left:3px solid #f59e0b"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#92400e;margin-bottom:4px">\uD83D\uDCCC Client Instructions</div><div style="font-size:12px;color:var(--tx);line-height:1.6">' + safeHTML(inv.specialInstructions) + '</div></div>' : '')
         + '</div>'
         + '<div style="display:flex;gap:8px;flex-shrink:0">'
           + '<div style="text-align:center;padding:10px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--bd);min-width:70px"><div style="font-size:22px;font-weight:700;color:var(--tx)">' + noteProps.length + '</div><div style="font-size:10px;color:var(--mu);margin-top:2px">Properties</div></div>'
@@ -6111,7 +6096,7 @@ function renderInvestorCard(inv) {
         + '</div>'
         + '<div style="display:flex;gap:6px">'
           + '<div style="grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px"><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Follow-up Date</div><input type="date" id="eiFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div><div><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Reminder Note</div><input id="eiFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="Call back after..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div></div>'
-          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Next Action</div><input id="eiNextAction" value="' + safeHTML(inv.nextAction||'') + '" placeholder="e.g. Send shortlist..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Next Action</div><input id="eiNextAction" value="' + safeHTML(inv.nextAction||'') + '" placeholder="e.g. Send shortlist..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'          + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Client Instructions <span style="font-weight:400;text-transform:none;font-size:10px">(pinned to card)</span></div><textarea id="eiSpecialInstructions" placeholder="e.g. Must have sea view, cash buyer, avoid Germasogeia..." style="width:100%;height:64px;padding:8px;border:1px solid #fde68a;border-radius:var(--r);background:#fefce8;color:var(--tx);font-size:12px;resize:vertical">' + safeHTML(inv.specialInstructions||'') + '</textarea></div>'
           + '<div style="grid-column:span 2;margin-top:6px"><div style="font-size:10px;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Temperature</div><div style="position:relative;padding:4px 0"><input type="range" id="eiTemperature" min="0" max="8" step="1" value="' + (function(t){var m={'Ice Cold':0,'Very Cold':1,'Cold':2,'Cool':3,'Neutral':4,'Warm':5,'Hot':6,'Very Hot':7,'Burning':8};return m[t]!=null?m[t]:4;})(inv.temperature||'Neutral') + '" oninput="updateTempSlider(\'eiTemperature\',\'eiTempLabel\')" style="width:100%;cursor:pointer;height:6px;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none;background:linear-gradient(to right,#bfdbfe,#93c5fd,#67e8f9,#9ca3af,#fcd34d,#fb923c,#fca5a5,#ef4444);transition:background .3s"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mu);margin-top:2px"><span>Ice Cold</span><span>Neutral</span><span>Burning</span></div><div id="eiTempLabel" style="text-align:center;font-size:11px;font-weight:700;margin-top:6px;padding:2px 14px;border-radius:99px;display:inline-block;transition:background .3s,color .3s">' + (inv.temperature||'Neutral') + '</div></div>'
           + '<button onclick="saveEditContact(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save</button>'
           + '<button onclick="var e=document.getElementById(\'invContactEdit\');if(e)e.style.display=\'none\'" class="btn" style="font-size:11px">Cancel</button>'
@@ -6155,7 +6140,7 @@ function renderInvestorCard(inv) {
     + '<div class="inv-section-title">General notes</div>'
     + '<textarea class="inv-general-notes" id="invGenNotes" placeholder="Notes about this client\u2026">' + (inv.generalNotes||'') + '</textarea>'
     + '<button onclick="saveInvGeneralNotes(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px;margin-top:6px">Save notes</button>'
-    + (inv.generalNotes ? '<button onclick="logInvMeeting(' + (inv.investorId||inv.id) + ')" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px">+ Log activity</button>' : '')
+    + '<button onclick="showLogActivityPanel(' + (inv.investorId||inv.id) + ')" class="btn" style="font-size:11px;margin-top:6px;margin-left:6px" id="logActBtn">+ Log Activity</button>'
     + '<div class="inv-section-title" style="margin-top:16px">Follow-up Reminder</div>'    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">'      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Date</div>'        + '<input type="date" id="cardFollowUpDate" value="' + (inv.followUpDate||'') + '" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Note</div>'        + '<input id="cardFollowUpNote" value="' + safeHTML(inv.followUpNote||'') + '" placeholder="e.g. Call back after summer..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'    + '</div>'    + '<button onclick="saveCardFollowUp(' + (inv.investorId||inv.id) + ')" class="btn primary" style="font-size:11px">Save reminder</button>'    + (inv.followUpDate?(function(){var fd=new Date(inv.followUpDate);var diff=Math.ceil((fd-new Date())/86400000);return ' <span style="font-size:10px;padding:1px 8px;border-radius:99px;background:'+(diff<0?'#fee2e2':diff===0?'#fef3c7':'#dbeafe')+';color:'+(diff<0?'#991b1b':diff===0?'#92400e':'#1e40af')+'">'+(diff<0?'Overdue '+Math.abs(diff)+'d':diff===0?'Due today':'In '+diff+'d')+'</span>';})():'')
     + '<div style="display:flex;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--bd)">'
       + '<button onclick="deleteInvestorProfile(' + (inv.investorId||inv.id) + ')" style="font-size:11px;padding:0 12px;border:1px solid var(--red);border-radius:var(--r);background:transparent;color:var(--red);cursor:pointer;height:32px">Hide Client</button>'
@@ -6276,6 +6261,125 @@ function updateInvStatus(id, status) {
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
 }
 
+
+function getTempBadgeHtml(temp) {
+  var TMAP = {
+    'Ice Cold': {bg:'#bfdbfe',color:'#1e3a8a'},
+    'Very Cold':{bg:'#dbeafe',color:'#1d4ed8'},
+    'Cold':     {bg:'#eff6ff',color:'#2563eb'},
+    'Cool':     {bg:'#cffafe',color:'#0891b2'},
+    'Neutral':  {bg:'#f3f4f6',color:'#374151'},
+    'Warm':     {bg:'#fef3c7',color:'#b45309'},
+    'Hot':      {bg:'#fed7aa',color:'#c2410c'},
+    'Very Hot': {bg:'#fee2e2',color:'#b91c1c'},
+    'Burning':  {bg:'#fecaca',color:'#7f1d1d'}
+  };
+  if (!temp || temp === 'Neutral') return '';
+  var cfg = TMAP[temp] || {bg:'#f3f4f6',color:'#374151'};
+  return '<span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:'+cfg.bg+';color:'+cfg.color+'">'+temp+'</span>';
+}
+
+function showLogActivityPanel(invId) {
+  var existing = document.getElementById('logActivityPanel');
+  if (existing) { existing.remove(); return; }
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; });
+  if (!inv) return;
+
+  var ACTIVITY_TYPES = [
+    { val:'call',     label:'📞 Phone Call'  },
+    { val:'meeting',  label:'🤝 Meeting'     },
+    { val:'viewing',  label:'🏠 Viewing'     },
+    { val:'email',    label:'✉️ Email'        },
+    { val:'whatsapp', label:'💬 WhatsApp'    },
+    { val:'offer',    label:'📋 Offer Made'  },
+    { val:'followup', label:'🔔 Follow-up'   },
+    { val:'document', label:'📄 Document Sent'},
+    { val:'note',     label:'📝 Note'        }
+  ];
+
+  var panel = document.createElement('div');
+  panel.id = 'logActivityPanel';
+  panel.style.cssText = 'margin-top:12px;padding:14px 16px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;';
+  panel.innerHTML =
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:10px">Log Activity</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'
+    + ACTIVITY_TYPES.map(function(t){
+        return '<button class="crit-btn" onclick="selectActivityType(this)" data-val="'+t.val+'" style="font-size:11px">'+t.label+'</button>';
+      }).join('')
+    + '</div>'
+    + '<textarea id="logActivityNote" placeholder="Add details... (e.g. Client confirmed interest in 3-bed, wants sea view, budget flexible to €900k)" style="width:100%;height:72px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px;resize:vertical;margin-bottom:8px"></textarea>'
+    + '<div style="display:flex;gap:6px">'
+    + '<button onclick="saveLogActivity('+invId+')" class="btn primary" style="font-size:11px">Save Activity</button>'
+    + '<button onclick="var p=document.getElementById(\'logActivityPanel\');if(p)p.remove();" class="btn" style="font-size:11px">Cancel</button>'
+    + '</div>';
+
+  // Insert after the + Log activity button area
+  var anchor = document.getElementById('invGenNotes');
+  if (anchor && anchor.parentElement) {
+    anchor.parentElement.insertBefore(panel, anchor.nextSibling.nextSibling || null);
+  } else {
+    // fallback: append to card view
+    var card = document.getElementById('invCardView');
+    if (card) card.appendChild(panel);
+  }
+}
+
+function selectActivityType(btn) {
+  document.querySelectorAll('#logActivityPanel .crit-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+function saveLogActivity(invId) {
+  var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; });
+  if (!inv) return;
+  var typeBtn = document.querySelector('#logActivityPanel .crit-btn.on');
+  var type    = typeBtn ? typeBtn.dataset.val : 'note';
+  var typeLabel = typeBtn ? typeBtn.textContent.trim() : 'Note';
+  var note    = (document.getElementById('logActivityNote')||{}).value || '';
+  if (!note.trim() && !typeBtn) { alert('Please select an activity type and add a note.'); return; }
+  if (!note.trim()) { alert('Please add a note describing the activity.'); return; }
+
+  inv.lastContact = new Date().toISOString();
+  saveInvestorProfiles();
+  logCommunication(inv.investorId||inv.id, inv.name, type, typeLabel, null, null, note.trim());
+  if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+
+  // Remove panel and refresh timeline
+  var panel = document.getElementById('logActivityPanel');
+  if (panel) panel.remove();
+  showToast('\u2713 Activity logged: ' + typeLabel);
+
+  // Refresh activity timeline if visible
+  var tlEl = document.getElementById('invTimeline');
+  if (tlEl) {
+    loadActivityLog(inv.investorId||inv.id).then(function(entries) {
+      if (!entries.length) return;
+      entries = entries.slice().reverse();
+      var groups = {}, groupOrder = [];
+      entries.forEach(function(e) {
+        var d = e.date ? new Date(e.date) : null;
+        var dayKey = (d && !isNaN(d)) ? d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}) : 'Unknown date';
+        if (!groups[dayKey]) { groups[dayKey]=[]; groupOrder.push(dayKey); }
+        groups[dayKey].push(e);
+      });
+      var TYPE_COLORS = {session:'#3b82f6',shortlist:'#22c55e',note:'#f59e0b',general:'#8b5cf6',call:'#10b981',meeting:'#6366f1',viewing:'#f59e0b',email:'#3b82f6',whatsapp:'#22c55e',offer:'#ef4444',followup:'#f59e0b',document:'#64748b'};
+      tlEl.innerHTML = groupOrder.map(function(dayKey, gi) {
+        var dayEntries = groups[dayKey];
+        var isOpen = gi === 0;
+        var dayId = 'tlDay_r'+gi+'_'+Date.now();
+        var rowsHtml = dayEntries.map(function(e) {
+          var dot = TYPE_COLORS[e.type||'general']||'#8b5cf6';
+          var sub = [e.propertyTitle, e.notes].filter(Boolean).join(' · ');
+          var time = (e.date&&!isNaN(new Date(e.date))) ? new Date(e.date).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '';
+          return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;margin-bottom:4px;background:var(--bg2)"><div style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0;margin-top:4px"></div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:var(--tx)">'+(e.action||'Activity')+'</div>'+(sub?'<div style="font-size:11px;color:var(--mu);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sub+'</div>':'')+'</div>'+(time?'<div style="font-size:10px;color:var(--mu);flex-shrink:0">'+time+'</div>':'')+'</div>';
+        }).join('');
+        return '<div style="margin-bottom:4px;border:1px solid var(--bd);border-radius:8px;overflow:hidden"><div class="tl-acc-hdr" data-target="'+dayId+'" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg);cursor:pointer;user-select:none"><span style="font-size:11px;font-weight:700;color:var(--tx)">'+dayKey+'</span><span style="font-size:10px;color:var(--mu)">'+dayEntries.length+' event'+(dayEntries.length!==1?'s':'')+'</span></div><div id="'+dayId+'" style="display:'+(isOpen?'':'none')+';padding:8px 10px;border-top:1px solid var(--bd)">'+rowsHtml+'</div></div>';
+      }).join('');
+      tlEl.querySelectorAll('.tl-acc-hdr').forEach(function(hdr){hdr.addEventListener('click',function(){var body=document.getElementById(hdr.dataset.target);if(!body)return;var open=body.style.display!=='none';body.style.display=open?'none':'';});});
+    }).catch(function(){});
+  }
+}
+
 function saveCardFollowUp(id) {
   var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === id; });
   if (!inv) return;
@@ -6333,6 +6437,7 @@ function saveEditContact(id) {
   var eiFollowUpNote=document.getElementById('eiFollowUpNote');if(eiFollowUpNote)inv.followUpNote=eiFollowUpNote.value.trim();
   var eiTemp=document.getElementById('eiTemperature');if(eiTemp)inv.temperature=['Ice Cold','Very Cold','Cold','Cool','Neutral','Warm','Hot','Very Hot','Burning'][+eiTemp.value]||'Neutral';
   var eiNA=document.getElementById('eiNextAction');if(eiNA)inv.nextAction=eiNA.value.trim();
+  var eiSI=document.getElementById('eiSpecialInstructions');if(eiSI)inv.specialInstructions=eiSI.value.trim();
   saveInvestorProfiles();
   if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
   renderInvestorCard(inv);
