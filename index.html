@@ -6192,8 +6192,12 @@ function logInvMeeting(id) {
 }
 
 function showEditContact(id) {
-  document.getElementById('invContactDisplay').style.display = 'none';
-  document.getElementById('invContactEdit').style.display = '';
+  // invContactDisplay doesn't exist — just show the edit form
+  var edit = document.getElementById('invContactEdit');
+  if (edit) edit.style.display = '';
+  // Hide the edit button so it's clear we're in edit mode
+  var editBtn = document.querySelector('button[onclick*="showEditContact"]');
+  if (editBtn) editBtn.style.display = 'none';
 }
 
 function saveEditContact(id) {
