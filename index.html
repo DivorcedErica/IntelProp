@@ -518,124 +518,81 @@ tr:hover td{background:var(--bg2)}
     </div>
 
     <!-- LISTINGS -->
-    <!-- Add Property Form -->
-    <div id="addPropertyFormWrap" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:18px 20px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--tx)">Add Property Manually</div>
-          <div style="font-size:11px;color:var(--mu);margin-top:2px">Adds to Final List sheet and optional client shortlists</div>
-        </div>
-        <button onclick="toggleAddPropertyForm()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--mu)">&#x2715;</button>
-      </div>
-
-      <!-- Row 1: Developer, City, District, Type -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <div class="form-label">Developer *</div>
-          <input id="apDeveloper" placeholder="e.g. Cybarco" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div>
-          <div class="form-label">City *</div>
-          <select id="apCity" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="">— Select —</option>
-            <option>Limassol</option><option>Nicosia</option><option>Larnaca</option><option>Paphos</option><option>Famagusta</option>
-          </select>
-        </div>
-        <div>
-          <div class="form-label">District / Area *</div>
-          <input id="apDistrict" placeholder="e.g. Germasogeia" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div>
-          <div class="form-label">Type *</div>
-          <select id="apType" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="">— Select —</option>
-            <option>Apartment</option><option>Villa</option><option>House</option><option>Penthouse</option><option>Office</option><option>Hotel</option><option>Residential</option><option>Commercial</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Row 2: Bedrooms, Area, Price, Sea Distance -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <div class="form-label">Bedrooms</div>
-          <select id="apBeds" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="">—</option>
-            <option>Studio</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option>
-          </select>
-        </div>
-        <div>
-          <div class="form-label">Area m²</div>
-          <input id="apArea" type="number" placeholder="e.g. 120" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div>
-          <div class="form-label">Price (€) *</div>
-          <input id="apPrice" type="number" placeholder="e.g. 450000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div>
-          <div class="form-label">Distance to Sea (km)</div>
-          <input id="apSeaDist" type="number" step="0.1" placeholder="e.g. 0.8" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-      </div>
-
-      <!-- Row 3: Stage, Delivery, New, Complex -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <div class="form-label">Stage</div>
-          <select id="apStage" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="">— Select —</option>
-            <option>Pre-Sale</option><option>Under Construction</option><option>Delivered</option><option>Ready Now</option>
-          </select>
-        </div>
-        <div>
-          <div class="form-label">Delivery Date</div>
-          <input id="apDelivery" placeholder="e.g. Q4 2026" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-        <div>
-          <div class="form-label">New Listing?</div>
-          <select id="apIsNew" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-            <option value="Y">Yes — New</option>
-            <option value="N">No — Resale</option>
-          </select>
-        </div>
-        <div>
-          <div class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-            Complex / Project
-            <span style="display:flex;gap:0;border:1px solid var(--bd);border-radius:6px;overflow:hidden;font-size:10px">
-              <button id="apTypeComplex" onclick="setProjectType('complex')" style="padding:1px 8px;background:#1a1a1a;color:#fff;border:none;cursor:pointer;font-size:10px">Complex</button>
-              <button id="apTypeStandalone" onclick="setProjectType('standalone')" style="padding:1px 8px;background:var(--bg);color:var(--mu);border:none;cursor:pointer;font-size:10px">Standalone</button>
-            </span>
+    <!-- Add Property Modal (triggered by + Add Property button) -->
+    <div id="addPropertyModal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.5);overflow-y:auto;padding:24px 16px" onclick="if(event.target===this)closeAddPropertyModal()">
+      <div style="background:var(--bg);border-radius:14px;max-width:780px;margin:0 auto;padding:22px 24px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--tx)">Add Property Manually</div>
+            <div style="font-size:11px;color:var(--mu);margin-top:2px">Saves to Final List · optionally shortlist for clients</div>
           </div>
-          <input id="apComplex" placeholder="e.g. Limassol Marina" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-          <input type="hidden" id="apProjectType" value="complex">
+          <button onclick="closeAddPropertyModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--mu);line-height:1;padding:0 4px">&times;</button>
         </div>
-      </div>
 
-      <!-- Row 4: URL, Notes -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div>
-          <div class="form-label">Listing URL</div>
-          <input id="apUrl" type="url" placeholder="https://..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+        <!-- Row 1: Developer, City, District, Type -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><div class="form-label">Developer *</div><input id="apDeveloper" placeholder="e.g. Cybarco" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">City *</div><select id="apCity" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option>Limassol</option><option>Nicosia</option><option>Larnaca</option><option>Paphos</option><option>Famagusta</option></select></div>
+          <div><div class="form-label">District / Area *</div><input id="apDistrict" placeholder="e.g. Germasogeia" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">Type *</div><select id="apType" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option>Apartment</option><option>Villa</option><option>House</option><option>Penthouse</option><option>Office</option><option>Hotel</option><option>Residential</option><option>Commercial</option></select></div>
         </div>
-        <div>
-          <div class="form-label">Notes</div>
-          <input id="apNotes" placeholder="e.g. Corner unit, panoramic view, motivated seller..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
-        </div>
-      </div>
 
-      <!-- Row 5: Shortlist for clients -->
-      <div style="margin-bottom:14px">
-        <div class="form-label" style="margin-bottom:6px">Shortlist for clients <span style="font-weight:400;text-transform:none">(optional — select one or more)</span></div>
-        <div id="apClientMultiSelect" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);min-height:36px;max-height:100px;overflow-y:auto">
-          <span style="font-size:11px;color:var(--mu);padding:3px 0">Loading clients...</span>
+        <!-- Row 2: Bedrooms, Area, Price, Sea Distance -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><div class="form-label">Bedrooms</div><select id="apBeds" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">—</option><option>Studio</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6+</option></select></div>
+          <div><div class="form-label">Area m²</div><input id="apArea" type="number" placeholder="e.g. 120" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">Price (€) *</div><input id="apPrice" type="number" placeholder="e.g. 450000" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">Distance to Sea (km)</div><input id="apSeaDist" type="number" step="0.1" placeholder="e.g. 0.8" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
         </div>
-      </div>
 
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button onclick="saveManualProperty('close')" class="btn primary" style="font-size:12px;height:36px;padding:0 20px">&#x2713; Save &amp; Close</button>
-        <button onclick="saveManualProperty('another')" class="btn" style="font-size:12px;height:36px;padding:0 16px" title="Save and start a fresh form">+ Save &amp; Add Another</button>
-        <button onclick="saveManualProperty('sameproject')" class="btn" style="font-size:12px;height:36px;padding:0 16px;background:#f0fdf4;border-color:#86efac;color:#15803d" title="Save and keep project details for next unit">&#x267B; Same Project — Next Unit</button>
-        <button onclick="toggleAddPropertyForm()" class="btn" style="font-size:12px;height:36px;padding:0 14px;color:var(--mu)">Cancel</button>
-        <div id="apSaveStatus" style="font-size:11px;color:var(--mu);margin-left:4px"></div>
+        <!-- Row 3: Stage, Delivery, New, Complex+toggle -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div><div class="form-label">Stage</div><select id="apStage" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="">— Select —</option><option>Pre-Sale</option><option>Under Construction</option><option>Delivered</option><option>Ready Now</option></select></div>
+          <div><div class="form-label">Delivery Date</div><input id="apDelivery" placeholder="e.g. Q4 2026" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">New Listing?</div><select id="apIsNew" style="width:100%;height:34px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"><option value="Y">Yes — New</option><option value="N">No — Resale</option></select></div>
+          <div>
+            <div class="form-label" style="display:flex;align-items:center;justify-content:space-between">Complex / Project
+              <span style="display:flex;gap:0;border:1px solid var(--bd);border-radius:6px;overflow:hidden">
+                <button id="apTypeComplex" onclick="setProjectType('complex')" style="padding:1px 8px;background:#1a1a1a;color:#fff;border:none;cursor:pointer;font-size:10px">Complex</button>
+                <button id="apTypeStandalone" onclick="setProjectType('standalone')" style="padding:1px 8px;background:var(--bg);color:var(--mu);border:none;cursor:pointer;font-size:10px">Standalone</button>
+              </span>
+            </div>
+            <input id="apComplex" placeholder="e.g. Limassol Marina" style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+            <input type="hidden" id="apProjectType" value="complex">
+          </div>
+        </div>
+
+        <!-- Row 4: URL, Notes -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div><div class="form-label">Listing URL</div><input id="apUrl" type="url" placeholder="https://..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+          <div><div class="form-label">Notes</div><input id="apNotes" placeholder="e.g. Corner unit, panoramic view, motivated seller..." style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>
+        </div>
+
+        <!-- Client shortlist — search & add -->
+        <div style="margin-bottom:16px">
+          <div class="form-label" style="margin-bottom:6px">Shortlist for clients <span style="font-weight:400;text-transform:none">(optional)</span></div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <div style="position:relative;flex:1">
+              <input id="apClientSearch" placeholder="Search client by name..." autocomplete="off"
+                oninput="apSearchClients(this.value)"
+                onfocus="apSearchClients(this.value)"
+                style="width:100%;height:34px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px">
+              <div id="apClientDropdown" style="display:none;position:absolute;top:36px;left:0;right:0;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);z-index:100;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+            </div>
+          </div>
+          <div id="apSelectedClients" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px">
+            <span id="apNoClientsMsg" style="font-size:11px;color:var(--mu);padding:3px 0">No clients selected</span>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--bd)">
+          <button onclick="saveManualProperty('close')" class="btn primary" style="font-size:12px;height:36px;padding:0 20px">&#x2713; Save &amp; Close</button>
+          <button onclick="saveManualProperty('another')" class="btn" style="font-size:12px;height:36px;padding:0 16px">+ Save &amp; Add Another</button>
+          <button onclick="saveManualProperty('sameproject')" class="btn" style="font-size:12px;height:36px;padding:0 16px;background:#f0fdf4;border-color:#86efac;color:#15803d">&#x267B; Same Project &#x2014; Next Unit</button>
+          <button onclick="closeAddPropertyModal()" class="btn" style="font-size:12px;height:36px;padding:0 14px;color:var(--mu)">Cancel</button>
+          <div id="apSaveStatus" style="font-size:11px;color:var(--mu);margin-left:4px"></div>
+        </div>
       </div>
     </div>
 
@@ -14225,40 +14182,106 @@ function showFollowUpList(){var today=new Date();today.setHours(0,0,0,0);var due
 // ══════════════════════════════════════════════════════════════════
 
 function toggleAddPropertyForm() {
-  var wrap = document.getElementById('addPropertyFormWrap');
-  if (!wrap) return;
-  var isOpen = wrap.style.display !== 'none';
-  wrap.style.display = isOpen ? 'none' : '';
-  var btn = document.getElementById('addPropBtn');
-  if (btn) btn.textContent = isOpen ? '+ Add Property' : '✕ Close';
-  if (!isOpen) {
-    populateApClientSelect();
-    resetAddPropertyForm(false);
-    // Pre-fill agent's linked client if one is selected in Client Call
-    if (currentClientCallId) {
-      var sel = document.querySelector('#apClientMultiSelect input[value="'+currentClientCallId+'"]');
-      if (sel) sel.checked = true;
-    }
+  var modal = document.getElementById('addPropertyModal');
+  if (!modal) return;
+  modal.style.display = '';
+  document.body.style.overflow = 'hidden';
+  resetAddPropertyForm(false);
+  // Pre-select current client if one is active in Client Call
+  if (currentClientCallId) {
+    var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; });
+    if (inv) apAddClient(inv.investorId||inv.id, inv.name);
   }
 }
 
-function populateApClientSelect() {
-  var container = document.getElementById('apClientMultiSelect');
-  if (!container) return;
-  if (!investorProfiles || !investorProfiles.length) {
-    container.innerHTML = '<span style="font-size:11px;color:var(--mu)">No clients found</span>';
+function closeAddPropertyModal() {
+  var modal = document.getElementById('addPropertyModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+  var btn = document.getElementById('addPropBtn');
+  if (btn) btn.textContent = '+ Add Property';
+}
+
+function populateApClientSelect() {} // legacy stub — replaced by search
+
+var _apSelectedClientIds = [];
+
+function apSearchClients(query) {
+  var dd = document.getElementById('apClientDropdown');
+  if (!dd) return;
+  var q = (query||'').toLowerCase().trim();
+  var active = (investorProfiles||[]).filter(function(i){ return i.status !== 'Archived'; });
+  var results = q
+    ? active.filter(function(i){
+        return (i.name||'').toLowerCase().includes(q) ||
+               (i.phone||'').includes(q) ||
+               (i.email||'').toLowerCase().includes(q);
+      })
+    : active.slice(0, 8); // show first 8 when no query
+
+  if (!results.length) {
+    dd.innerHTML = '<div style="padding:8px 12px;font-size:12px;color:var(--mu)">No clients found</div>';
+    dd.style.display = '';
     return;
   }
-  var active = investorProfiles.filter(function(i){ return i.status !== 'Archived'; });
-  container.innerHTML = active.map(function(inv) {
+
+  dd.innerHTML = results.map(function(inv) {
     var id = inv.investorId || inv.id;
-    return '<label style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--bd);border-radius:99px;cursor:pointer;font-size:11px;background:var(--bg2)">'
-      + '<input type="checkbox" value="' + id + '" data-name="' + safeHTML(inv.name) + '" style="cursor:pointer;accent-color:var(--tx)">'
-      + safeHTML(inv.name)
-      + (inv.budget ? ' <span style="color:var(--mu)">· ' + inv.budget + '</span>' : '')
-      + '</label>';
+    var already = _apSelectedClientIds.indexOf(id) >= 0;
+    var safeN = safeHTML(inv.name);
+    var safeN = safeHTML(inv.name);
+    return '<div class="ap-client-result" data-id="' + id + '" data-name="' + safeN + '" onclick="apAddClientFromEl(this)" style="padding:8px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between' + (already?';opacity:.4;pointer-events:none':'') + '">' + '<span>' + safeN + '</span>' + '<span style="font-size:10px;color:var(--mu)">' + (inv.budget||'') + (already?' ✓':'') + '</span>' + '</div>';
+      + 'style="padding:8px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;'
+      + (already ? 'opacity:.4;pointer-events:none;' : '')
+      + '<span>' + safeHTML(inv.name) + '</span>'
+      + '<span style="font-size:10px;color:var(--mu)">' + (inv.budget||'') + (already?' ✓':'') + '</span>'
+      + '</div>';
   }).join('');
+  dd.style.display = '';
 }
+
+function apAddClientFromEl(el) {
+  apAddClient(+(el.dataset.id), el.dataset.name);
+}
+
+function apAddClient(id, name) {
+  if (_apSelectedClientIds.indexOf(id) >= 0) return;
+  _apSelectedClientIds.push(id);
+
+  var container = document.getElementById('apSelectedClients');
+  var noMsg     = document.getElementById('apNoClientsMsg');
+  if (noMsg) noMsg.style.display = 'none';
+
+  var tag = document.createElement('span');
+  tag.dataset.id = id;
+  tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:#dbeafe;color:#1e40af;border-radius:99px;font-size:11px;font-weight:500';
+  tag.innerHTML = safeHTML(name) + ' <button onclick="apRemoveClient(' + id + ',this.parentElement)" style="background:none;border:none;cursor:pointer;font-size:13px;color:#1e40af;padding:0;line-height:1">&times;</button>';
+  if (container) container.appendChild(tag);
+
+  // Clear search
+  var searchEl = document.getElementById('apClientSearch');
+  if (searchEl) searchEl.value = '';
+  var dd = document.getElementById('apClientDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function apRemoveClient(id, tagEl) {
+  _apSelectedClientIds = _apSelectedClientIds.filter(function(x){ return x !== id; });
+  if (tagEl) tagEl.remove();
+  var container = document.getElementById('apSelectedClients');
+  if (container && !container.querySelector('[data-id]')) {
+    var noMsg = document.getElementById('apNoClientsMsg');
+    if (noMsg) noMsg.style.display = '';
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('apClientDropdown');
+  if (dd && !dd.contains(e.target) && e.target.id !== 'apClientSearch') {
+    dd.style.display = 'none';
+  }
+});
 
 function saveManualProperty(mode) {
   mode = mode || 'close'; // 'close' | 'another' | 'sameproject'
@@ -14344,11 +14367,10 @@ function saveManualProperty(mode) {
   }
 
   // Shortlist for selected clients
-  var checked = document.querySelectorAll('#apClientMultiSelect input[type=checkbox]:checked');
   var linkedClients = [];
-  checked.forEach(function(cb) {
-    var invId = +cb.value;
-    var invName = cb.dataset.name || '';
+  (_apSelectedClientIds||[]).forEach(function(invId) {
+    invId = +invId;
+    var invName = (function(){ var inv=investorProfiles.find(function(i){return (i.investorId||i.id)===invId;}); return inv?inv.name:''; })();
     var inv = investorProfiles.find(function(i){ return (i.investorId||i.id) === invId; });
     if (!inv) return;
     // Add to clientProperties
@@ -14386,7 +14408,7 @@ function saveManualProperty(mode) {
   showToast(msg);
 
   if (mode === 'close') {
-    setTimeout(function() { toggleAddPropertyForm(); if(status)status.textContent=''; }, 1500);
+    setTimeout(function() { closeAddPropertyModal(); if(status)status.textContent=''; }, 1500);
   } else if (mode === 'another') {
     resetAddPropertyForm(false);
     if (status) { status.textContent = '\u2713 Saved! Form cleared for next property.'; status.style.color = '#15803d'; }
@@ -14411,7 +14433,13 @@ function resetAddPropertyForm(keepProject) {
     if (id === 'apIsNew') el.value = 'Y';
     else el.value = '';
   });
-  document.querySelectorAll('#apClientMultiSelect input[type=checkbox]').forEach(function(cb){ cb.checked = false; });
+  _apSelectedClientIds = [];
+  var sc = document.getElementById('apSelectedClients');
+  if (sc) { sc.innerHTML = '<span id="apNoClientsMsg" style="font-size:11px;color:var(--mu);padding:3px 0">No clients selected</span>'; }
+  var dd = document.getElementById('apClientDropdown');
+  if (dd) dd.style.display = 'none';
+  var cs = document.getElementById('apClientSearch');
+  if (cs) cs.value = '';
   if (!keepProject) setProjectType('complex');
 }
 
