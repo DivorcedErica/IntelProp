@@ -5448,7 +5448,10 @@ function saveCurrentSession() {
 function renderSessionLog() {
   var wrap = document.getElementById('sessionLogWrap');
   if (!wrap) return;
-  var cid = currentClientCallId ? String(currentClientCallId) : null;
+  // Double-check: also verify the client selector has a value
+  var selEl = document.getElementById('cClientSelector');
+  var selVal = selEl ? selEl.value : '';
+  var cid = (currentClientCallId && selVal) ? String(currentClientCallId) : null;
   if (!cid) { wrap.style.display = 'none'; return; }
 
   // Use new versioned sessions if available, fall back to old
@@ -13228,6 +13231,9 @@ async function logActivity(opts) {
 try { loadCachedProfiles(); } catch(e) { console.warn('[IntelProp] Cache pre-load failed:', e.message); }
 
 init();
+
+// Ensure session panel is hidden until a client is selected
+(function(){ var w=document.getElementById('sessionLogWrap'); if(w) w.style.display='none'; })();
 
 // Load from cache instantly (sync-like feel), then refresh from sheet in background
 (function() {
