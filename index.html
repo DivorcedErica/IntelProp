@@ -3785,6 +3785,7 @@ async function init() {
             return raw.split('T')[0] || raw;
           })(),
           complex: (()=>{const v=''+ g(12); return(v&&v.toLowerCase()!=='standalone'&&v!=='—'&&v!=='')?v:null;})(),
+          propertyStatus: (''+ g(14)).trim() || 'Available',
           img1: g(18)||null, img2: g(19)||null, img3: g(20)||null, img4: g(21)||null,
           delivery: g(22)||null,
           listingUrl: g(17)||null,
@@ -3823,6 +3824,7 @@ async function init() {
           price: n(8), ppm: n(9),
           priceText: g(10), addedOn: (g(11)||'').split(' ')[0]||g(11),
           complex: (()=>{const v=g(12)||''; return(v&&v.toLowerCase()!=='standalone'&&v!=='—')?v:null;})(),
+          propertyStatus: g(14).trim() || 'Available',
           img1: g(18)||null, img2: g(19)||null, img3: g(20)||null, img4: g(21)||null,
           delivery: g(22)||null,
           listingUrl: g(17)||null,
@@ -3833,7 +3835,7 @@ async function init() {
       });
     }
 
-    all = rows.filter(d => d.developer && d.developer.toLowerCase() !== 'developer' && d.title);
+    all = rows.filter(d => d.developer && d.developer.toLowerCase() !== 'developer' && d.title && (d.propertyStatus||'').toLowerCase() !== 'sold' && (d.propertyStatus||'').toLowerCase() !== 'unavailable');
 
     // Pre-compute sea distance instantly using district/city fallback coords
     all.forEach(d => {
@@ -4677,9 +4679,9 @@ function openModal(id, e) {
         </div>
       </div>
       <div class="modal-actions">
-        
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
+        <button class="btn" onclick="markPropertySold(${d.id})" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" title="Remove from listings — marks as Sold in Google Sheet">🚫 Mark as Sold</button>
         <button class="btn" onclick="closeModalDirect()">Close</button>
       </div>
     </div>`;
@@ -5668,9 +5670,7 @@ function applyClientFilter(resetPg) {
       <td style="white-space:nowrap">
         <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:${vc}">${v.label}</span>
       </td>
-      <td style="white-space:nowrap">
-        <span style="font-size:10px;color:${confColor}">${conf}</span>
-      </td>
+      <td style="font-size:11px;color:var(--mu)">${d.district||'—'}</td>
       <td title="${d.developer||''}">${d.developer||'—'}</td>
       <td title="${d.title||''}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.title||'—'}</td>
       <td>${tagBadge(d.type)}</td>
@@ -5686,7 +5686,7 @@ function applyClientFilter(resetPg) {
       <th style="width:32px"></th>
       <th onclick="sortClientBy('score')" style="cursor:pointer;white-space:nowrap">Score ${arrow('score')}</th>
       <th>Verdict</th>
-      <th>Confidence</th>
+      <th onclick="sortClientBy('district')" style="cursor:pointer">District ${arrow('district')}</th>
       <th onclick="sortClientBy('developer')" style="cursor:pointer">Developer ${arrow('developer')}</th>
       <th onclick="sortClientBy('title')" style="cursor:pointer">Title ${arrow('title')}</th>
       <th>Type</th>
@@ -6277,6 +6277,35 @@ async function syncCommToSheets(entry) {
     entry.note || '',
   ];
   syncViaJsonp({ type:'communication', sheet:'Client Communications', commId: entry.commId, investorId: entry.investorId, row });
+}
+
+function markPropertySold(id) {
+  const d = all.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm('Mark "' + (d.title || d.developer || 'this property') + '" as Sold?\nIt will be removed from all listings immediately.')) return;
+
+  // Remove from in-memory array and re-render
+  d.propertyStatus = 'Sold';
+  all = all.filter(x => x.id !== id);
+  filt = filt.filter(x => x.id !== id);
+  sl.delete(id);
+  closeModalDirect();
+  render();
+  populate();
+
+  // Write Sold status back to Google Sheet via Apps Script
+  if (APPS_SCRIPT_URL) {
+    // Find the listing's row index — pass the listing ID and new status
+    syncViaJsonp({
+      type: 'markSold',
+      sheet: 'Final List',
+      listingId: d.listingId || d.id,
+      propertyStatus: 'Sold',
+      row: [] // Apps Script will use listingId to find and update the row
+    });
+  }
+
+  console.log('[IntelProp] Marked as Sold:', d.title || d.developer, '— removed from listings');
 }
 
 function syncPropertyToSheets(prop) {
