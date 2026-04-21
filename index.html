@@ -5970,6 +5970,7 @@ function pbPg(d) { pbPage += d; pbRebuildOutput(); }
 
 function refreshInvestorList() {
   document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  setTimeout(wireClientDragDrop, 30);
 }
 
 function openInvestorCard(id) {
@@ -5986,6 +5987,7 @@ function closeInvestorCard() {
   document.getElementById('invListView').style.display = '';
   document.getElementById('invCardView').style.display = 'none';
   document.getElementById('investorProfilesList').innerHTML = renderInvestorProfilesPanel();
+  setTimeout(wireClientDragDrop, 30);
 }
 
 function renderSessionShortlistsForCard(invId) {
@@ -12033,6 +12035,13 @@ function createNewInvestor(){
   var newId=nextInvestorId();
   var tempSlider=document.getElementById('newInvTempSlider');
   var temperature=tempSlider?(['Ice Cold','Very Cold','Cold','Cool','Neutral','Warm','Hot','Very Hot','Burning'][+tempSlider.value]||'Neutral'):'Neutral';
+  var newInvNotes=(document.getElementById('newInvNotes')||{}).value||'';
+  var newInvFollowUp=(document.getElementById('newInvFollowUp')||{}).value||'';
+  var newInvFollowUpNote=(document.getElementById('newInvFollowUpNote')||{}).value||'';
+  var newInvNextAction=(document.getElementById('newInvNextAction')||{}).value||'';
+  var agentRefSel=document.getElementById('newInvAgentSelect');
+  var referringAgentId='',referringAgentName='';
+  if(agentRefSel&&agentRefSel.value){referringAgentId=agentRefSel.value;var refAg=agents.find(function(a){return a.agentId===agentRefSel.value;});if(refAg)referringAgentName=refAg.name;}
   var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'Warm',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes||'',followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
@@ -15176,12 +15185,20 @@ function wireClientDragDrop() {
   if (!list) return;
 
   list.querySelectorAll('.inv-card-draggable').forEach(function(card) {
-    // Only drag when handle is grabbed
-    card.querySelector('.inv-drag-handle') && card.querySelector('.inv-drag-handle').addEventListener('mousedown', function() {
-      card.draggable = true;
-    });
+    // Prevent duplicate listeners by cloning
+    var fresh = card.cloneNode(true);
+    card.parentNode.replaceChild(fresh, card);
+    card = fresh;
+
+    var handle = card.querySelector('.inv-drag-handle');
+    if (handle) {
+      handle.addEventListener('mousedown', function(e) {
+        e.stopPropagation();
+        card.setAttribute('draggable', 'true');
+      });
+    }
     card.addEventListener('mouseup', function() {
-      card.draggable = false;
+      card.setAttribute('draggable', 'false');
     });
 
     card.addEventListener('dragstart', function(e) {
