@@ -11605,6 +11605,7 @@ function renderInvestorProfilesPanel(){
     var lastC=inv.lastContact?'Last contact: '+timeAgo(inv.lastContact):(inv.createdAt?'Added '+new Date(inv.createdAt).toLocaleDateString('en-GB'):'');
     return '<div class="inv-card-draggable" data-inv-id="'+inv.id+'" draggable="true" style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onclick="openInvestorCard('+inv.id+')" onmouseenter="this.style.borderColor=\'#93c5fd\'" onmouseleave="this.style.borderColor=\'var(--bd)\'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">'
+      +'<div class="inv-drag-handle" onclick="event.stopPropagation()" style="cursor:grab;color:var(--mu);font-size:18px;padding:0 8px 0 0;flex-shrink:0;user-select:none;line-height:1" title="Drag to reorder">&#8942;&#8942;</div>'
       +'<div style="flex:1;min-width:0">'
       +'<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">'
       +'<div style="font-size:13px;font-weight:600">'+safeHTML(inv.name)+'</div>'
