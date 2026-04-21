@@ -12023,7 +12023,18 @@ function createNewInvestor(){
   var newId=nextInvestorId();
   var tempSlider=document.getElementById('newInvTempSlider');
   var temperature=tempSlider?(['Ice Cold','Very Cold','Cold','Cool','Neutral','Warm','Hot','Very Hot','Burning'][+tempSlider.value]||'Neutral'):'Neutral';
-  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'Warm',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes||'',followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
+  var newInvNotes=(document.getElementById('newInvNotes')||{}).value||'';
+  var newInvFollowUp=(document.getElementById('newInvFollowUp')||{}).value||'';
+  var newInvFollowUpNote=(document.getElementById('newInvFollowUpNote')||{}).value||'';
+  var newInvNextAction=(document.getElementById('newInvNextAction')||{}).value||'';
+  var agentRefSel=document.getElementById('newInvAgentSelect');
+  var referringAgentId='',referringAgentName='';
+  if(agentRefSel&&agentRefSel.value){
+    referringAgentId=agentRefSel.value;
+    var refAg=agents.find(function(a){return a.agentId===agentRefSel.value;});
+    if(refAg)referringAgentName=refAg.name;
+  }
+  var inv={investorId:newId,id:newId,name:name,phone:phone,email:email,nationality:nationality||'',source:source||'',clientType:clientType,temperature:temperature||'Neutral',status:'Active',createdAt:new Date().toISOString(),lastContact:null,notes:{},generalNotes:newInvNotes||'',followUpDate:newInvFollowUp||null,followUpNote:newInvFollowUpNote||'',nextAction:newInvNextAction||'',referringAgentId:referringAgentId||'',referringAgentName:referringAgentName||'',budget:budgetLabel,locations:locations,criteria:{types:types,cities:locations,budget:budgetLabel,budgetMin:budgetBtn?+budgetBtn.dataset.min:null,budgetMax:budgetBtn?+budgetBtn.dataset.max:null,notes:''}};
   investorProfiles.push(inv);
   saveInvestorProfiles();
   logCommunication(inv.investorId,inv.name,'session','Profile created',null,null,'');
