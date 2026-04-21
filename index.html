@@ -6153,7 +6153,7 @@ function renderInvestorCard(inv) {
   var assignedPropsHtml = assignedProps.length
     ? propGroupOrder.map(function(dayKey, gi) {
         var dayProps = propGroups[dayKey];
-        var isOpen = gi === 0;
+        var isOpen = false; // all closed by default
         var dayId = 'propDay_' + invId + '_' + gi;
         var citySet = {};
         dayProps.forEach(function(p){ if(p.city) citySet[p.city]=1; });
@@ -6344,7 +6344,7 @@ function renderInvestorCard(inv) {
 
       var tlHtml = tlGroupOrder.map(function(dayKey, gi) {
         var dayEntries = tlGroups[dayKey];
-        var isOpen = gi === 0;
+        var isOpen = false; // all closed by default
         var dayId = 'tlDay_' + gi + '_' + Date.now();
 
         // Type pill counts
@@ -6525,7 +6525,7 @@ function saveLogActivity(invId) {
       var TYPE_COLORS = {session:'#3b82f6',shortlist:'#22c55e',note:'#f59e0b',general:'#8b5cf6',call:'#10b981',meeting:'#6366f1',viewing:'#f59e0b',email:'#3b82f6',whatsapp:'#22c55e',offer:'#ef4444',followup:'#f59e0b',document:'#64748b',viewed:'#94a3b8'};
       tlEl.innerHTML = groupOrder.map(function(dayKey, gi) {
         var dayEntries = groups[dayKey];
-        var isOpen = gi === 0;
+        var isOpen = false; // all closed by default
         var dayId = 'tlDay_r'+gi+'_'+Date.now();
         var rowsHtml = dayEntries.map(function(e) {
           var dot = TYPE_COLORS[e.type||'general']||'#8b5cf6';
