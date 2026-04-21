@@ -476,6 +476,20 @@ tr:hover td{background:var(--bg2)}
 .pipeline-btn-danger{font-size:12px;height:32px;padding:0 14px;border:1px solid #fca5a5;border-radius:6px;background:transparent;color:#ef4444;cursor:pointer;transition:border-color .15s}
 .pipeline-btn-danger:hover{border-color:#ef4444}
 
+/* ── Auth layer ─────────────────────────────────────────── */
+#authOverlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#authBox{width:320px;padding:36px 30px;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;}
+#authBox .auth-logo{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
+#authBox .auth-logo span{font-weight:300}
+#authBox .auth-sub{font-size:11px;color:var(--mu);margin-bottom:24px}
+#authBox input{width:100%;height:38px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;box-sizing:border-box;margin-bottom:10px;}
+#authBox input:focus{outline:none;border-color:var(--tx);}
+#authBox .auth-btn{width:100%;height:40px;border:none;border-radius:var(--r);background:var(--tx);color:var(--bg);font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;}
+#authBox .auth-btn:hover{opacity:.85}
+#authBox .auth-err{font-size:11px;color:#ef4444;margin-top:8px;min-height:16px;}
+#authBox .auth-version{font-size:10px;color:var(--mu);margin-top:20px}
+.admin-only{display:none}
+
 </style>
 </head>
 <body>
@@ -15373,16 +15387,3 @@ function removePropertyFromAllShortlists(listingId) {
 </script>
 </body>
 </html>
-/* ── Auth layer ─────────────────────────────────────────── */
-#authOverlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;}
-#authBox{width:320px;padding:36px 30px;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;}
-#authBox .auth-logo{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
-#authBox .auth-logo span{font-weight:300}
-#authBox .auth-sub{font-size:11px;color:var(--mu);margin-bottom:24px}
-#authBox input{width:100%;height:38px;padding:0 12px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:13px;box-sizing:border-box;margin-bottom:10px;}
-#authBox input:focus{outline:none;border-color:var(--tx);}
-#authBox .auth-btn{width:100%;height:40px;border:none;border-radius:var(--r);background:var(--tx);color:var(--bg);font-size:13px;font-weight:600;cursor:pointer;margin-top:4px;}
-#authBox .auth-btn:hover{opacity:.85}
-#authBox .auth-err{font-size:11px;color:#ef4444;margin-top:8px;min-height:16px;}
-#authBox .auth-version{font-size:10px;color:var(--mu);margin-top:20px}
-.admin-only{display:none}
