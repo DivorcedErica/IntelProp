@@ -478,7 +478,7 @@ tr:hover td{background:var(--bg2)}
 
 
 /* ── Auth layer ─────────────────────────────────────────── */
-#authOverlay{position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+#authOverlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;}
 #authBox{width:320px;padding:32px 28px;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;}
 #authBox .auth-logo{font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
 #authBox .auth-logo span{font-weight:300}
@@ -497,27 +497,14 @@ tr:hover td{background:var(--bg2)}
 <div id="authOverlay">
   <div id="authBox">
     <div class="auth-logo">Intel<span>Prop</span></div>
-    <div class="auth-sub">Cyprus Property Intelligence</div>
+    <div class="auth-sub">Y. Habari &amp; Co.</div>
     <input type="text" id="authUser" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('authPass').focus()">
     <input type="password" id="authPass" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')attemptLogin()">
     <button class="auth-btn" onclick="attemptLogin()">Sign in</button>
     <div class="auth-err" id="authErr"></div>
-    <div class="auth-version">IntelProp &middot; Agent Portal</div>
+    <div class="auth-version">Y. Habari &amp; Co. &mdash; Agent Portal</div>
   </div>
 </div>
-<div id="authGate">
-  <div id="authBox">
-    <div class="auth-logo">Intel<span>Prop</span></div>
-    <label>Username</label>
-    <input type="text" id="authUser" placeholder="Enter username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('authPass').focus()">
-    <label>Password</label>
-    <input type="password" id="authPass" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="auth-btn" onclick="doLogin()">Sign in</button>
-    <div id="authError"></div>
-    <div class="auth-hint">Y. Habari &amp; Co. — Agent Portal</div>
-  </div>
-</div>
-
 
 <!-- ── Modal overlay ── -->
 <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
