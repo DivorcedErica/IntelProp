@@ -4795,7 +4795,7 @@ function openModal(id, e) {
         </div>
       </div>
       <div class="modal-actions">
-        <button class="hb ${on?'on':''}" onclick="heartFromModal(${d.id})" id="modalHeartBtn" style="font-size:22px;padding:0 4px" title="${on?'Remove from shortlist':'Add to shortlist'}">${on?'♥':'♡'}</button>
+        ${currentClientCallId ? `<button class="hb ${on?'on':''}" onclick="heartFromModal(${d.id})" id="modalHeartBtn" style="font-size:22px;padding:0 4px" title="${on?'Remove from shortlist':'Add to shortlist'}">${on?'♥':'♡'}</button>` : ''}
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="markPropertySold(${d.id})" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" title="Remove from listings — marks as Sold in Google Sheet">🚫 Mark as Sold</button>
