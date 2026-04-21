@@ -3939,11 +3939,11 @@ async function init() {
           id: i,
           developer: '' + g(0), title: '' + g(1), type: '' + g(2),
           city: '' + g(3), district: '' + g(4),
-          bedrooms: g(5) !== '' ? +g(5) : null,
-          area: g(6) !== '' ? +g(6) : null,
-          plot: g(7) !== '' ? +g(7) : null,
-          price: g(8) !== '' ? +g(8) : null,
-          ppm: g(9) !== '' ? +g(9) : null,
+          bedrooms: (function(v){var n=+v;return(v!==''&&!isNaN(n)&&n>0)?n:null;})(g(5)),
+          area:     (function(v){var n=+v;return(v!==''&&!isNaN(n)&&n>0)?n:null;})(g(6)),
+          plot:     (function(v){var n=+v;return(v!==''&&!isNaN(n)&&n>0)?n:null;})(g(7)),
+          price:    (function(v){var n=+v;return(v!==''&&!isNaN(n)&&n>0)?n:null;})(g(8)),
+          ppm:      (function(v){var n=+v;return(v!==''&&!isNaN(n)&&n>0)?n:null;})(g(9)),
           priceText: '' + g(10), addedOn: (()=>{
             const raw = '' + g(11);
             const dm = raw.match(/Date\((\d+),(\d+),(\d+)/);
@@ -6128,15 +6128,22 @@ function renderInvestorCard(inv) {
     return p ? { ...p, clientNote: n.note, savedAt: n.savedAt } : null;
   }).filter(Boolean).sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt));
 
-  const propsHtml = noteProps.length ? noteProps.map(p => `
-    <div class="inv-prop-row" onclick="openModal(${p.id})">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${safeHTML(p.title||p.developer||'—')}</div>
-        <div style="font-size:11px;color:var(--mu)">${safeHTML([p.city,p.district].filter(Boolean).join(', '))} · ${p.price?'€'+p.price.toLocaleString():'—'} · ${safeHTML(p.type||'—')}</div>
-        ${p.clientNote?`<div style="font-size:11px;color:var(--gold);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"${safeHTML(p.clientNote.slice(0,100))}${p.clientNote.length>100?'…':''}"</div>`:''}
-      </div>
-      ${p.seaDist!=null?`<div style="flex-shrink:0">${seaBadge(p.seaDist)}</div>`:''}
-    </div>`).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties shortlisted yet — use Client Call to browse and shortlist properties for this client.</div>';
+  const invIdForReg = inv.investorId || inv.id;
+  const propsHtml = noteProps.length ? noteProps.map(function(p) {
+    var regData = getRegistrationData(invIdForReg, p.id);
+    var regBtn = regData
+      ? '<div style="font-size:10px;color:#15803d;font-weight:500;margin-top:4px">\u2713 Registered: '+regData.date+' &middot; '+safeHTML(regData.vendor)+'</div>'
+      : '<div onclick="event.stopPropagation()"><button onclick="showRegisterForm('+invIdForReg+','+p.id+',this)" style="font-size:10px;padding:2px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer;margin-top:4px">+ Register</button></div>';
+    return '<div class="inv-prop-row" onclick="openModal('+p.id+')">' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+safeHTML(p.title||p.developer||'\u2014')+'</div>' +
+      '<div style="font-size:11px;color:var(--mu)">'+safeHTML([p.city,p.district].filter(Boolean).join(', '))+' \u00b7 '+(p.price?'\u20ac'+p.price.toLocaleString():'\u2014')+' \u00b7 '+safeHTML(p.type||'\u2014')+'</div>' +
+      (p.clientNote?'<div style="font-size:11px;color:var(--gold);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">"'+safeHTML(p.clientNote.slice(0,100))+(p.clientNote.length>100?'\u2026':'')+'"</div>':'') +
+      regBtn +
+      '</div>' +
+      (p.seaDist!=null?'<div style="flex-shrink:0">'+seaBadge(p.seaDist)+'</div>':'') +
+      '</div>';
+  }).join('') : '<div class="empty" style="padding:8px 0;font-size:12px">No properties shortlisted yet \u2014 use Client Call to browse and shortlist properties for this client.</div>';
 
 
   // Build criteria section
