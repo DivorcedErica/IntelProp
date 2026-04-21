@@ -514,6 +514,8 @@ tr:hover td{background:var(--bg2)}
       <button class="tab" onclick="gotoTab('investors',this)">Clients</button>
       <button class="tab" onclick="gotoTab('agents',this)">Agents</button>
       <button class="tab" onclick="gotoTab('agentportal',this)">⬆ Agent Portal</button>
+      <button class="tab" onclick="gotoTab('reports',this)">📊 Reports</button>
+      <button class="tab" onclick="gotoTab('calendar',this)">📅 Calendar</button>
 
     </div>
 
@@ -1774,6 +1776,41 @@ tr:hover td{background:var(--bg2)}
       </div>
 
     </div><!-- /pAgentportal -->
+
+    <!-- REPORTS -->
+    <div id="pReports" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600">Reports</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">Live data from Google Sheets</div>
+        </div>
+        <button onclick="renderReports()" class="btn" style="font-size:11px">↺ Refresh</button>
+      </div>
+      <div id="reportsContent"><div class="empty">Loading reports…</div></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div id="pCalendar" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:13px;font-weight:600">Calendar</div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">All client activity — past, present &amp; future</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;gap:0;border:1px solid var(--bd);border-radius:6px;overflow:hidden">
+            <button id="calVYear"  onclick="setCalView('year')"  style="padding:4px 10px;border:none;cursor:pointer;font-size:11px;background:var(--bg);color:var(--mu)">Year</button>
+            <button id="calVMonth" onclick="setCalView('month')" style="padding:4px 10px;border:none;cursor:pointer;font-size:11px;background:#1a1a1a;color:#fff">Month</button>
+            <button id="calVWeek"  onclick="setCalView('week')"  style="padding:4px 10px;border:none;cursor:pointer;font-size:11px;background:var(--bg);color:var(--mu)">Week</button>
+            <button id="calVDay"   onclick="setCalView('day')"   style="padding:4px 10px;border:none;cursor:pointer;font-size:11px;background:var(--bg);color:var(--mu)">Day</button>
+          </div>
+          <button onclick="calNav(-1)" class="btn" style="font-size:13px;padding:0 10px;height:30px">&larr;</button>
+          <span id="calTitle" style="font-size:12px;font-weight:600;min-width:140px;text-align:center"></span>
+          <button onclick="calNav(1)"  class="btn" style="font-size:13px;padding:0 10px;height:30px">&rarr;</button>
+          <button onclick="calGoToday()" class="btn" style="font-size:11px;height:30px;padding:0 12px">Today</button>
+        </div>
+      </div>
+      <div id="calendarContent"></div>
+    </div>
   </div>
 </div>
 
@@ -4796,6 +4833,7 @@ function openModal(id, e) {
       </div>
       <div class="modal-actions">
         <button class="hb ${on?'on':''}" onclick="heartFromModal(${d.id})" id="modalHeartBtn" style="font-size:22px;padding:0 4px" title="${on?'Remove from shortlist':'Add to shortlist'}">${on?'♥':'♡'}</button>
+        ${currentClientCallId ? `<button class="btn" onclick="showScheduleViewing(${d.id})" style="font-size:11px">📅 Schedule Viewing</button>` : ''}
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="markPropertySold(${d.id})" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" title="Remove from listings — marks as Sold in Google Sheet">🚫 Mark as Sold</button>
@@ -5059,10 +5097,12 @@ function gotoTab(t,el){
   }
 
   tab=t;
-  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist','agentportal'].forEach(x=>document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).style.display=x===t?'':'none');
+  ['listings','aisearch','map','intelligence','clients','portfolio','developers','analytics','investors','agents','shortlist','agentportal','reports','calendar'].forEach(x=>{var el=document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1));if(el)el.style.display=x===t?'':'none';});
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   if(t==='map'){setTimeout(()=>{ renderMap(); },50);}
+  if(t==='reports'){setTimeout(renderReports, 100);}
+  if(t==='calendar'){setTimeout(function(){ renderCalendar(); }, 100);}
   if(t==='intelligence'){loadIntelligence(false);}
   if(t==='analytics'){initAnalytics();}
   if(t==='shortlist')renderSL();
@@ -14614,7 +14654,449 @@ function syncRegistrationToSheets(entry) {
   syncViaJsonp({ type:'communication', sheet:'Client Communications', commId: entry.commId, investorId: entry.investorId, row });
 }
 
+
+// ══════════════════════════════════════════════════════════════════
+// SCHEDULE VIEWING
+// ══════════════════════════════════════════════════════════════════
+
+function showScheduleViewing(listingId) {
+  var d = all.find(function(x){ return x.id === listingId; });
+  var inv = currentClientCallId ? investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; }) : null;
+  var existing = document.getElementById('schedViewingPopup');
+  if (existing) existing.remove();
+
+  var popup = document.createElement('div');
+  popup.id = 'schedViewingPopup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  popup.innerHTML =
+    '<div style="background:var(--bg);border-radius:12px;padding:20px 22px;width:100%;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    + '<div style="font-size:13px;font-weight:700;margin-bottom:4px">Schedule Viewing</div>'
+    + '<div style="font-size:11px;color:var(--mu);margin-bottom:14px">' + safeHTML(d ? (d.title||d.developer||'') : '') + (inv ? ' \u00b7 ' + safeHTML(inv.name) : '') + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
+      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Date *</div>'
+        + '<input type="date" id="svDate" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+      + '<div><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Time</div>'
+        + '<input type="time" id="svTime" value="10:00" style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+    + '</div>'
+    + '<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--mu);margin-bottom:4px">Notes</div>'
+      + '<input id="svNotes" placeholder="e.g. Meet at entrance, bring passport..." style="width:100%;height:32px;padding:0 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--tx);font-size:12px"></div>'
+    + '<div style="display:flex;gap:8px">'
+      + '<button onclick="saveScheduledViewing(' + listingId + ')" class="btn primary" style="font-size:11px;height:32px;padding:0 16px">Schedule</button>'
+      + '<button onclick="document.getElementById(\'schedViewingPopup\').remove()" class="btn" style="font-size:11px;height:32px">Cancel</button>'
+    + '</div></div>';
+  popup.addEventListener('click', function(e){ if(e.target===popup) popup.remove(); });
+  document.body.appendChild(popup);
+  document.getElementById('svDate').focus();
+}
+
+function saveScheduledViewing(listingId) {
+  var dateEl  = document.getElementById('svDate');
+  var timeEl  = document.getElementById('svTime');
+  var notesEl = document.getElementById('svNotes');
+  var date    = dateEl ? dateEl.value : '';
+  var time    = timeEl ? timeEl.value : '';
+  var notes   = notesEl ? notesEl.value.trim() : '';
+  if (!date) { alert('Please select a date.'); return; }
+
+  var d   = all.find(function(x){ return x.id === listingId; });
+  var inv = currentClientCallId ? investorProfiles.find(function(i){ return (i.investorId||i.id) === currentClientCallId; }) : null;
+  var dateTime = date + (time ? 'T' + time + ':00' : 'T10:00:00');
+  var label = 'Viewing scheduled: ' + (d ? (d.title||d.developer||'') : '') + (time ? ' at ' + time : '');
+
+  if (inv) {
+    inv.lastContact = new Date().toISOString();
+    saveInvestorProfiles();
+    logCommunication(inv.investorId||inv.id, inv.name, 'viewing', label, listingId, d?(d.title||null):null, notes || '');
+    if (APPS_SCRIPT_URL) syncInvestorToSheets(inv);
+  }
+
+  var popup = document.getElementById('schedViewingPopup');
+  if (popup) popup.remove();
+  showToast('\u2713 Viewing scheduled for ' + new Date(date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + (time?' at '+time:''));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// REPORTS TAB
+// ══════════════════════════════════════════════════════════════════
+
+function renderReports() {
+  var el = document.getElementById('reportsContent');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--mu);font-size:12px;padding:20px 0">Loading...</div>';
+
+  // Collect data from in-memory sources (already synced from Sheets)
+  var comms    = communicationLog || [];
+  var clients  = investorProfiles || [];
+  var props    = clientProperties || [];
+
+  // ── Pipeline funnel ───────────────────────────────────────────
+  var stageOrder = ['new_lead','qualified','nurturing','viewing','negotiating','closed'];
+  var stageLabels = {'new_lead':'New Lead','qualified':'Qualified','nurturing':'Nurturing','viewing':'Viewing','negotiating':'Negotiating','closed':'Closed'};
+  var stageCounts = {};
+  stageOrder.forEach(function(s){ stageCounts[s]=0; });
+  clients.filter(function(i){ return i.status!=='Archived'; }).forEach(function(inv){
+    var s = getPipelineStage ? getPipelineStage(inv) : (inv.pipelineStage||'new_lead');
+    if (stageCounts[s]!==undefined) stageCounts[s]++;
+  });
+  var maxStage = Math.max.apply(null, stageOrder.map(function(s){ return stageCounts[s]; })) || 1;
+
+  var funnelHtml = stageOrder.map(function(s){
+    var cnt = stageCounts[s];
+    var pct = Math.round((cnt/maxStage)*100);
+    var colors = {'new_lead':'#6b7280','qualified':'#3b82f6','nurturing':'#8b5cf6','viewing':'#f59e0b','negotiating':'#ef4444','closed':'#22c55e'};
+    var c = colors[s]||'#6b7280';
+    return '<div style="margin-bottom:10px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+        + '<span style="font-size:12px;color:var(--tx)">' + stageLabels[s] + '</span>'
+        + '<span style="font-size:12px;font-weight:700;color:'+c+'">' + cnt + '</span>'
+      + '</div>'
+      + '<div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden">'
+        + '<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:4px;transition:width .4s"></div>'
+      + '</div></div>';
+  }).join('');
+
+  // ── Activity breakdown ────────────────────────────────────────
+  var typeCounts = {};
+  var typeLabels = {session:'Sessions',shortlist:'Shortlists',viewing:'Viewings',call:'Calls',meeting:'Meetings',registration:'Registrations',viewed:'Properties Viewed',email:'Emails',whatsapp:'WhatsApps',note:'Notes',general:'Activities'};
+  var typeColors2 = {session:'#3b82f6',shortlist:'#22c55e',viewing:'#f59e0b',call:'#10b981',meeting:'#6366f1',registration:'#8b5cf6',viewed:'#94a3b8',email:'#3b82f6',whatsapp:'#22c55e',note:'#f59e0b',general:'#94a3b8'};
+  comms.forEach(function(c){ var t=c.type||'general'; typeCounts[t]=(typeCounts[t]||0)+1; });
+  var sortedTypes = Object.keys(typeCounts).sort(function(a,b){ return typeCounts[b]-typeCounts[a]; });
+  var maxType = sortedTypes.length ? typeCounts[sortedTypes[0]] : 1;
+  var activityHtml = sortedTypes.slice(0,8).map(function(t){
+    var cnt = typeCounts[t];
+    var pct = Math.round((cnt/maxType)*100);
+    var c   = typeColors2[t]||'#94a3b8';
+    return '<div style="margin-bottom:8px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">'
+        + '<span style="font-size:12px;color:var(--tx)">' + (typeLabels[t]||t) + '</span>'
+        + '<span style="font-size:12px;font-weight:700;color:'+c+'">' + cnt + '</span>'
+      + '</div>'
+      + '<div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">'
+        + '<div style="height:100%;width:'+pct+'%;background:'+c+';border-radius:3px"></div>'
+      + '</div></div>';
+  }).join('');
+
+  // ── Temperature breakdown ─────────────────────────────────────
+  var tempCounts = {};
+  clients.filter(function(i){ return i.status!=='Archived'; }).forEach(function(inv){
+    var t = inv.temperature||'Neutral';
+    tempCounts[t]=(tempCounts[t]||0)+1;
+  });
+  var tempOrder = ['Burning','Very Hot','Hot','Warm','Neutral','Cool','Cold','Very Cold','Ice Cold'];
+  var tempColors = {'Burning':'#7f1d1d','Very Hot':'#b91c1c','Hot':'#c2410c','Warm':'#b45309','Neutral':'#374151','Cool':'#0891b2','Cold':'#2563eb','Very Cold':'#1d4ed8','Ice Cold':'#1e3a8a'};
+  var tempBg = {'Burning':'#fecaca','Very Hot':'#fee2e2','Hot':'#fed7aa','Warm':'#fef3c7','Neutral':'#f3f4f6','Cool':'#cffafe','Cold':'#eff6ff','Very Cold':'#dbeafe','Ice Cold':'#bfdbfe'};
+  var tempHtml = tempOrder.filter(function(t){ return tempCounts[t]; }).map(function(t){
+    return '<div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:'+tempBg[t]+';color:'+tempColors[t]+';font-size:11px;font-weight:600;margin:3px">'
+      + t + ' <span style="font-size:13px;font-weight:700">' + tempCounts[t] + '</span></div>';
+  }).join('');
+
+  // ── Top clients by activity ───────────────────────────────────
+  var clientActivity = {};
+  comms.forEach(function(c){ clientActivity[c.investorId]=(clientActivity[c.investorId]||0)+1; });
+  var topClients = Object.keys(clientActivity).sort(function(a,b){ return clientActivity[b]-clientActivity[a]; }).slice(0,5);
+  var topClientsHtml = topClients.map(function(id){
+    var inv = clients.find(function(i){ return String(i.investorId||i.id)===String(id); });
+    var name = inv ? inv.name : 'Unknown';
+    var cnt  = clientActivity[id];
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">'
+      + '<span style="font-size:12px;color:var(--tx)">' + safeHTML(name) + '</span>'
+      + '<span style="font-size:11px;font-weight:700;color:var(--mu)">' + cnt + ' activities</span>'
+    + '</div>';
+  }).join('');
+
+  // ── Activity last 30 days ─────────────────────────────────────
+  var now = Date.now();
+  var thirtyDays = 30*24*3600*1000;
+  var recent = comms.filter(function(c){ return c.date && (now - new Date(c.date)) < thirtyDays; });
+  var byDay = {};
+  recent.forEach(function(c){
+    var d = new Date(c.date).toISOString().slice(0,10);
+    byDay[d]=(byDay[d]||0)+1;
+  });
+  // Build 30-day sparkline
+  var days = [];
+  for (var i=29;i>=0;i--){
+    var dd = new Date(now - i*24*3600*1000).toISOString().slice(0,10);
+    days.push({d:dd, v:byDay[dd]||0});
+  }
+  var maxDay = Math.max.apply(null, days.map(function(d){ return d.v; })) || 1;
+  var sparkHtml = '<div style="display:flex;align-items:flex-end;gap:2px;height:48px">'
+    + days.map(function(d){
+        var h = Math.max(2, Math.round((d.v/maxDay)*48));
+        return '<div title="'+d.d+': '+d.v+' events" style="flex:1;background:'+(d.v>0?'var(--tx)':'var(--bg2)')+';height:'+h+'px;border-radius:1px 1px 0 0;opacity:'+(d.v>0?'.7':'.2')+'"></div>';
+      }).join('')
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--mu);margin-top:4px"><span>30 days ago</span><span>Today</span></div>';
+
+  // ── Stats summary ─────────────────────────────────────────────
+  var totalClients = clients.filter(function(i){ return i.status!=='Archived'; }).length;
+  var activeClients= clients.filter(function(i){ return i.status==='Active'; }).length;
+  var closedClients= clients.filter(function(i){ return getPipelineStage&&getPipelineStage(i)==='closed'; }).length;
+  var totalViewings= comms.filter(function(c){ return c.type==='viewing'; }).length;
+  var totalShortlists = comms.filter(function(c){ return c.type==='shortlist'; }).length;
+  var totalRegistrations = comms.filter(function(c){ return c.type==='registration'; }).length;
+
+  var statsHtml = [
+    {label:'Active Clients', val:activeClients, color:'#15803d'},
+    {label:'Total Activities', val:comms.length, color:'#1e40af'},
+    {label:'Viewings', val:totalViewings, color:'#f59e0b'},
+    {label:'Shortlists', val:totalShortlists, color:'#ef4444'},
+    {label:'Registrations', val:totalRegistrations, color:'#8b5cf6'},
+    {label:'Closed', val:closedClients, color:'#22c55e'},
+  ].map(function(s){
+    return '<div style="text-align:center;padding:14px 10px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
+      + '<div style="font-size:24px;font-weight:700;color:'+s.color+'">'+s.val+'</div>'
+      + '<div style="font-size:10px;color:var(--mu);margin-top:2px">'+s.label+'</div>'
+    + '</div>';
+  }).join('');
+
+  // ── Render all ────────────────────────────────────────────────
+  el.innerHTML =
+    // Stats row
+    '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px">' + statsHtml + '</div>'
+
+    // Row 1: Pipeline + Activity
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
+      + '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:14px">Pipeline</div>'
+        + funnelHtml
+      + '</div>'
+      + '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:14px">Activity Breakdown</div>'
+        + activityHtml
+      + '</div>'
+    + '</div>'
+
+    // Row 2: Sparkline + Temperature
+    + '<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">'
+      + '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:14px">Activity — Last 30 Days</div>'
+        + sparkHtml
+      + '</div>'
+      + '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+        + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:10px">Client Temperature</div>'
+        + (tempHtml || '<div style="font-size:11px;color:var(--mu)">No temperature data yet</div>')
+      + '</div>'
+    + '</div>'
+
+    // Row 3: Top clients
+    + '<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:16px">'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mu);margin-bottom:10px">Most Active Clients</div>'
+      + (topClientsHtml || '<div style="font-size:11px;color:var(--mu)">No activity yet</div>')
+    + '</div>';
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CALENDAR TAB
+// ══════════════════════════════════════════════════════════════════
+
+var _calView = 'month';
+var _calDate = new Date();
+
+function setCalView(v) {
+  _calView = v;
+  ['Year','Month','Week','Day'].forEach(function(x){
+    var b = document.getElementById('calV'+x);
+    if (b) { b.style.background = x.toLowerCase()===v ? '#1a1a1a' : 'var(--bg)'; b.style.color = x.toLowerCase()===v ? '#fff' : 'var(--mu)'; }
+  });
+  renderCalendar();
+}
+
+function calNav(dir) {
+  if (_calView==='year')       _calDate = new Date(_calDate.getFullYear()+dir, 0, 1);
+  else if (_calView==='month') _calDate = new Date(_calDate.getFullYear(), _calDate.getMonth()+dir, 1);
+  else if (_calView==='week')  _calDate = new Date(_calDate.getTime() + dir*7*86400000);
+  else                         _calDate = new Date(_calDate.getTime() + dir*86400000);
+  renderCalendar();
+}
+
+function calGoToday() { _calDate = new Date(); renderCalendar(); }
+
+function getCalEvents() {
+  var events = [];
+  // From communicationLog
+  (communicationLog||[]).forEach(function(c){
+    if (!c.date) return;
+    var d = new Date(c.date);
+    if (isNaN(d)) return;
+    var inv = investorProfiles.find(function(i){ return (i.investorId||i.id)===c.investorId; });
+    events.push({
+      date:    d,
+      type:    c.type||'general',
+      title:   c.action||'Activity',
+      client:  c.investorName || (inv?inv.name:''),
+      note:    c.note||'',
+      propTitle: c.propertyTitle||'',
+      isFuture: d > new Date()
+    });
+  });
+  // Follow-up reminders
+  (investorProfiles||[]).forEach(function(inv){
+    if (!inv.followUpDate) return;
+    var d = new Date(inv.followUpDate);
+    if (isNaN(d)) return;
+    events.push({
+      date:    d,
+      type:    'reminder',
+      title:   'Follow-up: ' + inv.name,
+      client:  inv.name,
+      note:    inv.followUpNote||'',
+      propTitle: '',
+      isFuture: true
+    });
+  });
+  return events;
+}
+
+var CAL_TYPE_COLORS = {
+  session:'#3b82f6', shortlist:'#22c55e', viewing:'#f59e0b',
+  call:'#10b981', meeting:'#6366f1', registration:'#8b5cf6',
+  viewed:'#94a3b8', email:'#3b82f6', whatsapp:'#22c55e',
+  note:'#f59e0b', general:'#6b7280', reminder:'#ef4444'
+};
+
+function renderCalendar() {
+  var el = document.getElementById('calendarContent');
+  if (!el) return;
+  var events = getCalEvents();
+  var title  = document.getElementById('calTitle');
+  var today  = new Date(); today.setHours(0,0,0,0);
+
+  if (_calView === 'year')  renderCalYear(el, events, title, today);
+  else if (_calView === 'month') renderCalMonth(el, events, title, today);
+  else if (_calView === 'week')  renderCalWeek(el, events, title, today);
+  else                           renderCalDay(el, events, title, today);
+}
+
+function eventsOnDay(events, y, m, d) {
+  return events.filter(function(e){
+    return e.date.getFullYear()===y && e.date.getMonth()===m && e.date.getDate()===d;
+  });
+}
+
+function renderCalEventPill(e) {
+  var c = CAL_TYPE_COLORS[e.type]||'#6b7280';
+  return '<div style="font-size:10px;padding:1px 5px;border-radius:3px;background:'+c+'22;color:'+c+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px" title="'+safeHTML(e.title)+' \u00b7 '+safeHTML(e.client)+'">'
+    + safeHTML((e.client?e.client+': ':'')+e.title)
+  + '</div>';
+}
+
+function renderCalEventRow(e) {
+  var c = CAL_TYPE_COLORS[e.type]||'#6b7280';
+  var t = e.date.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 10px;border-radius:6px;background:'+c+'11;border-left:3px solid '+c+';margin-bottom:6px">'
+    + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:12px;font-weight:500;color:var(--tx)">'+safeHTML(e.title)+'</div>'
+      + (e.client?'<div style="font-size:10px;color:var(--mu)">'+safeHTML(e.client)+'</div>':'')
+      + (e.propTitle?'<div style="font-size:10px;color:var(--mu)">'+safeHTML(e.propTitle)+'</div>':'')
+      + (e.note?'<div style="font-size:10px;color:var(--mu);font-style:italic">'+safeHTML(e.note.slice(0,80))+'</div>':'')
+    + '</div>'
+    + '<div style="font-size:10px;color:var(--mu);white-space:nowrap;flex-shrink:0">'+t+'</div>'
+  + '</div>';
+}
+
+function renderCalMonth(el, events, title, today) {
+  var y = _calDate.getFullYear(), m = _calDate.getMonth();
+  if (title) title.textContent = _calDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  var firstDay = new Date(y,m,1).getDay(); // 0=Sun
+  firstDay = (firstDay+6)%7; // Mon=0
+  var daysInMonth = new Date(y,m+1,0).getDate();
+  var DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--bd);border-radius:10px;overflow:hidden">';
+  // Header
+  html += DAY_NAMES.map(function(d){ return '<div style="padding:8px 4px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--mu);background:var(--bg2)">'+d+'</div>'; }).join('');
+  // Empty cells before first day
+  for (var i=0;i<firstDay;i++) html += '<div style="background:var(--bg);min-height:80px"></div>';
+  // Day cells
+  for (var d=1;d<=daysInMonth;d++) {
+    var dayEvents = eventsOnDay(events, y, m, d);
+    var isToday = (today.getFullYear()===y && today.getMonth()===m && today.getDate()===d);
+    var hasFuture = dayEvents.some(function(e){ return e.isFuture; });
+    html += '<div style="background:var(--bg);min-height:80px;padding:4px;border-top:'+(isToday?'2px solid var(--tx)':'none')+'">'
+      + '<div style="font-size:11px;font-weight:'+(isToday?'700':'400')+';color:'+(isToday?'var(--tx)':'var(--mu)')+';margin-bottom:3px;display:flex;align-items:center;gap:4px">'
+        + d
+        + (hasFuture?'<span style="width:5px;height:5px;border-radius:50%;background:#ef4444;display:inline-block"></span>':'')
+      + '</div>'
+      + dayEvents.slice(0,3).map(renderCalEventPill).join('')
+      + (dayEvents.length>3?'<div style="font-size:9px;color:var(--mu)">+' + (dayEvents.length-3) + ' more</div>':'')
+    + '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderCalWeek(el, events, title, today) {
+  // Find Monday of current week
+  var d = new Date(_calDate);
+  var day = (d.getDay()+6)%7;
+  d.setDate(d.getDate()-day);
+  var weekStart = new Date(d);
+  var weekEnd   = new Date(d); weekEnd.setDate(weekEnd.getDate()+6);
+  if (title) title.textContent = weekStart.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' \u2013 ' + weekEnd.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+  var DAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">';
+  for (var i=0;i<7;i++) {
+    var dd = new Date(weekStart); dd.setDate(dd.getDate()+i);
+    var dayEvents = eventsOnDay(events, dd.getFullYear(), dd.getMonth(), dd.getDate());
+    var isToday = dd.toDateString()===today.toDateString();
+    html += '<div style="background:var(--bg2);border-radius:8px;padding:10px;border-top:2px solid '+(isToday?'var(--tx)':'var(--bd)')+'">'
+      + '<div style="font-size:10px;font-weight:700;color:var(--mu);margin-bottom:2px">'+DAY_NAMES[i]+'</div>'
+      + '<div style="font-size:16px;font-weight:'+(isToday?'700':'400')+';color:var(--tx);margin-bottom:8px">'+dd.getDate()+'</div>'
+      + dayEvents.map(renderCalEventPill).join('')
+      + (dayEvents.length===0?'<div style="font-size:10px;color:var(--bd)">—</div>':'')
+    + '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderCalDay(el, events, title, today) {
+  var y=_calDate.getFullYear(), m=_calDate.getMonth(), d=_calDate.getDate();
+  if (title) title.textContent = _calDate.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  var dayEvents = eventsOnDay(events, y, m, d);
+  dayEvents.sort(function(a,b){ return a.date-b.date; });
+  el.innerHTML = dayEvents.length
+    ? dayEvents.map(renderCalEventRow).join('')
+    : '<div class="empty" style="padding:40px 0">No activity on this day</div>';
+}
+
+function renderCalYear(el, events, title, today) {
+  var y = _calDate.getFullYear();
+  if (title) title.textContent = String(y);
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">';
+  for (var m=0;m<12;m++) {
+    var daysInMonth = new Date(y,m+1,0).getDate();
+    var monthEvents = events.filter(function(e){ return e.date.getFullYear()===y && e.date.getMonth()===m; });
+    var activeDays = {};
+    monthEvents.forEach(function(e){ activeDays[e.date.getDate()]=true; });
+    var firstDay = (new Date(y,m,1).getDay()+6)%7;
+    var miniCal = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-top:6px">';
+    for (var k=0;k<firstDay;k++) miniCal+='<div></div>';
+    for (var d2=1;d2<=daysInMonth;d2++) {
+      var isT = (today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d2);
+      var hasEv = activeDays[d2];
+      miniCal+='<div style="text-align:center;font-size:8px;padding:1px;border-radius:2px;background:'+(isT?'var(--tx)':hasEv?'var(--bg2)':'none')+';color:'+(isT?'#fff':hasEv?'var(--tx)':'var(--mu)')+'">'+d2+'</div>';
+    }
+    miniCal+='</div>';
+    html+='<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px;cursor:pointer" onclick="setCalViewMonth('+y+','+m+')">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--tx);display:flex;justify-content:space-between">'
+        +MONTHS[m]
+        +(monthEvents.length?'<span style="font-size:10px;color:var(--mu)">'+monthEvents.length+' events</span>':'')
+      +'</div>'
+      +miniCal
+    +'</div>';
+  }
+  html+='</div>';
+  el.innerHTML = html;
+}
+
+function setCalViewMonth(y, m) {
+  _calDate = new Date(y, m, 1);
+  setCalView('month');
+}
+
 </script>
 </body>
 </html>
-  
