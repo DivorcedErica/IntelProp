@@ -4795,7 +4795,7 @@ function openModal(id, e) {
         </div>
       </div>
       <div class="modal-actions">
-        ${currentClientCallId ? `<button class="hb ${on?'on':''}" onclick="heartFromModal(${d.id})" id="modalHeartBtn" style="font-size:22px;padding:0 4px" title="${on?'Remove from shortlist':'Add to shortlist'}">${on?'♥':'♡'}</button>` : ''}
+        <button class="hb ${on?'on':''}" onclick="heartFromModal(${d.id})" id="modalHeartBtn" style="font-size:22px;padding:0 4px" title="${on?'Remove from shortlist':'Add to shortlist'}">${on?'♥':'♡'}</button>
         <button class="btn" onclick="toggleModalNote(${d.id})" id="noteToggleBtn">📝 Agent note</button>
         <button class="btn" onclick="exportPropertyPDF(${d.id})" style="background:var(--gold);color:#fff;border-color:var(--gold)">⬇ Investor Report</button>
         <button class="btn" onclick="markPropertySold(${d.id})" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" title="Remove from listings — marks as Sold in Google Sheet">🚫 Mark as Sold</button>
@@ -5725,6 +5725,8 @@ function toggleCrit(btn, key) {
   applyClientFilter();
 }
 
+var _houseVillaLinking = false; // guard against recursion
+
 function toggleMulti(btn, key) {
   btn.classList.toggle('on');
   const val = btn.dataset.val || btn.textContent.trim();
@@ -5733,6 +5735,19 @@ function toggleMulti(btn, key) {
   } else {
     cCriteria[key] = cCriteria[key].filter(v => v !== val);
   }
+
+  // House <-> Villa auto-link (only on explicit user click, only when turning ON)
+  if (key === 'types' && !_houseVillaLinking && ['House','Villa'].includes(val) && btn.classList.contains('on')) {
+    _houseVillaLinking = true;
+    const partner = val === 'House' ? 'Villa' : 'House';
+    const partnerBtn = document.querySelector('#pClients .crit-multi[data-val="' + partner + '"]');
+    if (partnerBtn && !partnerBtn.classList.contains('on')) {
+      partnerBtn.classList.add('on');
+      if (!cCriteria[key].includes(partner)) cCriteria[key].push(partner);
+    }
+    _houseVillaLinking = false;
+  }
+
   applyClientFilter();
 }
 
@@ -7583,12 +7598,27 @@ function pbToggle(btn, key) {
   else if (key === 'pbSea') pbCriteria.sea = +val;
 }
 
+var _pbHouseVillaLinking = false;
+
 function pbMulti(btn, key) {
   btn.classList.toggle('on');
   const val = btn.dataset.val || btn.textContent.trim();
   if (!pbCriteria[key]) pbCriteria[key] = [];
   if (btn.classList.contains('on')) { if (!pbCriteria[key].includes(val)) pbCriteria[key].push(val); }
   else pbCriteria[key] = pbCriteria[key].filter(v => v !== val);
+
+  // House <-> Villa auto-link for Portfolio Builder
+  if (key === 'pbTypes' && !_pbHouseVillaLinking && ['House','Villa'].includes(val) && btn.classList.contains('on')) {
+    _pbHouseVillaLinking = true;
+    const partner = val === 'House' ? 'Villa' : 'House';
+    const partnerBtn = document.querySelector('#pbTypeGroup .crit-multi[data-val="' + partner + '"]');
+    if (partnerBtn && !partnerBtn.classList.contains('on')) {
+      partnerBtn.classList.add('on');
+      if (!pbCriteria[key]) pbCriteria[key] = [];
+      if (!pbCriteria[key].includes(partner)) pbCriteria[key].push(partner);
+    }
+    _pbHouseVillaLinking = false;
+  }
 }
 
 function pbSetCustomBudget(val) {
@@ -11830,7 +11860,15 @@ function niToggle(btn,group){
   document.querySelectorAll(containerId+' .crit-btn').forEach(function(b){b.classList.remove('on');});
   if(!wasOn)btn.classList.add('on');
 }
-function niMulti(btn){btn.classList.toggle('on');}
+function niMulti(btn, group) {
+  btn.classList.toggle('on');
+  // House <-> Villa auto-link in new client form
+  if (group === 'proptype' && ['Villa','House'].includes(btn.dataset.val) && btn.classList.contains('on')) {
+    var partner = btn.dataset.val === 'House' ? 'Villa' : 'House';
+    var partnerBtn = document.querySelector('#newInvTypeGroup .crit-btn[data-val="' + partner + '"]');
+    if (partnerBtn && !partnerBtn.classList.contains('on')) partnerBtn.classList.add('on');
+  }
+}
 function niSelectAllTypes(){document.querySelectorAll('#newInvTypeGroup .crit-btn[data-val]').forEach(function(b){b.classList.add('on');});}
 
 function populateClientSelectors(){
@@ -14579,3 +14617,4 @@ function syncRegistrationToSheets(entry) {
 </script>
 </body>
 </html>
+  
