@@ -6206,8 +6206,8 @@ function renderInvestorCard(inv) {
             if (match) resolvedId = match.id;
           }
           var rowClick = resolvedId ? 'style="cursor:pointer" title="Click to open listing" onclick="openModal('+resolvedId+')"' : '';
-          var regData = (typeof getRegistrationData==='function') ? getRegistrationData(invId, resolvedId||p.listingId) : null;
-          var regCell = regData ? '<td style="'+tdStyle+';white-space:nowrap"><span style="font-size:10px;color:#15803d;font-weight:600">\u2713 '+regData.date+'</span><div style="font-size:10px;color:var(--mu)">'+safeHTML(regData.vendor)+'</div></td>' : '<td style="'+tdStyle+'" onclick="event.stopPropagation()"><button onclick="showRegisterForm('+invId+','+(resolvedId||p.listingId||0)+',this)" style="font-size:10px;padding:2px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer">+ Register</button></td>';
+          var _rd=(typeof getRegistrationData==='function')?getRegistrationData(invId,resolvedId||p.listingId):null;
+          var _rc=_rd?'<td style="'+tdStyle+';white-space:nowrap"><span style="font-size:10px;color:#15803d;font-weight:600">\u2713 '+_rd.date+'</span><div style="font-size:10px;color:var(--mu)">'+safeHTML(_rd.vendor)+'</div></td>':'<td style="'+tdStyle+'" onclick="event.stopPropagation()"><button onclick="showRegisterForm('+invId+','+(resolvedId||p.listingId||0)+',this)" style="font-size:10px;padding:2px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--bg);color:var(--mu);cursor:pointer">+ Register</button></td>';
           return '<tr '+rowClick+'>'
             +'<td style="'+tdStyle+'">'+(p.developer||'—')+fromListing+'</td>'
             +'<td style="'+tdStyle+'">'+(p.complex||'—')+'</td>'
@@ -6215,7 +6215,7 @@ function renderInvestorCard(inv) {
             +'<td style="'+tdStyle+'">'+(p.city||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.district||'—')+'</td>'
             +'<td style="'+tdStyle+'">'+(p.price?'€'+Number(p.price).toLocaleString():'—')+'</td>'
-            +regCell
+            +_rc
             +'<td style="'+tdStyle+'"><button onclick="deleteClientProperty('+p.propertyId+')" style="font-size:11px;background:none;border:1px solid var(--red);border-radius:var(--r);color:var(--red);cursor:pointer;padding:2px 8px">✕</button></td>'
             +'</tr>';
         }).join('');
