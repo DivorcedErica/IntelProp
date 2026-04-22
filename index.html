@@ -3462,9 +3462,10 @@ function verdictBadge(score) {
 
 // Score cache — keyed by listing ID + purpose + objective + risk
 const _scoreCache = new Map();
+const _SCORE_DEFAULT = { total:0, verdict:{label:'Pass',cls:'verdict-pass'}, flags:{}, breakdown:{}, yieldData:{grossYieldPct:0,netYieldPct:0,monthlyRentLow:0,monthlyRentHigh:0,annualRevenue:0,ADR:0,occupancyPct:0,mgmtFeePct:0,confidence:'not_applicable',purpose:'mixed'}, confidence:{score:0,label:'Estimate Only',color:'#6b7280',bg:'#f3f4f6',is_proxy_heavy:true}, risks:{}, penalties:[], distChar:'unknown', is_proxy_heavy:true };
 const _origScoreProperty = scoreProperty;
 scoreProperty = function(listing, profile) {
-  if (!listing) return _origScoreProperty(listing, profile);
+  if (!listing) return _SCORE_DEFAULT;
   const p = profile || {};
   const key = `${listing.id}|${p.purpose||'mixed'}|${p.objective||'balanced'}|${p.risk||'moderate'}`;
   if (_scoreCache.has(key)) return _scoreCache.get(key);
@@ -3532,9 +3533,9 @@ const _districtContextCache = {};
 
 // Safe score helper — returns 0 on error, never throws
 function safeScore(d, profile) {
-  if (!d) return { total:0, verdict:{label:'Pass',cls:'verdict-pass'}, flags:{}, breakdown:{}, yieldData:{grossYieldPct:0,netYieldPct:0,monthlyRentLow:0,monthlyRentHigh:0,annualRevenue:0,ADR:0,occupancyPct:0,mgmtFeePct:0,confidence:'not_applicable',purpose:'mixed'}, confidence:{score:0,label:'Estimate Only',color:'#6b7280',bg:'#f3f4f6',is_proxy_heavy:true}, risks:{}, penalties:[], distChar:'unknown', is_proxy_heavy:true };
+  if (!d) return _SCORE_DEFAULT;
   try { return scoreProperty(d, profile); }
-  catch(e) { console.warn('scoreProperty error for listing', d.id, e.message); return safeScore(null, null); }
+  catch(e) { console.warn('scoreProperty error for listing', d.id, e.message); return _SCORE_DEFAULT; }
 }
 
 // Each call to buildCityBenchmarks also clears the score cache
